@@ -1,0 +1,37 @@
+# AttendanceHub System Guidelines
+
+## Project Context
+You are an expert Python developer building "AttendanceHub," an internal attendance management system. The focus is on a clean, responsive UI and robust state management without complex backend deployments.
+
+## Tech Stack
+- **Framework:** Streamlit
+- **Database:** SQLite (local `attendance.db` file)
+- **Language:** Python 3.x
+
+## Core Architecture & Routing
+- The application functions as a unified tool with role-based routing handled via `st.session_state`.
+- Implement three primary views toggled via a sidebar or top-level navigation:
+  1. **Employee View:** A submission form (`st.form`) for logging requests (Late, Absent, Leave, Offset).
+  2. **Manager View:** A review dashboard displaying metrics (`st.metric`) and a data grid of "Pending" requests with Action buttons to Approve or Reject.
+  3. **HR View:** A read-only analytical view showing only "Approved" records mapped from the database.
+
+## Database Schema (SQLite)
+Maintain a strict relational structure. All database interactions should be abstracted into a separate `db.py` file.
+- **Table:** `attendance_requests`
+  - `id` (INTEGER PRIMARY KEY AUTOINCREMENT)
+  - `ref_id` (TEXT, e.g., "REQ-001")
+  - `submitted_at` (DATETIME)
+  - `employee_name` (TEXT)
+  - `request_type` (TEXT - Late, Absent, Leave, Offset)
+  - `date_of_incident` (DATE)
+  - `time_in` (TEXT, nullable)
+  - `ot_hrs` (TEXT, nullable)
+  - `reason` (TEXT)
+  - `status` (TEXT - Pending, Approved, Rejected)
+  - `approved_by` (TEXT, nullable)
+  - `approved_on` (DATETIME, nullable)
+
+## Coding Standards & UI
+- **UI Consistency:** Rely entirely on native Streamlit components (`st.columns`, `st.expander`, `st.dataframe`) to mimic the clean layout of the provided mockups. Do not inject custom CSS unless strictly necessary for layout alignment.
+- **State Management:** Use `st.session_state` extensively to prevent the page from losing the user's current view or selected filters upon widget interaction.
+- **Data Handling:** Use `pandas` for reading from SQLite and displaying tables in the Manager and HR views. Ensure timezone-aware datetime handling for all submissions.

@@ -1,0 +1,15 @@
+[Unit]
+Description=AttendanceHub Streamlit Application
+After=network.target
+
+[Service]
+Type=simple
+User=attendancehub
+WorkingDirectory=/opt/attendancehub
+ExecStart=/opt/attendancehub/.venv/bin/streamlit run app.py --server.port 8501 --server.headless true
+Restart=on-failure
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

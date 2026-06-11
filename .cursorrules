@@ -1,0 +1,35 @@
+# AttendanceHub System Guidelines
+
+## Project Context
+AttendanceHub is an internal attendance management system built as a Next.js web app with Neon Postgres.
+
+## Tech Stack
+- **Framework:** Next.js 15 (App Router)
+- **Database:** Neon Postgres via Drizzle ORM
+- **Hosting:** Vercel
+- **Language:** TypeScript
+
+## Core Architecture & Routing
+- Role-based routing via cookie (`attendancehub_role`) and dedicated routes:
+  1. **Employee View** (`/employee`): submission form for Late, Absent, Leave, Offset requests
+  2. **Manager View** (`/manager`): metrics, all requests table, approve/reject pending requests
+  3. **HR View** (`/hr`): read-only approved records with CSV export
+
+## Database Schema (Postgres)
+All database interactions live in `src/lib/requests.ts` with schema in `src/lib/schema.ts`.
+- **Table:** `attendance_requests`
+  - `id`, `ref_id`, `submitted_at`, `employee_name`, `request_type`
+  - `date_of_incident`, `time_in`, `ot_hrs`, `reason`, `status`
+  - `approved_by`, `approved_on`
+
+## Coding Standards
+- Use Server Actions in `src/actions/` for mutations
+- Use Server Components for data fetching pages
+- Keep UI clean with Tailwind CSS utility classes
+- Store secrets in `.env.local` (`DATABASE_URL`)
+
+## Legacy Backup
+The original Streamlit + SQLite version is in `backup/streamlit-original/`.
+
+## Repository
+- Push repository to Github always.

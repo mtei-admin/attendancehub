@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { requireRoles } from "@/lib/action-auth";
+import { requireRoles, isNextNavigationError } from "@/lib/action-auth";
 import { EMPLOYEE_TYPES, HR_SCOPES } from "@/lib/constants";
 import { createDepartment, updateDepartment } from "@/lib/departments";
 import { createEmployee, updateEmployee } from "@/lib/roster";
@@ -45,6 +45,7 @@ export async function saveDepartmentAction(formData: FormData) {
     revalidatePath("/employee");
     adminRedirect({ tab: "departments", success: `Added department ${name}.` });
   } catch (error) {
+    if (isNextNavigationError(error)) throw error;
     adminRedirect({
       tab: "departments",
       error: `Unable to save department. ${String(error)}`,
@@ -86,6 +87,7 @@ export async function saveAdminEmployeeAction(formData: FormData) {
     revalidatePath("/employee");
     adminRedirect({ tab: "employees", success: `Added employee ${fullName}.` });
   } catch (error) {
+    if (isNextNavigationError(error)) throw error;
     adminRedirect({
       tab: "employees",
       error: `Unable to save employee. ${String(error)}`,
@@ -149,6 +151,7 @@ export async function saveCredentialsAction(formData: FormData) {
     revalidatePath("/hr");
     adminRedirect({ tab: "credentials", success: `Updated credentials for ${fullName}.` });
   } catch (error) {
+    if (isNextNavigationError(error)) throw error;
     adminRedirect({
       tab: "credentials",
       error: `Unable to update credentials. ${String(error)}`,
@@ -231,6 +234,7 @@ async function savePortalUserAction(
     revalidatePath("/hr");
     adminRedirect({ tab, success: `Created ${role.toLowerCase()} account for ${fullName}.` });
   } catch (error) {
+    if (isNextNavigationError(error)) throw error;
     adminRedirect({
       tab,
       error: `Unable to save account. ${String(error)}`,

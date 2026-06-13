@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { createSession, destroySession, verifyCredentials } from "@/lib/auth";
+import { isNextNavigationError } from "@/lib/action-auth";
 import { isPortalSlug, type PortalSlug } from "@/lib/constants";
 import { isRole, routeForRole } from "@/lib/role";
 
@@ -42,7 +43,8 @@ export async function loginAction(formData: FormData) {
 
     await createSession(user);
     redirect(routeForRole(user.role));
-  } catch {
+  } catch (error) {
+    if (isNextNavigationError(error)) throw error;
     redirect(
       `${loginPath}?error=${encodeURIComponent("Unable to sign in right now. Please try again.")}`,
     );

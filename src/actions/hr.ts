@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { requireRoles } from "@/lib/action-auth";
+import { requireRoles, isNextNavigationError } from "@/lib/action-auth";
 import { EMPLOYEE_TYPES } from "@/lib/constants";
 import { createEmployee, updateEmployee } from "@/lib/roster";
 import { archiveRequest, unarchiveRequest } from "@/lib/requests";
@@ -96,6 +96,7 @@ export async function saveEmployeeRosterAction(formData: FormData) {
     revalidatePath("/employee");
     hrRedirect({ tab: "employees", success: `Added employee ${fullName}.` });
   } catch (error) {
+    if (isNextNavigationError(error)) throw error;
     hrRedirect({
       tab: "employees",
       error: `Unable to save employee. ${String(error)}`,
@@ -164,6 +165,7 @@ export async function saveManagerAction(formData: FormData) {
     revalidatePath("/admin");
     hrRedirect({ tab: "managers", success: `Created manager account for ${fullName}.` });
   } catch (error) {
+    if (isNextNavigationError(error)) throw error;
     hrRedirect({
       tab: "managers",
       error: `Unable to save manager. ${String(error)}`,

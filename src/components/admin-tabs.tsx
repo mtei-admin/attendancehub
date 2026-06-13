@@ -1,41 +1,83 @@
 import Link from "next/link";
 
-type AdminTab =
-  | "overview"
-  | "departments"
+export type AdminTab =
+  | "dashboard"
   | "employees"
   | "managers"
   | "hr"
+  | "departments"
   | "credentials";
 
 type AdminTabsProps = {
   activeTab: AdminTab;
+  employeeCount: number;
+  managerCount: number;
+  hrCount: number;
+  departmentCount: number;
 };
 
-export function AdminTabs({ activeTab }: AdminTabsProps) {
-  const tabs: { id: AdminTab; label: string }[] = [
-    { id: "overview", label: "Overview" },
-    { id: "departments", label: "Departments" },
-    { id: "employees", label: "Employees" },
-    { id: "managers", label: "Managers" },
-    { id: "hr", label: "HR" },
-    { id: "credentials", label: "Credentials" },
+export function AdminTabs({
+  activeTab,
+  employeeCount,
+  managerCount,
+  hrCount,
+  departmentCount,
+}: AdminTabsProps) {
+  const tabs: {
+    id: AdminTab;
+    label: string;
+    count: number | null;
+    countClass: string;
+  }[] = [
+    { id: "dashboard", label: "Dashboard", count: null, countClass: "" },
+    {
+      id: "employees",
+      label: "Employee roster",
+      count: employeeCount,
+      countClass: "bg-slate-100 text-slate-500",
+    },
+    {
+      id: "managers",
+      label: "Managers",
+      count: managerCount,
+      countClass: "bg-slate-100 text-slate-500",
+    },
+    {
+      id: "hr",
+      label: "HR accounts",
+      count: hrCount,
+      countClass: "bg-slate-100 text-slate-500",
+    },
+    {
+      id: "departments",
+      label: "Departments",
+      count: departmentCount,
+      countClass: "bg-slate-100 text-slate-500",
+    },
+    { id: "credentials", label: "Credentials", count: null, countClass: "" },
   ];
 
   return (
     <nav className="border-b border-slate-200 bg-white">
-      <div className="mx-auto flex max-w-5xl gap-6 overflow-x-auto px-4 md:px-6">
+      <div className="mx-auto flex max-w-6xl gap-6 overflow-x-auto px-4 md:px-6">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
             <Link
               key={tab.id}
               href={`/admin?tab=${tab.id}`}
-              className={`relative shrink-0 py-4 text-sm font-medium transition ${
+              className={`relative flex shrink-0 items-center gap-2 py-4 text-sm font-medium transition ${
                 isActive ? "text-brand-600" : "text-slate-500 hover:text-slate-700"
               }`}
             >
               {tab.label}
+              {tab.count !== null && (
+                <span
+                  className={`inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-semibold ${tab.countClass}`}
+                >
+                  {tab.count}
+                </span>
+              )}
               {isActive && (
                 <span className="absolute inset-x-0 bottom-0 h-0.5 bg-brand-600" />
               )}
@@ -46,5 +88,3 @@ export function AdminTabs({ activeTab }: AdminTabsProps) {
     </nav>
   );
 }
-
-export type { AdminTab };

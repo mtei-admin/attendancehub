@@ -5,7 +5,7 @@ import { ROLE_ROUTES, ROLES, type Role } from "./constants";
 const ROLE_COOKIE = "attendancehub_role";
 
 export function isRole(value: string): value is Role {
-  return ROLES.includes(value as Role);
+  return (ROLES as readonly string[]).includes(value);
 }
 
 export async function getRole(): Promise<Role> {

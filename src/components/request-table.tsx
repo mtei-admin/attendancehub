@@ -25,11 +25,13 @@ export function RequestTable({
             {[
               "Ref ID",
               "Submitted",
+              "Department",
               "Employee",
               "Type",
-              "Date",
+              "Date Requested",
+              "Date of Application",
               "Time In",
-              "OT Hrs",
+              "Time Out",
               "Reason",
               "Status",
               "Approved By",
@@ -51,11 +53,13 @@ export function RequestTable({
               <td className="px-4 py-3 text-slate-600">
                 {request.submittedAt?.toLocaleString() ?? "—"}
               </td>
+              <td className="px-4 py-3 text-slate-600">{request.department || "—"}</td>
               <td className="px-4 py-3 text-slate-600">{request.employeeName}</td>
               <td className="px-4 py-3 text-slate-600">{request.requestType}</td>
+              <td className="px-4 py-3 text-slate-600">{request.dateRequested || "—"}</td>
               <td className="px-4 py-3 text-slate-600">{request.dateOfIncident}</td>
               <td className="px-4 py-3 text-slate-600">{request.timeIn || "—"}</td>
-              <td className="px-4 py-3 text-slate-600">{request.otHrs || "—"}</td>
+              <td className="px-4 py-3 text-slate-600">{request.timeOut || "—"}</td>
               <td className="max-w-xs truncate px-4 py-3 text-slate-600">{request.reason}</td>
               <td className="px-4 py-3">
                 <StatusBadge status={request.status} />

@@ -37,7 +37,10 @@ npm run db:push
 
 ```bash
 npm run db:seed
+npm run db:seed:users
 ```
+
+`db:seed:users` creates Admin, Manager, and HR portal accounts (passwords are hashed in the database).
 
 ## 5. Run Locally
 
@@ -45,7 +48,16 @@ npm run db:seed
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000) — the welcome page lets you pick a portal and sign in.
+
+### Test logins
+
+| Portal | Username | Password |
+|--------|----------|----------|
+| Admin | `admin` | `admin2026` |
+| Manager | `hr.manager` | `hr2026` |
+| HR | `virg` | `rf2026` |
+| Employee | `maria.santos` | `emp2026` |
 
 ## 6. Deploy to Vercel
 

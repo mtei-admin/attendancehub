@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
 
 import { MANAGER_NAME } from "./constants";
 import { getDb } from "./db";
@@ -21,12 +21,14 @@ async function generateRefId(): Promise<string> {
 }
 
 export async function addRequest(input: {
+  department: string;
   employeeName: string;
   requestType: string;
+  dateRequested: string;
   dateOfIncident: string;
   reason: string;
   timeIn?: string | null;
-  otHrs?: string | null;
+  timeOut?: string | null;
 }): Promise<string> {
   const db = getDb();
   const refId = await generateRefId();
@@ -34,11 +36,13 @@ export async function addRequest(input: {
   await db.insert(attendanceRequests).values({
     refId,
     submittedAt: new Date(),
+    department: input.department,
     employeeName: input.employeeName,
     requestType: input.requestType,
+    dateRequested: input.dateRequested,
     dateOfIncident: input.dateOfIncident,
     timeIn: input.timeIn || null,
-    otHrs: input.otHrs || null,
+    timeOut: input.timeOut || null,
     reason: input.reason,
     status: "Pending",
   });
@@ -54,13 +58,72 @@ export async function getAllRequests(): Promise<AttendanceRequest[]> {
     .orderBy(desc(attendanceRequests.submittedAt));
 }
 
-export async function getApprovedRequests(): Promise<AttendanceRequest[]> {
+export async function getApprovedRequests(includeArchived = false): Promise<AttendanceRequest[]> {
+  const db = getDb();
+  const conditions = includeArchived
+    ? eq(attendanceRequests.status, "Approved")
+    : and(
+        eq(attendanceRequests.status, "Approved"),
+        eq(attendanceRequests.archived, false),
+      );
+
+  return db
+    .select()
+    .from(attendanceRequests)
+    .where(conditions)
+    .orderBy(desc(attendanceRequests.submittedAt));
+}
+
+export async function getArchivedRequests(): Promise<AttendanceRequest[]> {
   const db = getDb();
   return db
     .select()
     .from(attendanceRequests)
-    .where(eq(attendanceRequests.status, "Approved"))
-    .orderBy(desc(attendanceRequests.submittedAt));
+    .where(
+      and(eq(attendanceRequests.status, "Approved"), eq(attendanceRequests.archived, true)),
+    )
+    .orderBy(desc(attendanceRequests.archivedAt));
+}
+
+export async function archiveRequest(
+  refId: string,
+  archivedBy: string,
+): Promise<boolean> {
+  const db = getDb();
+  const result = await db
+    .update(attendanceRequests)
+    .set({
+      archived: true,
+      archivedAt: new Date(),
+      archivedBy,
+    })
+    .where(
+      and(
+        eq(attendanceRequests.refId, refId),
+        eq(attendanceRequests.status, "Approved"),
+        eq(attendanceRequests.archived, false),
+      ),
+    )
+    .returning({ id: attendanceRequests.id });
+
+  return result.length > 0;
+}
+
+export async function unarchiveRequest(refId: string): Promise<boolean> {
+  const db = getDb();
+  const result = await db
+    .update(attendanceRequests)
+    .set({
+      archived: false,
+      archivedAt: null,
+      archivedBy: null,
+    })
+    .where(
+      and(eq(attendanceRequests.refId, refId), eq(attendanceRequests.archived, true)),
+    )
+    .returning({ id: attendanceRequests.id });
+
+  return result.length > 0;
 }
 
 export async function getPendingRequests(): Promise<AttendanceRequest[]> {
@@ -69,6 +132,15 @@ export async function getPendingRequests(): Promise<AttendanceRequest[]> {
     .select()
     .from(attendanceRequests)
     .where(eq(attendanceRequests.status, "Pending"))
+    .orderBy(desc(attendanceRequests.submittedAt));
+}
+
+export async function getHistoryRequests(): Promise<AttendanceRequest[]> {
+  const db = getDb();
+  return db
+    .select()
+    .from(attendanceRequests)
+    .where(ne(attendanceRequests.status, "Pending"))
     .orderBy(desc(attendanceRequests.submittedAt));
 }
 
@@ -95,10 +167,13 @@ export function toDisplayRow(request: AttendanceRequest) {
   return {
     ref_id: request.refId,
     submitted_at: request.submittedAt?.toISOString() ?? "",
+    department: request.department ?? "",
     employee_name: request.employeeName,
     request_type: request.requestType,
+    date_requested: request.dateRequested ?? "",
     date_of_incident: request.dateOfIncident,
     time_in: request.timeIn ?? "",
+    time_out: request.timeOut ?? "",
     ot_hrs: request.otHrs ?? "",
     reason: request.reason,
     status: request.status,

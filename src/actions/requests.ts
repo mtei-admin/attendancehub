@@ -3,9 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { type Role, ROLE_ROUTES } from "@/lib/constants";
+import { ROLE_ROUTES } from "@/lib/constants";
 import { addRequest, updateRequestStatus } from "@/lib/requests";
-import { isRole, routeForRole, setRole } from "@/lib/role";
 
 function revalidateRolePaths() {
   for (const path of Object.values(ROLE_ROUTES)) {
@@ -14,11 +13,13 @@ function revalidateRolePaths() {
 }
 
 export async function submitRequestAction(formData: FormData) {
+  const department = String(formData.get("department") ?? "").trim();
   const employeeName = String(formData.get("employee_name") ?? "");
   const requestType = String(formData.get("request_type") ?? "");
+  const dateRequested = String(formData.get("date_requested") ?? "");
   const dateOfIncident = String(formData.get("date_of_incident") ?? "");
   const timeIn = String(formData.get("time_in") ?? "").trim();
-  const otHrs = String(formData.get("ot_hrs") ?? "").trim();
+  const timeOut = String(formData.get("time_out") ?? "").trim();
   const reason = String(formData.get("reason") ?? "").trim();
 
   if (!reason) {
@@ -27,12 +28,14 @@ export async function submitRequestAction(formData: FormData) {
 
   try {
     const refId = await addRequest({
+      department,
       employeeName,
       requestType,
+      dateRequested,
       dateOfIncident,
       reason,
       timeIn: timeIn || null,
-      otHrs: otHrs || null,
+      timeOut: timeOut || null,
     });
     revalidateRolePaths();
     redirect(`/employee?success=Request ${refId} submitted successfully and is pending manager review.`);
@@ -67,13 +70,3 @@ export async function updateStatusAction(formData: FormData) {
   }
 }
 
-export async function switchRoleAction(formData: FormData) {
-  const roleValue = String(formData.get("role") ?? "");
-  if (!isRole(roleValue)) {
-    return;
-  }
-
-  await setRole(roleValue);
-  revalidateRolePaths();
-  redirect(routeForRole(roleValue));
-}

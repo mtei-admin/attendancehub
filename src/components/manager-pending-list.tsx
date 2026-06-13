@@ -8,6 +8,7 @@ import {
   getEmployeeTypeBadgeClass,
   getEmployeeTypeLabel,
 } from "./manager-request-utils";
+import { RejectRequestButton } from "./reject-request-button";
 
 type ManagerPendingListProps = {
   requests: AttendanceRequest[];
@@ -110,17 +111,12 @@ export function ManagerPendingList({
                           ✓
                         </button>
                       </form>
-                      <form action={updateStatusAction}>
-                        <input type="hidden" name="ref_id" value={request.refId} />
-                        <input type="hidden" name="status" value="Rejected" />
-                        <button
-                          type="submit"
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 bg-white text-sm font-bold text-red-600 hover:bg-red-50"
-                          title="Reject"
-                        >
-                          ✕
-                        </button>
-                      </form>
+                      <RejectRequestButton
+                        refId={request.refId}
+                        action={updateStatusAction}
+                        variant="icon"
+                        hiddenFields={{ status: "Rejected" }}
+                      />
                     </div>
                   </td>
                   <td className="max-w-xs px-4 py-4 text-slate-600">{request.reason}</td>

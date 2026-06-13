@@ -143,8 +143,12 @@ export async function saveCredentialsAction(formData: FormData) {
   const hrScope = String(formData.get("hr_scope") ?? "").trim() || null;
   const isActive = formData.get("is_active") === "on";
 
-  if (!id || !username || !fullName || !role) {
-    adminRedirect({ tab: "credentials", error: "All account fields are required." });
+  if (!username || !fullName || !role) {
+    adminRedirect({ tab: "credentials", error: "Name, username, and role are required." });
+  }
+
+  if (role === "Manager" && !department) {
+    adminRedirect({ tab: "credentials", error: "Department is required for managers." });
   }
 
   if (role === "HR" && hrScope && !(HR_SCOPES as readonly string[]).includes(hrScope)) {
@@ -152,36 +156,60 @@ export async function saveCredentialsAction(formData: FormData) {
   }
 
   try {
-    const existing = await getUserById(id);
-    if (!existing) {
-      adminRedirect({ tab: "credentials", error: "Account not found." });
-    }
-
-    if (username !== existing.username) {
-      const taken = await getUserByUsername(username);
-      if (taken) {
-        adminRedirect({ tab: "credentials", error: "Username is already in use." });
+    if (id > 0) {
+      const existing = await getUserById(id);
+      if (!existing) {
+        adminRedirect({ tab: "credentials", error: "Account not found." });
       }
+
+      if (username !== existing.username) {
+        const taken = await getUserByUsername(username);
+        if (taken) {
+          adminRedirect({ tab: "credentials", error: "Username is already in use." });
+        }
+      }
+
+      await updateUser(id, {
+        username,
+        fullName,
+        role,
+        department: role === "Manager" ? department : null,
+        hrScope: role === "HR" ? hrScope : null,
+        isActive,
+        ...(password ? { password } : {}),
+      });
+
+      revalidatePath("/admin");
+      revalidatePath("/hr");
+      adminRedirect({ tab: "credentials", success: `Updated credentials for ${fullName}.` });
     }
 
-    await updateUser(id, {
+    if (!password) {
+      adminRedirect({ tab: "credentials", error: "Password is required for new accounts." });
+    }
+
+    const taken = await getUserByUsername(username);
+    if (taken) {
+      adminRedirect({ tab: "credentials", error: "Username is already in use." });
+    }
+
+    await createUser({
       username,
+      password,
       fullName,
       role,
-      department,
+      department: role === "Manager" ? department : null,
       hrScope: role === "HR" ? hrScope : null,
-      isActive,
-      ...(password ? { password } : {}),
     });
 
     revalidatePath("/admin");
     revalidatePath("/hr");
-    adminRedirect({ tab: "credentials", success: `Updated credentials for ${fullName}.` });
+    adminRedirect({ tab: "credentials", success: `Created account for ${fullName}.` });
   } catch (error) {
     if (isNextNavigationError(error)) throw error;
     adminRedirect({
       tab: "credentials",
-      error: `Unable to update credentials. ${String(error)}`,
+      error: `Unable to save account. ${String(error)}`,
     });
   }
 }

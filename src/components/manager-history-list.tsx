@@ -79,7 +79,11 @@ export function ManagerHistoryList({
                   <td className="px-4 py-4">
                     <StatusBadge status={request.status} />
                   </td>
-                  <td className="max-w-xs px-4 py-4 text-slate-600">{request.reason}</td>
+                  <td className="max-w-xs px-4 py-4 text-slate-600">
+                    {request.status === "Rejected" && request.rejectionReason
+                      ? request.rejectionReason
+                      : request.reason}
+                  </td>
                 </tr>
               );
             })}

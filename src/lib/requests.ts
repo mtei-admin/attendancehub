@@ -99,6 +99,7 @@ export async function getArchivedRequests(): Promise<AttendanceRequest[]> {
 export async function hrRejectApprovedRequest(
   refId: string,
   rejectedBy: string,
+  rejectionReason: string,
 ): Promise<boolean> {
   const db = getDb();
   const result = await db
@@ -107,6 +108,7 @@ export async function hrRejectApprovedRequest(
       status: "Rejected",
       approvedBy: rejectedBy,
       approvedOn: new Date(),
+      rejectionReason,
       archived: false,
       archivedAt: null,
       archivedBy: null,
@@ -196,6 +198,7 @@ export async function updateRequestStatus(
   approvedBy: string = MANAGER_NAME,
   department?: string,
   approvedOtHrs?: string | null,
+  rejectionReason?: string | null,
 ): Promise<boolean> {
   const db = getDb();
   const conditions = department
@@ -209,6 +212,7 @@ export async function updateRequestStatus(
       approvedBy,
       approvedOn: new Date(),
       ...(status === "Approved" && approvedOtHrs ? { otHrs: approvedOtHrs } : {}),
+      ...(status === "Rejected" && rejectionReason ? { rejectionReason } : {}),
     })
     .where(conditions)
     .returning({ id: attendanceRequests.id });

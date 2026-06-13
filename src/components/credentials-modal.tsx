@@ -14,6 +14,7 @@ type CredentialsModalProps = {
   cancelHref: string;
   departments: Department[];
   editing?: User | null;
+  isAdding?: boolean;
 };
 
 export function CredentialsModal({
@@ -21,27 +22,29 @@ export function CredentialsModal({
   cancelHref,
   departments,
   editing = null,
+  isAdding = false,
 }: CredentialsModalProps) {
   const activeDepartments = departments.filter((row) => row.isActive);
+  const isEditing = Boolean(editing);
 
-  if (!editing) return null;
+  if (!open) return null;
 
   return (
     <FormModal
       open={open}
       cancelHref={cancelHref}
-      title={`Edit credentials — ${editing.fullName}`}
+      title={isAdding ? "Add user" : `Edit credentials — ${editing?.fullName ?? ""}`}
       titleId="credentials-modal-title"
       size="lg"
     >
       <form action={saveCredentialsAction} className="mt-5 space-y-4">
-        <input type="hidden" name="id" value={editing.id} />
+        {isEditing && editing && <input type="hidden" name="id" value={editing.id} />}
 
         <FormField label="Full name">
           <input
             name="full_name"
             required
-            defaultValue={editing.fullName}
+            defaultValue={editing?.fullName ?? ""}
             className={inputClassName}
             autoFocus
           />
@@ -51,24 +54,30 @@ export function CredentialsModal({
           <input
             name="username"
             required
-            defaultValue={editing.username}
+            defaultValue={editing?.username ?? ""}
             className={inputClassName}
             autoComplete="off"
           />
         </FormField>
 
-        <FormField label="New password (optional)">
+        <FormField label={isEditing ? "New password (optional)" : "Password"}>
           <input
             type="password"
             name="password"
+            required={isAdding}
             className={inputClassName}
             autoComplete="new-password"
-            placeholder="Leave blank to keep current"
+            placeholder={isEditing ? "Leave blank to keep current" : ""}
           />
         </FormField>
 
         <FormField label="Role">
-          <select name="role" required defaultValue={editing.role} className={inputClassName}>
+          <select
+            name="role"
+            required
+            defaultValue={editing?.role ?? "Employee"}
+            className={inputClassName}
+          >
             {ROLES.map((role) => (
               <option key={role} value={role}>
                 {role}
@@ -80,7 +89,7 @@ export function CredentialsModal({
         <FormField label="Department">
           <select
             name="department"
-            defaultValue={editing.department ?? ""}
+            defaultValue={editing?.department ?? ""}
             className={inputClassName}
           >
             <option value="">— Select —</option>
@@ -93,7 +102,7 @@ export function CredentialsModal({
         </FormField>
 
         <FormField label="HR scope">
-          <select name="hr_scope" defaultValue={editing.hrScope ?? ""} className={inputClassName}>
+          <select name="hr_scope" defaultValue={editing?.hrScope ?? ""} className={inputClassName}>
             <option value="">— Select —</option>
             {HR_SCOPES.map((scope) => (
               <option key={scope} value={scope}>
@@ -103,17 +112,19 @@ export function CredentialsModal({
           </select>
         </FormField>
 
-        <FormField label="Status">
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input
-              type="checkbox"
-              name="is_active"
-              defaultChecked={editing.isActive}
-              className="rounded border-slate-300"
-            />
-            Active
-          </label>
-        </FormField>
+        {isEditing && editing && (
+          <FormField label="Status">
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                name="is_active"
+                defaultChecked={editing.isActive}
+                className="rounded border-slate-300"
+              />
+              Active
+            </label>
+          </FormField>
+        )}
 
         <FormModalFooter cancelHref={cancelHref} />
       </form>

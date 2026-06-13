@@ -52,6 +52,7 @@ export const attendanceRequests = pgTable("attendance_requests", {
   timeOut: text("time_out"),
   otHrs: text("ot_hrs"),
   reason: text("reason").notNull(),
+  rejectionReason: text("rejection_reason"),
   status: text("status").notNull().default("Pending"),
   approvedBy: text("approved_by"),
   approvedOn: timestamp("approved_on", { withTimezone: true }),

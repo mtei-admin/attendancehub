@@ -103,17 +103,16 @@ export default async function HrPage({ searchParams }: HrPageProps) {
 
         {activeTab === "all" && (
           <section className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-slate-900">All records</h2>
-              {allRequests.length > 0 && (
+            {allRequests.length > 0 && (
+              <div className="flex justify-end">
                 <a
                   href="/api/export/csv"
                   className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
                 >
                   Download CSV for Payroll
                 </a>
-              )}
-            </div>
+              </div>
+            )}
             <HrRecordsList
               requests={allRequests}
               employeeTypeLookup={employeeTypeLookup}

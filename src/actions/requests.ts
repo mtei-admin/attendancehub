@@ -65,9 +65,14 @@ export async function updateStatusAction(formData: FormData) {
   const refId = String(formData.get("ref_id") ?? "");
   const status = String(formData.get("status") ?? "") as "Approved" | "Rejected";
   const approvedOtHrs = String(formData.get("approved_ot_hrs") ?? "").trim();
+  const rejectionReason = String(formData.get("rejection_reason") ?? "").trim();
 
   if (!refId || (status !== "Approved" && status !== "Rejected")) {
     redirect("/manager?error=Invalid request.");
+  }
+
+  if (status === "Rejected" && !rejectionReason) {
+    redirect("/manager?error=A rejection reason is required.");
   }
 
   const department = session.role === "Manager" ? session.department ?? undefined : undefined;
@@ -82,6 +87,7 @@ export async function updateStatusAction(formData: FormData) {
       session.fullName,
       department,
       status === "Approved" && approvedOtHrs ? approvedOtHrs : null,
+      status === "Rejected" ? rejectionReason : null,
     );
     if (!updated) {
       redirect(

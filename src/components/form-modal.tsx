@@ -5,7 +5,8 @@ import { useEffect, type ReactNode } from "react";
 
 type FormModalProps = {
   open: boolean;
-  cancelHref: string;
+  cancelHref?: string;
+  onClose?: () => void;
   title: string;
   titleId: string;
   children: ReactNode;
@@ -15,6 +16,7 @@ type FormModalProps = {
 export function FormModal({
   open,
   cancelHref,
+  onClose,
   title,
   titleId,
   children,
@@ -27,7 +29,11 @@ export function FormModal({
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        router.push(cancelHref);
+        if (onClose) {
+          onClose();
+        } else if (cancelHref) {
+          router.push(cancelHref);
+        }
       }
     }
 
@@ -38,9 +44,19 @@ export function FormModal({
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = "";
     };
-  }, [open, cancelHref, router]);
+  }, [open, cancelHref, onClose, router]);
 
   if (!open) return null;
+
+  function handleBackdropClose() {
+    if (onClose) {
+      onClose();
+      return;
+    }
+    if (cancelHref) {
+      router.push(cancelHref);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -48,7 +64,7 @@ export function FormModal({
         type="button"
         aria-label="Close dialog"
         className="absolute inset-0 bg-slate-900/40"
-        onClick={() => router.push(cancelHref)}
+        onClick={handleBackdropClose}
       />
 
       <div

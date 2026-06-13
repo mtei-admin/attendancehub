@@ -9,24 +9,38 @@ type CredentialsPanelProps = {
   users: User[];
   departments: Department[];
   editId?: number;
+  showAdd?: boolean;
 };
 
-export function CredentialsPanel({ users, departments, editId }: CredentialsPanelProps) {
+export function CredentialsPanel({
+  users,
+  departments,
+  editId,
+  showAdd = false,
+}: CredentialsPanelProps) {
   const editing = editId ? users.find((row) => row.id === editId) : null;
   const panelHref = "/admin?tab=credentials";
+  const showModal = showAdd || Boolean(editing);
 
   return (
     <>
       <CredentialsModal
-        open={Boolean(editing)}
+        open={showModal}
         cancelHref={panelHref}
         departments={departments}
         editing={editing}
+        isAdding={showAdd && !editing}
       />
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 px-5 py-4">
+        <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4">
           <h2 className="text-lg font-semibold text-slate-900">Credentials ({users.length})</h2>
+          <Link
+            href={`${panelHref}&add=1`}
+            className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
+          >
+            + Add user
+          </Link>
         </div>
 
         <div className="overflow-x-auto">

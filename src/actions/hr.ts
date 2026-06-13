@@ -40,12 +40,17 @@ export async function checkRequestAction(formData: FormData) {
 export async function hrRejectRequestAction(formData: FormData) {
   const session = await requireRoles(["HR"]);
   const refId = String(formData.get("ref_id") ?? "").trim();
+  const rejectionReason = String(formData.get("rejection_reason") ?? "").trim();
 
   if (!refId) {
     hrRedirect({ tab: "pending", error: "Invalid request reference." });
   }
 
-  const rejected = await hrRejectApprovedRequest(refId, session.fullName);
+  if (!rejectionReason) {
+    hrRedirect({ tab: "pending", error: "A rejection reason is required." });
+  }
+
+  const rejected = await hrRejectApprovedRequest(refId, session.fullName, rejectionReason);
   revalidatePath("/hr");
   revalidatePath("/manager");
   revalidatePath("/api/export/csv");

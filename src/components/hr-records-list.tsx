@@ -1,4 +1,4 @@
-import { archiveRequestAction, checkRequestAction, hrRejectRequestAction } from "@/actions/hr";
+import { checkRequestAction, hrRejectRequestAction } from "@/actions/hr";
 import type { AttendanceRequest } from "@/lib/schema";
 
 import {
@@ -7,6 +7,7 @@ import {
   getEmployeeTypeBadgeClass,
   getEmployeeTypeLabel,
 } from "./manager-request-utils";
+import { RejectRequestButton } from "./reject-request-button";
 
 type HrRecordsListProps = {
   requests: AttendanceRequest[];
@@ -15,13 +16,36 @@ type HrRecordsListProps = {
   emptyMessage?: string;
 };
 
-function formatApprovedDate(date: Date | null): string {
+function formatRecordDate(date: Date | null): string {
   if (!date) return "";
   return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
   });
+}
+
+function CheckedStatus({
+  archivedBy,
+  archivedAt,
+}: {
+  archivedBy: string | null;
+  archivedAt: Date | null;
+}) {
+  return (
+    <div>
+      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+        <span aria-hidden>✓</span>
+        Checked
+      </span>
+      {(archivedBy || archivedAt) && (
+        <p className="mt-1 text-xs text-slate-500">
+          {archivedBy ? `by ${archivedBy}` : "Checked"}
+          {archivedAt ? ` ${formatRecordDate(archivedAt)}` : ""}
+        </p>
+      )}
+    </div>
+  );
 }
 
 export function HrRecordsList({
@@ -38,21 +62,22 @@ export function HrRecordsList({
     );
   }
 
+  const headers = [
+    "Employee",
+    "Type",
+    "Date",
+    "Time in / Time out",
+    "Approved by",
+    "Action",
+    "Remarks",
+  ];
+
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
       <table className="min-w-full text-sm">
         <thead className="border-b border-slate-200 bg-slate-50">
           <tr>
-            {[
-              "Employee",
-              "Type",
-              "Date",
-              "Time in",
-              "Time out",
-              "Approved by",
-              "Action",
-              "Remarks",
-            ].map((header) => (
+            {headers.map((header) => (
               <th
                 key={header}
                 className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400"
@@ -68,7 +93,6 @@ export function HrRecordsList({
               employeeTypeLookup[`${request.department ?? ""}::${request.employeeName}`];
             const typeLabel = getEmployeeTypeLabel(employeeType);
             const isChecked = request.archived;
-            const showPendingActions = mode === "pending" || (mode === "all" && !isChecked);
 
             return (
               <tr key={request.id} className="align-top hover:bg-slate-50/60">
@@ -93,16 +117,18 @@ export function HrRecordsList({
                   </span>
                 </td>
                 <td className="px-4 py-4 text-slate-700">{request.dateOfIncident}</td>
-                <td className="px-4 py-4 text-slate-700">{formatManagerTime(request.timeIn)}</td>
-                <td className="px-4 py-4 text-slate-700">{formatManagerTime(request.timeOut)}</td>
+                <td className="px-4 py-4 text-slate-700">
+                  <p>{formatManagerTime(request.timeIn)}</p>
+                  <p className="mt-1">{formatManagerTime(request.timeOut)}</p>
+                </td>
                 <td className="px-4 py-4">
                   <p className="font-semibold text-slate-900">{request.approvedBy || "—"}</p>
                   <p className="mt-1 text-xs text-slate-500">
-                    {formatApprovedDate(request.approvedOn)}
+                    {formatRecordDate(request.approvedOn)}
                   </p>
                 </td>
                 <td className="px-4 py-4">
-                  {showPendingActions ? (
+                  {mode === "pending" && !isChecked && (
                     <div className="flex flex-col items-start gap-2">
                       <form action={checkRequestAction}>
                         <input type="hidden" name="ref_id" value={request.refId} />
@@ -114,20 +140,22 @@ export function HrRecordsList({
                           ✓
                         </button>
                       </form>
-                      <form action={hrRejectRequestAction}>
-                        <input type="hidden" name="ref_id" value={request.refId} />
-                        <button
-                          type="submit"
-                          className="text-xs font-semibold text-red-600 underline hover:text-red-700"
-                        >
-                          Reject
-                        </button>
-                      </form>
+                      <RejectRequestButton
+                        refId={request.refId}
+                        action={hrRejectRequestAction}
+                      />
                     </div>
-                  ) : (
-                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50 text-sm font-bold text-emerald-700">
-                      ✓
-                    </span>
+                  )}
+
+                  {mode === "all" && !isChecked && (
+                    <span className="text-sm text-slate-400">Pending</span>
+                  )}
+
+                  {(mode === "checked" || (mode === "all" && isChecked)) && (
+                    <CheckedStatus
+                      archivedBy={request.archivedBy}
+                      archivedAt={request.archivedAt}
+                    />
                   )}
                 </td>
                 <td className="max-w-xs px-4 py-4 text-slate-600">{request.reason}</td>

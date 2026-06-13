@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { isNextNavigationError } from "@/lib/action-auth";
+import { getSession } from "@/lib/auth";
 import { ROLE_ROUTES } from "@/lib/constants";
 import { addRequest, updateRequestStatus } from "@/lib/requests";
 
@@ -40,6 +42,7 @@ export async function submitRequestAction(formData: FormData) {
     revalidateRolePaths();
     redirect(`/employee?success=Request ${refId} submitted successfully and is pending manager review.`);
   } catch (error) {
+    if (isNextNavigationError(error)) throw error;
     redirect(
       `/employee?error=${encodeURIComponent(`Unable to submit your request. Please try again. (${String(error)})`)}`,
     );
@@ -47,6 +50,11 @@ export async function submitRequestAction(formData: FormData) {
 }
 
 export async function updateStatusAction(formData: FormData) {
+  const session = await getSession();
+  if (!session || (session.role !== "Manager" && session.role !== "Admin")) {
+    redirect("/manager?error=You are not authorized to update requests.");
+  }
+
   const refId = String(formData.get("ref_id") ?? "");
   const status = String(formData.get("status") ?? "") as "Approved" | "Rejected";
 
@@ -54,16 +62,22 @@ export async function updateStatusAction(formData: FormData) {
     redirect("/manager?error=Invalid request.");
   }
 
+  const department = session.role === "Manager" ? session.department ?? undefined : undefined;
+  if (session.role === "Manager" && !department) {
+    redirect("/manager?error=Your manager account has no department assigned.");
+  }
+
   try {
-    const updated = await updateRequestStatus(refId, status);
+    const updated = await updateRequestStatus(refId, status, session.fullName, department);
     if (!updated) {
       redirect(
-        "/manager?error=Request could not be updated. It may have already been processed.",
+        "/manager?error=Request could not be updated. It may have already been processed or is outside your department.",
       );
     }
     revalidateRolePaths();
     redirect(`/manager?success=Request ${refId} ${status.toLowerCase()}.`);
   } catch (error) {
+    if (isNextNavigationError(error)) throw error;
     redirect(
       `/manager?error=${encodeURIComponent(`Unable to update request: ${String(error)}`)}`,
     );

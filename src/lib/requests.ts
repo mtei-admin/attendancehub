@@ -126,21 +126,29 @@ export async function unarchiveRequest(refId: string): Promise<boolean> {
   return result.length > 0;
 }
 
-export async function getPendingRequests(): Promise<AttendanceRequest[]> {
+export async function getPendingRequests(department?: string): Promise<AttendanceRequest[]> {
   const db = getDb();
+  const conditions = department
+    ? and(eq(attendanceRequests.status, "Pending"), eq(attendanceRequests.department, department))
+    : eq(attendanceRequests.status, "Pending");
+
   return db
     .select()
     .from(attendanceRequests)
-    .where(eq(attendanceRequests.status, "Pending"))
+    .where(conditions)
     .orderBy(desc(attendanceRequests.submittedAt));
 }
 
-export async function getHistoryRequests(): Promise<AttendanceRequest[]> {
+export async function getHistoryRequests(department?: string): Promise<AttendanceRequest[]> {
   const db = getDb();
+  const conditions = department
+    ? and(ne(attendanceRequests.status, "Pending"), eq(attendanceRequests.department, department))
+    : ne(attendanceRequests.status, "Pending");
+
   return db
     .select()
     .from(attendanceRequests)
-    .where(ne(attendanceRequests.status, "Pending"))
+    .where(conditions)
     .orderBy(desc(attendanceRequests.submittedAt));
 }
 
@@ -148,8 +156,13 @@ export async function updateRequestStatus(
   refId: string,
   status: "Approved" | "Rejected",
   approvedBy: string = MANAGER_NAME,
+  department?: string,
 ): Promise<boolean> {
   const db = getDb();
+  const conditions = department
+    ? and(eq(attendanceRequests.refId, refId), eq(attendanceRequests.department, department))
+    : eq(attendanceRequests.refId, refId);
+
   const result = await db
     .update(attendanceRequests)
     .set({
@@ -157,7 +170,7 @@ export async function updateRequestStatus(
       approvedBy,
       approvedOn: new Date(),
     })
-    .where(eq(attendanceRequests.refId, refId))
+    .where(conditions)
     .returning({ id: attendanceRequests.id });
 
   return result.length > 0;

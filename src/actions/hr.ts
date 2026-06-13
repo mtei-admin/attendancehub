@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireRoles } from "@/lib/action-auth";
+import { EMPLOYEE_TYPES } from "@/lib/constants";
 import { createEmployee, updateEmployee } from "@/lib/roster";
 import { archiveRequest, unarchiveRequest } from "@/lib/requests";
 import { createUser, getUserById, getUserByUsername, updateUser } from "@/lib/users";
@@ -60,10 +61,15 @@ export async function saveEmployeeRosterAction(formData: FormData) {
   const id = Number(formData.get("id") ?? 0);
   const fullName = String(formData.get("full_name") ?? "").trim();
   const departmentId = Number(formData.get("department_id") ?? 0);
+  const employeeType = String(formData.get("employee_type") ?? "").trim();
   const isActive = formData.get("is_active") === "on";
 
-  if (!fullName || !departmentId) {
-    hrRedirect({ tab: "employees", error: "Employee name and department are required." });
+  if (!fullName || !departmentId || !employeeType) {
+    hrRedirect({ tab: "employees", error: "Employee name, department, and type are required." });
+  }
+
+  if (!(EMPLOYEE_TYPES as readonly string[]).includes(employeeType)) {
+    hrRedirect({ tab: "employees", error: "Invalid employee type." });
   }
 
   const departments = await listDepartments(true);
@@ -74,7 +80,7 @@ export async function saveEmployeeRosterAction(formData: FormData) {
 
   try {
     if (id > 0) {
-      const updated = await updateEmployee(id, { fullName, departmentId, isActive });
+      const updated = await updateEmployee(id, { fullName, departmentId, employeeType, isActive });
       if (!updated) {
         hrRedirect({ tab: "employees", error: "Employee not found." });
       }
@@ -84,7 +90,7 @@ export async function saveEmployeeRosterAction(formData: FormData) {
       hrRedirect({ tab: "employees", success: `Updated employee ${fullName}.` });
     }
 
-    await createEmployee({ fullName, departmentId });
+    await createEmployee({ fullName, departmentId, employeeType });
     revalidatePath("/hr");
     revalidatePath("/admin");
     revalidatePath("/employee");

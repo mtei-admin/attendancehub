@@ -4,6 +4,9 @@ export type Role = (typeof ROLES)[number];
 export const HR_SCOPES = ["R&F only", "Confi only"] as const;
 export type HrScope = (typeof HR_SCOPES)[number];
 
+export const EMPLOYEE_TYPES = ["Rank & File", "Confi"] as const;
+export type EmployeeType = (typeof EMPLOYEE_TYPES)[number];
+
 export const REQUEST_TYPES = [
   "Late",
   "Undertime",

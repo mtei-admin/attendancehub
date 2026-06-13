@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireRoles } from "@/lib/action-auth";
-import { HR_SCOPES } from "@/lib/constants";
+import { EMPLOYEE_TYPES, HR_SCOPES } from "@/lib/constants";
 import { createDepartment, updateDepartment } from "@/lib/departments";
 import { createEmployee, updateEmployee } from "@/lib/roster";
 import { createUser, getUserById, getUserByUsername, updateUser } from "@/lib/users";
@@ -57,15 +57,20 @@ export async function saveAdminEmployeeAction(formData: FormData) {
   const id = Number(formData.get("id") ?? 0);
   const fullName = String(formData.get("full_name") ?? "").trim();
   const departmentId = Number(formData.get("department_id") ?? 0);
+  const employeeType = String(formData.get("employee_type") ?? "").trim();
   const isActive = formData.get("is_active") === "on";
 
-  if (!fullName || !departmentId) {
-    adminRedirect({ tab: "employees", error: "Employee name and department are required." });
+  if (!fullName || !departmentId || !employeeType) {
+    adminRedirect({ tab: "employees", error: "Employee name, department, and type are required." });
+  }
+
+  if (!(EMPLOYEE_TYPES as readonly string[]).includes(employeeType)) {
+    adminRedirect({ tab: "employees", error: "Invalid employee type." });
   }
 
   try {
     if (id > 0) {
-      const updated = await updateEmployee(id, { fullName, departmentId, isActive });
+      const updated = await updateEmployee(id, { fullName, departmentId, employeeType, isActive });
       if (!updated) {
         adminRedirect({ tab: "employees", error: "Employee not found." });
       }
@@ -75,7 +80,7 @@ export async function saveAdminEmployeeAction(formData: FormData) {
       adminRedirect({ tab: "employees", success: `Updated employee ${fullName}.` });
     }
 
-    await createEmployee({ fullName, departmentId });
+    await createEmployee({ fullName, departmentId, employeeType });
     revalidatePath("/admin");
     revalidatePath("/hr");
     revalidatePath("/employee");

@@ -1,3 +1,4 @@
+import { EMPLOYEE_TYPES } from "@/lib/constants";
 import type { Department } from "@/lib/schema";
 import type { EmployeeWithDepartment } from "@/lib/roster";
 
@@ -55,6 +56,21 @@ export function RosterPanel({
               ))}
             </select>
           </FormField>
+          <FormField label="Type">
+            <select
+              name="employee_type"
+              required
+              defaultValue={editing?.employeeType ?? ""}
+              className={inputClassName}
+            >
+              <option value="">— Select type —</option>
+              {EMPLOYEE_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+          </FormField>
           {editing && (
             <FormField label="Status">
               <label className="flex items-center gap-2 text-sm text-slate-700">
@@ -91,7 +107,7 @@ export function RosterPanel({
         <table className="min-w-full divide-y divide-slate-200 text-sm">
           <thead className="bg-slate-50">
             <tr>
-              {["Name", "Department", "Status", "Actions"].map((header) => (
+              {["Name", "Department", "Type", "Status", "Actions"].map((header) => (
                 <th key={header} className="px-4 py-3 text-left font-semibold text-slate-600">
                   {header}
                 </th>
@@ -103,6 +119,7 @@ export function RosterPanel({
               <tr key={employee.id}>
                 <td className="px-4 py-3 font-medium text-slate-900">{employee.fullName}</td>
                 <td className="px-4 py-3 text-slate-600">{employee.departmentName}</td>
+                <td className="px-4 py-3 text-slate-600">{employee.employeeType}</td>
                 <td className="px-4 py-3">
                   <span
                     className={`rounded-full px-2.5 py-1 text-xs font-medium ${

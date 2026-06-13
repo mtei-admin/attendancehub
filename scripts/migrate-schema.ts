@@ -34,11 +34,16 @@ CREATE TABLE IF NOT EXISTS departments (
 );
 `;
 
+const EMPLOYEE_ALTER_STATEMENTS = [
+  `ALTER TABLE employees ADD COLUMN IF NOT EXISTS employee_type text NOT NULL DEFAULT 'Rank & File'`,
+];
+
 const CREATE_EMPLOYEES_TABLE = `
 CREATE TABLE IF NOT EXISTS employees (
   id serial PRIMARY KEY,
   full_name text NOT NULL,
   department_id integer NOT NULL REFERENCES departments(id),
+  employee_type text NOT NULL DEFAULT 'Rank & File',
   is_active boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now()
 );
@@ -103,6 +108,11 @@ async function main() {
 
   await sql(CREATE_EMPLOYEES_TABLE);
   console.log("OK: employees table ready");
+
+  for (const statement of EMPLOYEE_ALTER_STATEMENTS) {
+    await sql(statement);
+    console.log(`OK: ${statement}`);
+  }
 
   await seedDepartmentsAndEmployees(sql);
 

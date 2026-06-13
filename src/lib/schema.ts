@@ -16,6 +16,7 @@ export const employees = pgTable("employees", {
   departmentId: integer("department_id")
     .notNull()
     .references(() => departments.id),
+  employeeType: text("employee_type").notNull().default("Rank & File"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

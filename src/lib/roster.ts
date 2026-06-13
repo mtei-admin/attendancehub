@@ -12,6 +12,7 @@ export async function listEmployees(activeOnly = false): Promise<EmployeeWithDep
       id: employees.id,
       fullName: employees.fullName,
       departmentId: employees.departmentId,
+      employeeType: employees.employeeType,
       isActive: employees.isActive,
       createdAt: employees.createdAt,
       departmentName: departments.name,
@@ -47,6 +48,7 @@ export async function getEmployeesByDepartment(): Promise<Record<string, string[
 export async function createEmployee(input: {
   fullName: string;
   departmentId: number;
+  employeeType: string;
 }): Promise<Employee> {
   const db = getDb();
   const [row] = await db
@@ -54,6 +56,7 @@ export async function createEmployee(input: {
     .values({
       fullName: input.fullName.trim(),
       departmentId: input.departmentId,
+      employeeType: input.employeeType,
     })
     .returning();
 
@@ -62,7 +65,12 @@ export async function createEmployee(input: {
 
 export async function updateEmployee(
   id: number,
-  input: { fullName?: string; departmentId?: number; isActive?: boolean },
+  input: {
+    fullName?: string;
+    departmentId?: number;
+    employeeType?: string;
+    isActive?: boolean;
+  },
 ): Promise<Employee | null> {
   const db = getDb();
   const [row] = await db
@@ -70,6 +78,7 @@ export async function updateEmployee(
     .set({
       ...(input.fullName !== undefined ? { fullName: input.fullName.trim() } : {}),
       ...(input.departmentId !== undefined ? { departmentId: input.departmentId } : {}),
+      ...(input.employeeType !== undefined ? { employeeType: input.employeeType } : {}),
       ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
     })
     .where(eq(employees.id, id))

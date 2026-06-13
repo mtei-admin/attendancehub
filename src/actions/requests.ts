@@ -64,6 +64,7 @@ export async function updateStatusAction(formData: FormData) {
 
   const refId = String(formData.get("ref_id") ?? "");
   const status = String(formData.get("status") ?? "") as "Approved" | "Rejected";
+  const approvedOtHrs = String(formData.get("approved_ot_hrs") ?? "").trim();
 
   if (!refId || (status !== "Approved" && status !== "Rejected")) {
     redirect("/manager?error=Invalid request.");
@@ -75,7 +76,13 @@ export async function updateStatusAction(formData: FormData) {
   }
 
   try {
-    const updated = await updateRequestStatus(refId, status, session.fullName, department);
+    const updated = await updateRequestStatus(
+      refId,
+      status,
+      session.fullName,
+      department,
+      status === "Approved" && approvedOtHrs ? approvedOtHrs : null,
+    );
     if (!updated) {
       redirect(
         "/manager?error=Request could not be updated. It may have already been processed or is outside your department.",

@@ -18,7 +18,7 @@ export function ManagerTabs({
 
   return (
     <nav className="border-b border-slate-200 bg-white">
-      <div className="mx-auto flex max-w-5xl gap-8 px-4 md:px-6">
+      <div className="mx-auto flex max-w-6xl gap-8 px-4 md:px-6">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (

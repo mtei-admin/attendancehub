@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { requireRoles, isNextNavigationError } from "@/lib/action-auth";
 import { EMPLOYEE_TYPES } from "@/lib/constants";
 import { createEmployee, updateEmployee } from "@/lib/roster";
-import { archiveRequest, unarchiveRequest } from "@/lib/requests";
+import { archiveRequest, hrRejectApprovedRequest, unarchiveRequest } from "@/lib/requests";
 import { createUser, getUserById, getUserByUsername, updateUser } from "@/lib/users";
 import { listDepartments } from "@/lib/departments";
 
@@ -18,12 +18,12 @@ function hrRedirect(params: { tab?: string; success?: string; error?: string }):
   redirect(`/hr?${search.toString()}`);
 }
 
-export async function archiveRequestAction(formData: FormData) {
+export async function checkRequestAction(formData: FormData) {
   const session = await requireRoles(["HR"]);
   const refId = String(formData.get("ref_id") ?? "").trim();
 
   if (!refId) {
-    hrRedirect({ tab: "records", error: "Invalid request reference." });
+    hrRedirect({ tab: "pending", error: "Invalid request reference." });
   }
 
   const archived = await archiveRequest(refId, session.fullName);
@@ -31,10 +31,49 @@ export async function archiveRequestAction(formData: FormData) {
   revalidatePath("/api/export/csv");
 
   if (!archived) {
-    hrRedirect({ tab: "records", error: "Request could not be archived." });
+    hrRedirect({ tab: "pending", error: "Request could not be marked as checked." });
   }
 
-  hrRedirect({ tab: "records", success: `Request ${refId} archived.` });
+  hrRedirect({ tab: "pending", success: `Request ${refId} marked as checked.` });
+}
+
+export async function hrRejectRequestAction(formData: FormData) {
+  const session = await requireRoles(["HR"]);
+  const refId = String(formData.get("ref_id") ?? "").trim();
+
+  if (!refId) {
+    hrRedirect({ tab: "pending", error: "Invalid request reference." });
+  }
+
+  const rejected = await hrRejectApprovedRequest(refId, session.fullName);
+  revalidatePath("/hr");
+  revalidatePath("/manager");
+  revalidatePath("/api/export/csv");
+
+  if (!rejected) {
+    hrRedirect({ tab: "pending", error: "Request could not be rejected." });
+  }
+
+  hrRedirect({ tab: "pending", success: `Request ${refId} rejected.` });
+}
+
+export async function archiveRequestAction(formData: FormData) {
+  const session = await requireRoles(["HR"]);
+  const refId = String(formData.get("ref_id") ?? "").trim();
+
+  if (!refId) {
+    hrRedirect({ tab: "pending", error: "Invalid request reference." });
+  }
+
+  const archived = await archiveRequest(refId, session.fullName);
+  revalidatePath("/hr");
+  revalidatePath("/api/export/csv");
+
+  if (!archived) {
+    hrRedirect({ tab: "pending", error: "Request could not be archived." });
+  }
+
+  hrRedirect({ tab: "pending", success: `Request ${refId} archived.` });
 }
 
 export async function unarchiveRequestAction(formData: FormData) {
@@ -42,7 +81,7 @@ export async function unarchiveRequestAction(formData: FormData) {
   const refId = String(formData.get("ref_id") ?? "").trim();
 
   if (!refId) {
-    hrRedirect({ tab: "archived", error: "Invalid request reference." });
+    hrRedirect({ tab: "checked", error: "Invalid request reference." });
   }
 
   const restored = await unarchiveRequest(refId);
@@ -50,10 +89,10 @@ export async function unarchiveRequestAction(formData: FormData) {
   revalidatePath("/api/export/csv");
 
   if (!restored) {
-    hrRedirect({ tab: "archived", error: "Request could not be restored." });
+    hrRedirect({ tab: "checked", error: "Request could not be restored." });
   }
 
-  hrRedirect({ tab: "archived", success: `Request ${refId} restored to active records.` });
+  hrRedirect({ tab: "checked", success: `Request ${refId} restored to pending.` });
 }
 
 export async function saveEmployeeRosterAction(formData: FormData) {

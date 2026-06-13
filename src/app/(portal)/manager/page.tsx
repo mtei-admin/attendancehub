@@ -4,6 +4,7 @@ import { ManagerPendingList } from "@/components/manager-pending-list";
 import { ManagerTabs } from "@/components/manager-tabs";
 import { getSession } from "@/lib/auth";
 import { getHistoryRequests, getPendingRequests } from "@/lib/requests";
+import { buildEmployeeTypeLookup, listEmployees } from "@/lib/roster";
 import { redirect } from "next/navigation";
 
 type ManagerPageProps = {
@@ -24,13 +25,16 @@ export default async function ManagerPage({ searchParams }: ManagerPageProps) {
   const departmentFilter =
     session.role === "Manager" ? session.department : undefined;
 
-  const [pendingRequests, historyRequests] =
+  const [pendingRequests, historyRequests, roster] =
     session.role === "Manager" && !departmentFilter
-      ? [[], []]
+      ? [[], [], []]
       : await Promise.all([
           getPendingRequests(departmentFilter ?? undefined),
           getHistoryRequests(departmentFilter ?? undefined),
+          listEmployees(true),
         ]);
+
+  const employeeTypeLookup = buildEmployeeTypeLookup(roster);
 
   return (
     <>
@@ -40,15 +44,21 @@ export default async function ManagerPage({ searchParams }: ManagerPageProps) {
         historyCount={historyRequests.length}
       />
 
-      <div className="mx-auto max-w-5xl px-4 md:px-6">
+      <div className="mx-auto max-w-6xl px-4 md:px-6">
         <div className="py-2">
           <FlashMessage success={params.success} error={params.error} />
         </div>
 
         {activeTab === "pending" ? (
-          <ManagerPendingList requests={pendingRequests} />
+          <ManagerPendingList
+            requests={pendingRequests}
+            employeeTypeLookup={employeeTypeLookup}
+          />
         ) : (
-          <ManagerHistoryList requests={historyRequests} />
+          <ManagerHistoryList
+            requests={historyRequests}
+            employeeTypeLookup={employeeTypeLookup}
+          />
         )}
       </div>
     </>

@@ -76,6 +76,15 @@ export async function getApprovedRequests(includeArchived = false): Promise<Atte
     .orderBy(desc(attendanceRequests.submittedAt));
 }
 
+export async function getAllApprovedRequests(): Promise<AttendanceRequest[]> {
+  const db = getDb();
+  return db
+    .select()
+    .from(attendanceRequests)
+    .where(eq(attendanceRequests.status, "Approved"))
+    .orderBy(desc(attendanceRequests.submittedAt));
+}
+
 export async function getArchivedRequests(): Promise<AttendanceRequest[]> {
   const db = getDb();
   return db
@@ -85,6 +94,33 @@ export async function getArchivedRequests(): Promise<AttendanceRequest[]> {
       and(eq(attendanceRequests.status, "Approved"), eq(attendanceRequests.archived, true)),
     )
     .orderBy(desc(attendanceRequests.archivedAt));
+}
+
+export async function hrRejectApprovedRequest(
+  refId: string,
+  rejectedBy: string,
+): Promise<boolean> {
+  const db = getDb();
+  const result = await db
+    .update(attendanceRequests)
+    .set({
+      status: "Rejected",
+      approvedBy: rejectedBy,
+      approvedOn: new Date(),
+      archived: false,
+      archivedAt: null,
+      archivedBy: null,
+    })
+    .where(
+      and(
+        eq(attendanceRequests.refId, refId),
+        eq(attendanceRequests.status, "Approved"),
+        eq(attendanceRequests.archived, false),
+      ),
+    )
+    .returning({ id: attendanceRequests.id });
+
+  return result.length > 0;
 }
 
 export async function archiveRequest(
@@ -159,6 +195,7 @@ export async function updateRequestStatus(
   status: "Approved" | "Rejected",
   approvedBy: string = MANAGER_NAME,
   department?: string,
+  approvedOtHrs?: string | null,
 ): Promise<boolean> {
   const db = getDb();
   const conditions = department
@@ -171,6 +208,7 @@ export async function updateRequestStatus(
       status,
       approvedBy,
       approvedOn: new Date(),
+      ...(status === "Approved" && approvedOtHrs ? { otHrs: approvedOtHrs } : {}),
     })
     .where(conditions)
     .returning({ id: attendanceRequests.id });

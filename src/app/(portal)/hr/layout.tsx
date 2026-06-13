@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { PortalHeader } from "@/components/portal-header";
 import { getSession } from "@/lib/auth";
+import { hrPortalScopeLabel } from "@/lib/roster";
 
 export default async function HrPortalLayout({
   children,
@@ -11,14 +12,12 @@ export default async function HrPortalLayout({
   const session = await getSession();
   if (!session) redirect("/");
 
-  const scopeLabel = session.hrScope ? ` (${session.hrScope})` : "";
+  const scopeLabel = hrPortalScopeLabel(session.hrScope);
+  const title = scopeLabel ? `HR portal — ${scopeLabel}` : "HR portal";
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <PortalHeader
-        title={`Human Resource — HR portal${scopeLabel}`}
-        userName={session.fullName}
-      />
+      <PortalHeader title={title} userName={session.fullName} />
       {children}
     </div>
   );

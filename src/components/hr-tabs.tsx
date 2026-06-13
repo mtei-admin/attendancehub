@@ -1,22 +1,46 @@
 import Link from "next/link";
 
+export type HrTab = "pending" | "checked" | "all" | "employees" | "managers";
+
 type HrTabsProps = {
-  activeTab: "records" | "archived" | "employees" | "managers";
-  recordCount: number;
-  archivedCount: number;
+  activeTab: HrTab;
+  pendingCount: number;
+  checkedCount: number;
+  allCount: number;
 };
 
-export function HrTabs({ activeTab, recordCount, archivedCount }: HrTabsProps) {
-  const tabs = [
-    { id: "records" as const, label: "Approved Records", count: recordCount },
-    { id: "archived" as const, label: "Archived", count: archivedCount },
-    { id: "employees" as const, label: "Employees", count: null },
-    { id: "managers" as const, label: "Managers", count: null },
+export function HrTabs({ activeTab, pendingCount, checkedCount, allCount }: HrTabsProps) {
+  const tabs: {
+    id: HrTab;
+    label: string;
+    count: number | null;
+    countClass: string;
+  }[] = [
+    {
+      id: "pending",
+      label: "Pending",
+      count: pendingCount,
+      countClass: "bg-red-100 text-red-600",
+    },
+    {
+      id: "checked",
+      label: "Checked",
+      count: checkedCount,
+      countClass: "bg-emerald-100 text-emerald-700",
+    },
+    {
+      id: "all",
+      label: "All records",
+      count: allCount,
+      countClass: "bg-slate-100 text-slate-500",
+    },
+    { id: "employees", label: "Employees", count: null, countClass: "" },
+    { id: "managers", label: "Managers", count: null, countClass: "" },
   ];
 
   return (
     <nav className="border-b border-slate-200 bg-white">
-      <div className="mx-auto flex max-w-5xl gap-6 overflow-x-auto px-4 md:px-6">
+      <div className="mx-auto flex max-w-6xl gap-6 overflow-x-auto px-4 md:px-6">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
@@ -29,7 +53,9 @@ export function HrTabs({ activeTab, recordCount, archivedCount }: HrTabsProps) {
             >
               {tab.label}
               {tab.count !== null && (
-                <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-slate-100 px-1.5 py-0.5 text-xs font-semibold text-slate-500">
+                <span
+                  className={`inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-semibold ${tab.countClass}`}
+                >
                   {tab.count}
                 </span>
               )}

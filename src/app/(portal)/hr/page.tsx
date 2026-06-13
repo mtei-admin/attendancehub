@@ -1,14 +1,23 @@
 import { saveEmployeeRosterAction, saveManagerAction } from "@/actions/hr";
 import { FlashMessage } from "@/components/flash-message";
-import { HrRecordsTable } from "@/components/hr-records-table";
-import { HrTabs } from "@/components/hr-tabs";
-import { MetricCard } from "@/components/metric-card";
+import { HrRecordsList } from "@/components/hr-records-list";
+import { HrTabs, type HrTab } from "@/components/hr-tabs";
 import { PortalUserPanel } from "@/components/portal-user-panel";
 import { RosterPanel } from "@/components/roster-panel";
+import { getSession } from "@/lib/auth";
 import { listDepartments } from "@/lib/departments";
-import { getArchivedRequests, getApprovedRequests } from "@/lib/requests";
-import { listEmployees } from "@/lib/roster";
+import {
+  getAllApprovedRequests,
+  getApprovedRequests,
+  getArchivedRequests,
+} from "@/lib/requests";
+import {
+  buildEmployeeTypeLookup,
+  filterRequestsByHrScope,
+  listEmployees,
+} from "@/lib/roster";
 import { listUsersByRole } from "@/lib/users";
+import { redirect } from "next/navigation";
 
 type HrPageProps = {
   searchParams: Promise<{
@@ -19,92 +28,96 @@ type HrPageProps = {
   }>;
 };
 
+function resolveTab(tab?: string): HrTab {
+  if (
+    tab === "checked" ||
+    tab === "all" ||
+    tab === "employees" ||
+    tab === "managers"
+  ) {
+    return tab;
+  }
+  return "pending";
+}
+
 export default async function HrPage({ searchParams }: HrPageProps) {
   const params = await searchParams;
-  const activeTab =
-    params.tab === "archived" ||
-    params.tab === "employees" ||
-    params.tab === "managers"
-      ? params.tab
-      : "records";
+  const activeTab = resolveTab(params.tab);
   const editId = params.edit ? Number(params.edit) : undefined;
 
-  const [approvedRequests, archivedRequests, employees, departments, managers] =
+  const session = await getSession();
+  if (!session) redirect("/");
+
+  const hrScope = session.role === "HR" ? session.hrScope : null;
+
+  const [pendingRaw, checkedRaw, allRaw, employees, departments, managers, roster] =
     await Promise.all([
       getApprovedRequests(),
       getArchivedRequests(),
+      getAllApprovedRequests(),
       listEmployees(),
       listDepartments(),
       listUsersByRole("Manager"),
+      listEmployees(true),
     ]);
 
-  const totalApproved = approvedRequests.length;
-  const lateCount = approvedRequests.filter((r) => r.requestType === "Late/Undertime").length;
-  const absentCount = approvedRequests.filter((r) => r.requestType === "Absent/Leave").length;
-  const overtimeCount = approvedRequests.filter((r) => r.requestType === "Overtime").length;
+  const employeeTypeLookup = buildEmployeeTypeLookup(roster);
+  const pendingRequests = filterRequestsByHrScope(pendingRaw, employeeTypeLookup, hrScope);
+  const checkedRequests = filterRequestsByHrScope(checkedRaw, employeeTypeLookup, hrScope);
+  const allRequests = filterRequestsByHrScope(allRaw, employeeTypeLookup, hrScope);
 
   return (
     <>
       <HrTabs
         activeTab={activeTab}
-        recordCount={approvedRequests.length}
-        archivedCount={archivedRequests.length}
+        pendingCount={pendingRequests.length}
+        checkedCount={checkedRequests.length}
+        allCount={allRequests.length}
       />
 
-      <div className="mx-auto max-w-5xl space-y-8 px-4 py-8 md:px-6">
+      <div className="mx-auto max-w-6xl space-y-8 px-4 py-8 md:px-6">
         <FlashMessage success={params.success} error={params.error} />
 
-        {activeTab === "records" && (
-          <>
-            <div>
-              <h2 className="text-2xl font-semibold text-slate-900">
-                HR Analytics — Approved Records
-              </h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Review approved attendance records and archive processed entries for payroll.
-              </p>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <MetricCard label="Total Approved" value={totalApproved} />
-              <MetricCard label="Late/Undertime" value={lateCount} />
-              <MetricCard label="Absent/Leave" value={absentCount} />
-              <MetricCard label="Overtime" value={overtimeCount} />
-            </div>
-
-            <section className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h3 className="text-lg font-semibold text-slate-900">Active Records</h3>
-                {approvedRequests.length > 0 && (
-                  <a
-                    href="/api/export/csv"
-                    className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
-                  >
-                    Download CSV for Payroll
-                  </a>
-                )}
-              </div>
-              <HrRecordsTable
-                requests={approvedRequests}
-                mode="active"
-                emptyMessage="No active approved records to display."
-              />
-            </section>
-          </>
+        {activeTab === "pending" && (
+          <section className="space-y-4">
+            <HrRecordsList
+              requests={pendingRequests}
+              employeeTypeLookup={employeeTypeLookup}
+              mode="pending"
+              emptyMessage="No pending records to review."
+            />
+          </section>
         )}
 
-        {activeTab === "archived" && (
+        {activeTab === "checked" && (
           <section className="space-y-4">
-            <div>
-              <h2 className="text-2xl font-semibold text-slate-900">Archived Records</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Records archived after payroll processing. Restore if needed.
-              </p>
+            <HrRecordsList
+              requests={checkedRequests}
+              employeeTypeLookup={employeeTypeLookup}
+              mode="checked"
+              emptyMessage="No checked records yet."
+            />
+          </section>
+        )}
+
+        {activeTab === "all" && (
+          <section className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-slate-900">All records</h2>
+              {allRequests.length > 0 && (
+                <a
+                  href="/api/export/csv"
+                  className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+                >
+                  Download CSV for Payroll
+                </a>
+              )}
             </div>
-            <HrRecordsTable
-              requests={archivedRequests}
-              mode="archived"
-              emptyMessage="No archived records yet."
+            <HrRecordsList
+              requests={allRequests}
+              employeeTypeLookup={employeeTypeLookup}
+              mode="all"
+              emptyMessage="No records to display."
             />
           </section>
         )}
@@ -151,4 +164,3 @@ export default async function HrPage({ searchParams }: HrPageProps) {
     </>
   );
 }
-

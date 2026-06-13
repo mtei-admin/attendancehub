@@ -95,6 +95,33 @@ export async function saveAdminEmployeeAction(formData: FormData) {
   }
 }
 
+export async function deleteAdminEmployeeAction(formData: FormData) {
+  await requireRoles(["Admin"]);
+  const id = Number(formData.get("id") ?? 0);
+
+  if (!id) {
+    adminRedirect({ tab: "employees", error: "Employee not found." });
+  }
+
+  try {
+    const updated = await updateEmployee(id, { isActive: false });
+    if (!updated) {
+      adminRedirect({ tab: "employees", error: "Employee not found." });
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/hr");
+    revalidatePath("/employee");
+    adminRedirect({ tab: "employees", success: `Removed ${updated.fullName} from the roster.` });
+  } catch (error) {
+    if (isNextNavigationError(error)) throw error;
+    adminRedirect({
+      tab: "employees",
+      error: `Unable to remove employee. ${String(error)}`,
+    });
+  }
+}
+
 export async function saveAdminManagerAction(formData: FormData) {
   await requireRoles(["Admin"]);
   await savePortalUserAction(formData, "Manager", "managers");

@@ -23,6 +23,7 @@ type HrPageProps = {
   searchParams: Promise<{
     tab?: string;
     edit?: string;
+    add?: string;
     success?: string;
     error?: string;
   }>;
@@ -135,6 +136,8 @@ export default async function HrPage({ searchParams }: HrPageProps) {
               departments={departments}
               saveAction={saveEmployeeRosterAction}
               editId={editId}
+              showAdd={params.add === "1"}
+              activeOnly={false}
               basePath="/hr"
               tab="employees"
             />
@@ -142,23 +145,16 @@ export default async function HrPage({ searchParams }: HrPageProps) {
         )}
 
         {activeTab === "managers" && (
-          <section className="space-y-4">
-            <div>
-              <h2 className="text-2xl font-semibold text-slate-900">Manager Accounts</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Add or update manager login accounts and department assignments.
-              </p>
-            </div>
-            <PortalUserPanel
-              users={managers}
-              departments={departments}
-              saveAction={saveManagerAction}
-              role="Manager"
-              editId={editId}
-              basePath="/hr"
-              tab="managers"
-            />
-          </section>
+          <PortalUserPanel
+            users={managers}
+            departments={departments}
+            saveAction={saveManagerAction}
+            role="Manager"
+            editId={editId}
+            showAdd={params.add === "1"}
+            basePath="/hr"
+            tab="managers"
+          />
         )}
       </div>
     </>

@@ -4,7 +4,16 @@ export type Role = (typeof ROLES)[number];
 export const HR_SCOPES = ["R&F only", "Confi only"] as const;
 export type HrScope = (typeof HR_SCOPES)[number];
 
-export const REQUEST_TYPES = ["Late", "Absent", "Leave", "Offset"] as const;
+export const REQUEST_TYPES = [
+  "Late",
+  "Undertime",
+  "Overbreak",
+  "Early break",
+  "Absent",
+  "Overtime",
+  "Holiday work",
+  "Holiday offset",
+] as const;
 export type RequestType = (typeof REQUEST_TYPES)[number];
 
 export const STATUSES = ["Pending", "Approved", "Rejected"] as const;

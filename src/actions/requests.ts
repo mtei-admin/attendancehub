@@ -22,10 +22,16 @@ export async function submitRequestAction(formData: FormData) {
   const dateOfIncident = String(formData.get("date_of_incident") ?? "");
   const timeIn = String(formData.get("time_in") ?? "").trim();
   const timeOut = String(formData.get("time_out") ?? "").trim();
-  const reason = String(formData.get("reason") ?? "").trim();
+  const otHrs = String(formData.get("ot_hrs") ?? "").trim();
+  const fileAsOtOffset = formData.get("file_as_ot_offset") === "on";
+  let reason = String(formData.get("reason") ?? "").trim();
 
   if (!reason) {
     redirect("/employee?error=Please provide a reason before submitting.");
+  }
+
+  if (fileAsOtOffset) {
+    reason = `[OT offset credit] ${reason}`;
   }
 
   try {
@@ -38,6 +44,7 @@ export async function submitRequestAction(formData: FormData) {
       reason,
       timeIn: timeIn || null,
       timeOut: timeOut || null,
+      otHrs: otHrs || null,
     });
     revalidateRolePaths();
     redirect(`/employee?success=Request ${refId} submitted successfully and is pending manager review.`);

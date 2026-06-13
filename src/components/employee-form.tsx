@@ -18,11 +18,18 @@ function todayIso() {
 
 export function EmployeeForm({ departments, employeesByDepartment }: EmployeeFormProps) {
   const [department, setDepartment] = useState("");
+  const [requestType, setRequestType] = useState("");
 
   const employees = useMemo(() => {
     if (!department) return [];
     return employeesByDepartment[department] ?? [];
   }, [department, employeesByDepartment]);
+
+  const isSimpleLayout =
+    requestType === "Absent/Leave" || requestType === "OT Offset";
+  const isOtOrHolidayWork =
+    requestType === "Overtime" || requestType === "Holiday/Rest Day Work";
+  const showTimeFields = !isSimpleLayout;
 
   return (
     <form
@@ -76,8 +83,14 @@ export function EmployeeForm({ departments, employeesByDepartment }: EmployeeFor
         </FormField>
 
         <FormField label="Request type">
-          <select name="request_type" required className={inputClassName}>
-            <option value="">— Select —</option>
+          <select
+            name="request_type"
+            required
+            value={requestType}
+            onChange={(e) => setRequestType(e.target.value)}
+            className={inputClassName}
+          >
+            <option value="">— Select type —</option>
             {REQUEST_TYPES.map((type) => (
               <option key={type} value={type}>
                 {type}
@@ -96,13 +109,41 @@ export function EmployeeForm({ departments, employeesByDepartment }: EmployeeFor
           />
         </FormField>
 
-        <FormField label="Actual time in">
-          <input type="time" name="time_in" className={inputClassName} />
-        </FormField>
+        {!showTimeFields ? null : (
+          <>
+            <FormField label="Actual time in">
+              <input type="time" name="time_in" className={inputClassName} />
+            </FormField>
 
-        <FormField label="Actual time out">
-          <input type="time" name="time_out" className={inputClassName} />
-        </FormField>
+            <FormField label="Actual time out">
+              <input type="time" name="time_out" className={inputClassName} />
+            </FormField>
+          </>
+        )}
+
+        {isOtOrHolidayWork && (
+          <>
+            <div className="md:col-span-2">
+              <label className="flex items-center gap-3 rounded-lg border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  name="file_as_ot_offset"
+                  className="rounded border-slate-300 text-brand-600"
+                />
+                File as OT offset credit for future use
+              </label>
+            </div>
+
+            <FormField label="Hours to claim" className="md:col-span-2">
+              <input
+                type="text"
+                name="ot_hrs"
+                placeholder="e.g. 2"
+                className={inputClassName}
+              />
+            </FormField>
+          </>
+        )}
 
         <FormField label="Reason / remarks" className="md:col-span-2">
           <textarea
@@ -124,4 +165,4 @@ export function EmployeeForm({ departments, employeesByDepartment }: EmployeeFor
     </form>
   );
 }
-
+

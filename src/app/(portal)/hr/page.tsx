@@ -39,8 +39,8 @@ export default async function HrPage({ searchParams }: HrPageProps) {
     ]);
 
   const totalApproved = approvedRequests.length;
-  const lateCount = approvedRequests.filter((r) => r.requestType === "Late").length;
-  const absentCount = approvedRequests.filter((r) => r.requestType === "Absent").length;
+  const lateCount = approvedRequests.filter((r) => r.requestType === "Late/Undertime").length;
+  const absentCount = approvedRequests.filter((r) => r.requestType === "Absent/Leave").length;
   const overtimeCount = approvedRequests.filter((r) => r.requestType === "Overtime").length;
 
   return (
@@ -67,8 +67,8 @@ export default async function HrPage({ searchParams }: HrPageProps) {
 
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <MetricCard label="Total Approved" value={totalApproved} />
-              <MetricCard label="Late" value={lateCount} />
-              <MetricCard label="Absent" value={absentCount} />
+              <MetricCard label="Late/Undertime" value={lateCount} />
+              <MetricCard label="Absent/Leave" value={absentCount} />
               <MetricCard label="Overtime" value={overtimeCount} />
             </div>
 

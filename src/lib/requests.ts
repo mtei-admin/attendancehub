@@ -29,6 +29,7 @@ export async function addRequest(input: {
   reason: string;
   timeIn?: string | null;
   timeOut?: string | null;
+  otHrs?: string | null;
 }): Promise<string> {
   const db = getDb();
   const refId = await generateRefId();
@@ -43,6 +44,7 @@ export async function addRequest(input: {
     dateOfIncident: input.dateOfIncident,
     timeIn: input.timeIn || null,
     timeOut: input.timeOut || null,
+    otHrs: input.otHrs || null,
     reason: input.reason,
     status: "Pending",
   });

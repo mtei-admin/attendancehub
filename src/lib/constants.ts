@@ -8,14 +8,15 @@ export const EMPLOYEE_TYPES = ["Rank & File", "Confi"] as const;
 export type EmployeeType = (typeof EMPLOYEE_TYPES)[number];
 
 export const REQUEST_TYPES = [
-  "Late",
-  "Undertime",
-  "Overbreak",
-  "Early break",
-  "Absent",
+  "Late/Undertime",
+  "Absent/Leave",
+  "Early/Overbreak",
   "Overtime",
-  "Holiday work",
-  "Holiday offset",
+  "Holiday/Rest Day Work",
+  "OT Offset",
+  "Work From Home",
+  "Trip Ticket",
+  "Change Shift",
 ] as const;
 export type RequestType = (typeof REQUEST_TYPES)[number];
 

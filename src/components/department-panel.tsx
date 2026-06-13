@@ -2,11 +2,13 @@ import Link from "next/link";
 
 import type { Department } from "@/lib/schema";
 
+import { AdminTableActions } from "./admin-table-actions";
 import { DepartmentModal } from "./department-modal";
 
 type DepartmentPanelProps = {
   departments: Department[];
   saveAction: (formData: FormData) => Promise<void>;
+  deleteAction?: (formData: FormData) => Promise<void>;
   editId?: number;
   showAdd?: boolean;
   tab: string;
@@ -15,6 +17,7 @@ type DepartmentPanelProps = {
 export function DepartmentPanel({
   departments,
   saveAction,
+  deleteAction,
   editId,
   showAdd = false,
   tab,
@@ -50,7 +53,7 @@ export function DepartmentPanel({
           <table className="min-w-full text-sm">
             <thead className="border-b border-slate-200 bg-slate-50">
               <tr>
-                {["Department", "Status", "Actions"].map((header) => (
+                {["Department", "Actions"].map((header) => (
                   <th
                     key={header}
                     className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400"
@@ -61,34 +64,34 @@ export function DepartmentPanel({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {departments.length === 0 ? (
+              {activeDepartments.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={2} className="px-4 py-8 text-center text-slate-500">
                     No departments yet.
                   </td>
                 </tr>
               ) : (
-                departments.map((department) => (
+                activeDepartments.map((department) => (
                   <tr key={department.id} className="hover:bg-slate-50/60">
                     <td className="px-4 py-3 font-semibold text-slate-900">{department.name}</td>
                     <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                          department.isActive
-                            ? "bg-emerald-100 text-emerald-700"
-                            : "bg-slate-100 text-slate-500"
-                        }`}
-                      >
-                        {department.isActive ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`${panelHref}&edit=${department.id}`}
-                        className="rounded-lg border border-brand-200 px-3 py-1.5 text-sm font-medium text-brand-600 transition hover:bg-brand-50"
-                      >
-                        Edit
-                      </Link>
+                      {deleteAction ? (
+                        <AdminTableActions
+                          editHref={`${panelHref}&edit=${department.id}`}
+                          itemId={department.id}
+                          itemName={department.name}
+                          deleteAction={deleteAction}
+                          confirmMessage={`Remove department {name}?`}
+                          tab={tab}
+                        />
+                      ) : (
+                        <Link
+                          href={`${panelHref}&edit=${department.id}`}
+                          className="rounded-lg border border-brand-200 px-3 py-1.5 text-sm font-medium text-brand-600 transition hover:bg-brand-50"
+                        >
+                          Edit
+                        </Link>
+                      )}
                     </td>
                   </tr>
                 ))

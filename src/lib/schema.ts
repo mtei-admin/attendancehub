@@ -28,6 +28,7 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
+  passwordHint: text("password_hint"),
   fullName: text("full_name").notNull(),
   role: text("role").notNull(),
   department: text("department"),

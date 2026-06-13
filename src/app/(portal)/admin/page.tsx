@@ -1,6 +1,8 @@
 import {
   saveAdminEmployeeAction,
   deleteAdminEmployeeAction,
+  deleteAdminDepartmentAction,
+  deleteAdminUserAction,
   saveAdminHrAction,
   saveAdminManagerAction,
   saveDepartmentAction,
@@ -54,9 +56,9 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
     await Promise.all([
       listDepartments(),
       listEmployees(),
-      listUsersByRole("Manager"),
-      listUsersByRole("HR"),
-      listAllUsers(),
+      listUsersByRole("Manager", true),
+      listUsersByRole("HR", true),
+      listAllUsers(true),
       getAllRequests(),
     ]);
 
@@ -83,6 +85,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
           <DepartmentPanel
             departments={departments}
             saveAction={saveDepartmentAction}
+            deleteAction={deleteAdminDepartmentAction}
             editId={editId}
             showAdd={showAdd}
             tab="departments"
@@ -107,6 +110,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             users={managers}
             departments={departments}
             saveAction={saveAdminManagerAction}
+            deleteAction={deleteAdminUserAction}
             role="Manager"
             editId={editId}
             showAdd={showAdd}
@@ -120,6 +124,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             users={hrUsers}
             departments={departments}
             saveAction={saveAdminHrAction}
+            deleteAction={deleteAdminUserAction}
             role="HR"
             editId={editId}
             showAdd={showAdd}
@@ -134,10 +139,11 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             departments={departments}
             editId={editId}
             showAdd={showAdd}
+            deleteAction={deleteAdminUserAction}
           />
         )}
       </div>
     </>
   );
 }
-
+

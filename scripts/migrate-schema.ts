@@ -10,6 +10,7 @@ const ATTENDANCE_ALTER_STATEMENTS = [
   `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS archived_at timestamptz`,
   `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS archived_by text`,
   `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS rejection_reason text`,
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hint text`,
 ];
 
 const CREATE_USERS_TABLE = `

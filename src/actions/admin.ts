@@ -7,7 +7,7 @@ import { requireRoles, isNextNavigationError } from "@/lib/action-auth";
 import { EMPLOYEE_TYPES, HR_SCOPES } from "@/lib/constants";
 import { createDepartment, updateDepartment } from "@/lib/departments";
 import { createEmployee, updateEmployee } from "@/lib/roster";
-import { createUser, getUserById, getUserByUsername, updateUser } from "@/lib/users";
+import { createUser, deactivateUser, getUserById, getUserByUsername, updateUser } from "@/lib/users";
 
 function adminRedirect(params: { tab?: string; success?: string; error?: string }): never {
   const search = new URLSearchParams();
@@ -130,6 +130,65 @@ export async function saveAdminManagerAction(formData: FormData) {
 export async function saveAdminHrAction(formData: FormData) {
   await requireRoles(["Admin"]);
   await savePortalUserAction(formData, "HR", "hr");
+}
+
+export async function deleteAdminUserAction(formData: FormData) {
+  await requireRoles(["Admin"]);
+  const id = Number(formData.get("id") ?? 0);
+  const tab = String(formData.get("tab") ?? "managers").trim();
+
+  if (!id) {
+    adminRedirect({ tab, error: "Account not found." });
+  }
+
+  try {
+    const existing = await getUserById(id);
+    if (!existing) {
+      adminRedirect({ tab, error: "Account not found." });
+    }
+
+    const updated = await deactivateUser(id);
+    if (!updated) {
+      adminRedirect({ tab, error: "Account not found." });
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/hr");
+    adminRedirect({ tab, success: `Removed ${updated.fullName}.` });
+  } catch (error) {
+    if (isNextNavigationError(error)) throw error;
+    adminRedirect({
+      tab,
+      error: `Unable to remove account. ${String(error)}`,
+    });
+  }
+}
+
+export async function deleteAdminDepartmentAction(formData: FormData) {
+  await requireRoles(["Admin"]);
+  const id = Number(formData.get("id") ?? 0);
+
+  if (!id) {
+    adminRedirect({ tab: "departments", error: "Department not found." });
+  }
+
+  try {
+    const updated = await updateDepartment(id, { isActive: false });
+    if (!updated) {
+      adminRedirect({ tab: "departments", error: "Department not found." });
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/hr");
+    revalidatePath("/employee");
+    adminRedirect({ tab: "departments", success: `Removed department ${updated.name}.` });
+  } catch (error) {
+    if (isNextNavigationError(error)) throw error;
+    adminRedirect({
+      tab: "departments",
+      error: `Unable to remove department. ${String(error)}`,
+    });
+  }
 }
 
 export async function saveCredentialsAction(formData: FormData) {

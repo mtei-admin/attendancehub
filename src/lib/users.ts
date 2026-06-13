@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, and, eq } from "drizzle-orm";
 import { hash } from "bcryptjs";
 
 import { getDb } from "./db";
@@ -21,18 +21,30 @@ export async function getUserById(id: number): Promise<User | undefined> {
   return user;
 }
 
-export async function listUsersByRole(role: string): Promise<User[]> {
+export async function listUsersByRole(role: string, activeOnly = false): Promise<User[]> {
   const db = getDb();
-  return db
-    .select()
-    .from(users)
-    .where(eq(users.role, role))
-    .orderBy(asc(users.fullName));
+  const condition = activeOnly
+    ? and(eq(users.role, role), eq(users.isActive, true))
+    : eq(users.role, role);
+
+  return db.select().from(users).where(condition).orderBy(asc(users.fullName));
 }
 
-export async function listAllUsers(): Promise<User[]> {
+export async function listAllUsers(activeOnly = false): Promise<User[]> {
   const db = getDb();
+  if (activeOnly) {
+    return db
+      .select()
+      .from(users)
+      .where(eq(users.isActive, true))
+      .orderBy(asc(users.role), asc(users.fullName));
+  }
+
   return db.select().from(users).orderBy(asc(users.role), asc(users.fullName));
+}
+
+export async function deactivateUser(id: number): Promise<User | null> {
+  return updateUser(id, { isActive: false });
 }
 
 export async function createUser(input: {
@@ -51,6 +63,7 @@ export async function createUser(input: {
     .values({
       username: input.username.trim(),
       passwordHash,
+      passwordHint: input.password,
       fullName: input.fullName.trim(),
       role: input.role,
       department: input.department ?? null,
@@ -78,6 +91,7 @@ export async function updateUser(
   const updates: Partial<{
     username: string;
     passwordHash: string;
+    passwordHint: string;
     fullName: string;
     role: string;
     department: string | null;
@@ -94,6 +108,7 @@ export async function updateUser(
 
   if (input.password) {
     updates.passwordHash = await hash(input.password, 10);
+    updates.passwordHint = input.password;
   }
 
   const [user] = await db.update(users).set(updates).where(eq(users.id, id)).returning();

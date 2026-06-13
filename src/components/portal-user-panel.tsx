@@ -3,12 +3,14 @@ import Link from "next/link";
 import type { Department } from "@/lib/schema";
 import type { User } from "@/lib/schema";
 
+import { AdminTableActions, PasswordBadge } from "./admin-table-actions";
 import { PortalUserModal } from "./portal-user-modal";
 
 type PortalUserPanelProps = {
   users: User[];
   departments: Department[];
   saveAction: (formData: FormData) => Promise<void>;
+  deleteAction?: (formData: FormData) => Promise<void>;
   role: "Manager" | "HR";
   editId?: number;
   showAdd?: boolean;
@@ -20,6 +22,7 @@ export function PortalUserPanel({
   users,
   departments,
   saveAction,
+  deleteAction,
   role,
   editId,
   showAdd = false,
@@ -29,9 +32,18 @@ export function PortalUserPanel({
   const editing = editId ? users.find((row) => row.id === editId) : null;
   const showModal = showAdd || Boolean(editing);
   const panelHref = `${basePath}?tab=${tab}`;
-  const panelTitle = role === "Manager" ? "Managers" : "HR accounts";
+  const isAdmin = basePath === "/admin";
+  const panelTitle = role === "Manager" ? "Manager accounts" : "HR accounts";
   const addLabel = role === "Manager" ? "+ Add manager" : "+ Add HR account";
   const detailHeader = role === "Manager" ? "Department" : "HR scope";
+
+  const adminHeaders =
+    role === "Manager"
+      ? ["Name", "Username", "Password", "Department", "Actions"]
+      : ["Name", "Username", "Password", "HR scope", "Actions"];
+
+  const hrHeaders = ["Name", "Username", detailHeader, "Status", "Actions"];
+  const headers = isAdmin ? adminHeaders : hrHeaders;
 
   return (
     <>
@@ -61,7 +73,7 @@ export function PortalUserPanel({
           <table className="min-w-full text-sm">
             <thead className="border-b border-slate-200 bg-slate-50">
               <tr>
-                {["Name", "Username", detailHeader, "Status", "Actions"].map((header) => (
+                {headers.map((header) => (
                   <th
                     key={header}
                     className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400"
@@ -74,7 +86,7 @@ export function PortalUserPanel({
             <tbody className="divide-y divide-slate-100">
               {users.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={headers.length} className="px-4 py-8 text-center text-slate-500">
                     No accounts yet.
                   </td>
                 </tr>
@@ -83,27 +95,45 @@ export function PortalUserPanel({
                   <tr key={user.id} className="hover:bg-slate-50/60">
                     <td className="px-4 py-3 font-semibold text-slate-900">{user.fullName}</td>
                     <td className="px-4 py-3 text-slate-700">{user.username}</td>
+                    {isAdmin && (
+                      <td className="px-4 py-3">
+                        <PasswordBadge value={user.passwordHint} />
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-slate-700">
                       {role === "Manager" ? user.department || "—" : user.hrScope || "—"}
                     </td>
+                    {!isAdmin && (
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                            user.isActive
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-slate-100 text-slate-500"
+                          }`}
+                        >
+                          {user.isActive ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                    )}
                     <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                          user.isActive
-                            ? "bg-emerald-100 text-emerald-700"
-                            : "bg-slate-100 text-slate-500"
-                        }`}
-                      >
-                        {user.isActive ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`${panelHref}&edit=${user.id}`}
-                        className="rounded-lg border border-brand-200 px-3 py-1.5 text-sm font-medium text-brand-600 transition hover:bg-brand-50"
-                      >
-                        Edit
-                      </Link>
+                      {isAdmin && deleteAction ? (
+                        <AdminTableActions
+                          editHref={`${panelHref}&edit=${user.id}`}
+                          itemId={user.id}
+                          itemName={user.fullName}
+                          deleteAction={deleteAction}
+                          confirmMessage={`Remove {name} from the list?`}
+                          tab={tab}
+                        />
+                      ) : (
+                        <Link
+                          href={`${panelHref}&edit=${user.id}`}
+                          className="rounded-lg border border-brand-200 px-3 py-1.5 text-sm font-medium text-brand-600 transition hover:bg-brand-50"
+                        >
+                          Edit
+                        </Link>
+                      )}
                     </td>
                   </tr>
                 ))

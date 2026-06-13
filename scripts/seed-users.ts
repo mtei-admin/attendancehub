@@ -87,6 +87,7 @@ async function main() {
       .values({
         username: sample.username,
         passwordHash,
+        passwordHint: sample.password,
         fullName: sample.fullName,
         role: sample.role,
         department: sample.department,
@@ -97,6 +98,7 @@ async function main() {
         target: users.username,
         set: {
           passwordHash,
+          passwordHint: sample.password,
           fullName: sample.fullName,
           role: sample.role,
           department: sample.department,

@@ -4,26 +4,33 @@ import { useMemo, useState } from "react";
 
 import { submitRequestAction } from "@/actions/requests";
 import { REQUEST_TYPES } from "@/lib/constants";
+import type { EmployeesByCompanyDepartment } from "@/lib/roster";
 
 import { FormField, inputClassName } from "./form-field";
 
 type EmployeeFormProps = {
-  departments: { id: number; name: string }[];
-  employeesByDepartment: Record<string, string[]>;
+  companies: string[];
+  employeesByCompanyDepartment: EmployeesByCompanyDepartment;
 };
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function EmployeeForm({ departments, employeesByDepartment }: EmployeeFormProps) {
+export function EmployeeForm({ companies, employeesByCompanyDepartment }: EmployeeFormProps) {
+  const [company, setCompany] = useState("");
   const [department, setDepartment] = useState("");
   const [requestType, setRequestType] = useState("");
 
+  const departments = useMemo(() => {
+    if (!company) return [];
+    return Object.keys(employeesByCompanyDepartment[company] ?? {}).sort();
+  }, [company, employeesByCompanyDepartment]);
+
   const employees = useMemo(() => {
-    if (!department) return [];
-    return employeesByDepartment[department] ?? [];
-  }, [department, employeesByDepartment]);
+    if (!company || !department) return [];
+    return employeesByCompanyDepartment[company]?.[department] ?? [];
+  }, [company, department, employeesByCompanyDepartment]);
 
   const isSimpleLayout =
     requestType === "Absent/Leave" || requestType === "OT Offset";
@@ -37,18 +44,41 @@ export function EmployeeForm({ departments, employeesByDepartment }: EmployeeFor
       className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8"
     >
       <div className="grid gap-5 md:grid-cols-2">
+        <FormField label="Company">
+          <select
+            name="company"
+            required
+            value={company}
+            onChange={(event) => {
+              setCompany(event.target.value);
+              setDepartment("");
+            }}
+            className={inputClassName}
+          >
+            <option value="">— Select company —</option>
+            {companies.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </FormField>
+
         <FormField label="Department">
           <select
             name="department"
             required
             value={department}
-            onChange={(e) => setDepartment(e.target.value)}
-            className={inputClassName}
+            disabled={!company}
+            onChange={(event) => setDepartment(event.target.value)}
+            className={`${inputClassName} disabled:cursor-not-allowed disabled:opacity-60`}
           >
-            <option value="">— Select department —</option>
+            <option value="">
+              {company ? "— Select department —" : "Select company first"}
+            </option>
             {departments.map((dept) => (
-              <option key={dept.id} value={dept.name}>
-                {dept.name}
+              <option key={dept} value={dept}>
+                {dept}
               </option>
             ))}
           </select>
@@ -165,4 +195,3 @@ export function EmployeeForm({ departments, employeesByDepartment }: EmployeeFor
     </form>
   );
 }
-

@@ -16,6 +16,17 @@ export type AdminDashboardStats = {
   byDepartment: DepartmentRequestStats[];
 };
 
+function departmentLabel(request: AttendanceRequest): string {
+  const company = request.company?.trim();
+  const department = request.department?.trim() || "Unassigned";
+
+  if (!company) {
+    return department;
+  }
+
+  return `${company} · ${department}`;
+}
+
 export function buildAdminDashboardStats(
   requests: AttendanceRequest[],
   totalEmployees: number,
@@ -23,7 +34,7 @@ export function buildAdminDashboardStats(
   const byDepartment = new Map<string, DepartmentRequestStats>();
 
   for (const request of requests) {
-    const department = request.department?.trim() || "Unassigned";
+    const department = departmentLabel(request);
     const existing = byDepartment.get(department) ?? {
       department,
       total: 0,

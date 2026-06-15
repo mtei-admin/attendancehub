@@ -7,6 +7,7 @@ import type { User } from "@/lib/schema";
 import { FormField, inputClassName } from "./form-field";
 import { FormModal } from "./form-modal";
 import { FormModalFooter } from "./form-modal-footer";
+import { CompanyDepartmentFields } from "./company-department-fields";
 
 type PortalUserModalProps = {
   open: boolean;
@@ -25,7 +26,6 @@ export function PortalUserModal({
   departments,
   editing = null,
 }: PortalUserModalProps) {
-  const activeDepartments = departments.filter((row) => row.isActive);
   const isEditing = Boolean(editing);
   const roleLabel = role === "Manager" ? "manager" : "HR account";
 
@@ -71,21 +71,11 @@ export function PortalUserModal({
         </FormField>
 
         {role === "Manager" && (
-          <FormField label="Department">
-            <select
-              name="department"
-              required
-              defaultValue={editing?.department ?? ""}
-              className={inputClassName}
-            >
-              <option value="">— Select —</option>
-              {activeDepartments.map((department) => (
-                <option key={department.id} value={department.name}>
-                  {department.name}
-                </option>
-              ))}
-            </select>
-          </FormField>
+          <CompanyDepartmentFields
+            departments={departments}
+            defaultCompany={editing?.company ?? ""}
+            defaultDepartmentName={editing?.department ?? ""}
+          />
         )}
 
         {role === "HR" && (

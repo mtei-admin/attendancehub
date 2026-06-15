@@ -7,6 +7,7 @@ import { isNextNavigationError } from "@/lib/action-auth";
 import { getSession } from "@/lib/auth";
 import { ROLE_ROUTES } from "@/lib/constants";
 import { addRequest, updateRequestStatus } from "@/lib/requests";
+import { verifyEmployeePlacement } from "@/lib/roster";
 
 function revalidateRolePaths() {
   for (const path of Object.values(ROLE_ROUTES)) {
@@ -15,8 +16,9 @@ function revalidateRolePaths() {
 }
 
 export async function submitRequestAction(formData: FormData) {
+  const company = String(formData.get("company") ?? "").trim();
   const department = String(formData.get("department") ?? "").trim();
-  const employeeName = String(formData.get("employee_name") ?? "");
+  const employeeName = String(formData.get("employee_name") ?? "").trim();
   const requestType = String(formData.get("request_type") ?? "");
   const dateRequested = String(formData.get("date_requested") ?? "");
   const dateOfIncident = String(formData.get("date_of_incident") ?? "");
@@ -26,8 +28,17 @@ export async function submitRequestAction(formData: FormData) {
   const fileAsOtOffset = formData.get("file_as_ot_offset") === "on";
   let reason = String(formData.get("reason") ?? "").trim();
 
+  if (!company || !department || !employeeName) {
+    redirect("/employee?error=Please select company, department, and employee.");
+  }
+
   if (!reason) {
     redirect("/employee?error=Please provide a reason before submitting.");
+  }
+
+  const validEmployee = await verifyEmployeePlacement(company, department, employeeName);
+  if (!validEmployee) {
+    redirect("/employee?error=Selected employee does not match the chosen company and department.");
   }
 
   if (fileAsOtOffset) {
@@ -36,6 +47,7 @@ export async function submitRequestAction(formData: FormData) {
 
   try {
     const refId = await addRequest({
+      company,
       department,
       employeeName,
       requestType,
@@ -75,9 +87,16 @@ export async function updateStatusAction(formData: FormData) {
     redirect("/manager?error=A rejection reason is required.");
   }
 
-  const department = session.role === "Manager" ? session.department ?? undefined : undefined;
-  if (session.role === "Manager" && !department) {
-    redirect("/manager?error=Your manager account has no department assigned.");
+  const scope =
+    session.role === "Manager"
+      ? {
+          company: session.company ?? undefined,
+          department: session.department ?? undefined,
+        }
+      : undefined;
+
+  if (session.role === "Manager" && (!session.company || !session.department)) {
+    redirect("/manager?error=Your manager account has no company or department assigned.");
   }
 
   try {
@@ -85,7 +104,7 @@ export async function updateStatusAction(formData: FormData) {
       refId,
       status,
       session.fullName,
-      department,
+      scope,
       status === "Approved" && approvedOtHrs ? approvedOtHrs : null,
       status === "Rejected" ? rejectionReason : null,
     );
@@ -103,4 +122,3 @@ export async function updateStatusAction(formData: FormData) {
     );
   }
 }
-

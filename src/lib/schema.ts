@@ -1,11 +1,29 @@
-import { boolean, date, integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  date,
+  integer,
+  pgTable,
+  serial,
+  text,
+  timestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 
-export const departments = pgTable("departments", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull().unique(),
-  isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+import { DEFAULT_COMPANY } from "./constants";
+
+export const departments = pgTable(
+  "departments",
+  {
+    id: serial("id").primaryKey(),
+    company: text("company").notNull().default(DEFAULT_COMPANY),
+    name: text("name").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    companyNameIdx: uniqueIndex("departments_company_name_unique").on(table.company, table.name),
+  }),
+);
 
 export type Department = typeof departments.$inferSelect;
 export type NewDepartment = typeof departments.$inferInsert;
@@ -31,6 +49,7 @@ export const users = pgTable("users", {
   passwordHint: text("password_hint"),
   fullName: text("full_name").notNull(),
   role: text("role").notNull(),
+  company: text("company"),
   department: text("department"),
   hrScope: text("hr_scope"),
   isActive: boolean("is_active").notNull().default(true),
@@ -44,6 +63,7 @@ export const attendanceRequests = pgTable("attendance_requests", {
   id: serial("id").primaryKey(),
   refId: text("ref_id").notNull().unique(),
   submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull(),
+  company: text("company"),
   department: text("department"),
   employeeName: text("employee_name").notNull(),
   requestType: text("request_type").notNull(),

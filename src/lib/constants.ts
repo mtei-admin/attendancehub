@@ -23,6 +23,10 @@ export type RequestType = (typeof REQUEST_TYPES)[number];
 export const STATUSES = ["Pending", "Approved", "Rejected"] as const;
 export type RequestStatus = (typeof STATUSES)[number];
 
+export const COMPANIES = ["MTEI", "MTE Logistics", "MTE Engineering"] as const;
+export type Company = (typeof COMPANIES)[number];
+export const DEFAULT_COMPANY: Company = "MTEI";
+
 export const DEPARTMENTS = [
   "Operations",
   "Human Resource",

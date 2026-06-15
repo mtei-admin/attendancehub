@@ -1,5 +1,6 @@
 import { updateStatusAction } from "@/actions/requests";
 import type { AttendanceRequest } from "@/lib/schema";
+import { requestEmployeeKey } from "@/lib/roster";
 
 import { inputClassName } from "./form-field";
 import {
@@ -52,8 +53,7 @@ export function ManagerPendingList({
           </thead>
           <tbody className="divide-y divide-slate-100">
             {requests.map((request) => {
-              const employeeType =
-                employeeTypeLookup[`${request.department ?? ""}::${request.employeeName}`];
+              const employeeType = employeeTypeLookup[requestEmployeeKey(request)];
               const typeLabel = getEmployeeTypeLabel(employeeType);
               const showApproveHrs = needsApproveHrs(request.requestType);
 
@@ -73,6 +73,7 @@ export function ManagerPendingList({
                       )}
                     </div>
                     <p className="mt-1 text-xs text-slate-500">
+                      {request.company ? `${request.company} · ` : ""}
                       {request.department || "—"} · {formatManagerSubmittedDate(request.submittedAt)}
                     </p>
                   </td>

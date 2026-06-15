@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireRoles, isNextNavigationError } from "@/lib/action-auth";
-import { EMPLOYEE_TYPES } from "@/lib/constants";
+import { COMPANIES, EMPLOYEE_TYPES } from "@/lib/constants";
 import { createEmployee, updateEmployee } from "@/lib/roster";
 import { archiveRequest, hrRejectApprovedRequest, unarchiveRequest } from "@/lib/requests";
 import { createUser, getUserById, getUserByUsername, updateUser } from "@/lib/users";
@@ -154,11 +154,16 @@ export async function saveManagerAction(formData: FormData) {
   const fullName = String(formData.get("full_name") ?? "").trim();
   const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+  const company = String(formData.get("company") ?? "").trim();
   const department = String(formData.get("department") ?? "").trim();
   const isActive = formData.get("is_active") === "on";
 
-  if (!fullName || !username || !department) {
-    hrRedirect({ tab: "managers", error: "Name, username, and department are required." });
+  if (!fullName || !username || !company || !department) {
+    hrRedirect({ tab: "managers", error: "Name, username, company, and department are required." });
+  }
+
+  if (!(COMPANIES as readonly string[]).includes(company)) {
+    hrRedirect({ tab: "managers", error: "Invalid company." });
   }
 
   try {
@@ -178,6 +183,7 @@ export async function saveManagerAction(formData: FormData) {
       await updateUser(id, {
         fullName,
         username,
+        company,
         department,
         isActive,
         ...(password ? { password } : {}),
@@ -202,6 +208,7 @@ export async function saveManagerAction(formData: FormData) {
       password,
       fullName,
       role: "Manager",
+      company,
       department,
     });
 

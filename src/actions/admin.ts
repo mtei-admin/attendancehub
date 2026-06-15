@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireRoles, isNextNavigationError } from "@/lib/action-auth";
-import { EMPLOYEE_TYPES, HR_SCOPES } from "@/lib/constants";
+import { COMPANIES, EMPLOYEE_TYPES, HR_SCOPES } from "@/lib/constants";
 import { createDepartment, updateDepartment } from "@/lib/departments";
 import { createEmployee, updateEmployee } from "@/lib/roster";
 import { createUser, deactivateUser, getUserById, getUserByUsername, updateUser } from "@/lib/users";
@@ -20,30 +20,35 @@ function adminRedirect(params: { tab?: string; success?: string; error?: string 
 export async function saveDepartmentAction(formData: FormData) {
   await requireRoles(["Admin"]);
   const id = Number(formData.get("id") ?? 0);
+  const company = String(formData.get("company") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
   const isActive = formData.get("is_active") === "on";
 
-  if (!name) {
-    adminRedirect({ tab: "departments", error: "Department name is required." });
+  if (!company || !name) {
+    adminRedirect({ tab: "departments", error: "Company and department name are required." });
+  }
+
+  if (!(COMPANIES as readonly string[]).includes(company)) {
+    adminRedirect({ tab: "departments", error: "Invalid company." });
   }
 
   try {
     if (id > 0) {
-      const updated = await updateDepartment(id, { name, isActive });
+      const updated = await updateDepartment(id, { company, name, isActive });
       if (!updated) {
         adminRedirect({ tab: "departments", error: "Department not found." });
       }
       revalidatePath("/admin");
       revalidatePath("/hr");
       revalidatePath("/employee");
-      adminRedirect({ tab: "departments", success: `Updated department ${name}.` });
+      adminRedirect({ tab: "departments", success: `Updated ${company} · ${name}.` });
     }
 
-    await createDepartment(name);
+    await createDepartment({ company, name });
     revalidatePath("/admin");
     revalidatePath("/hr");
     revalidatePath("/employee");
-    adminRedirect({ tab: "departments", success: `Added department ${name}.` });
+    adminRedirect({ tab: "departments", success: `Added ${company} · ${name}.` });
   } catch (error) {
     if (isNextNavigationError(error)) throw error;
     adminRedirect({
@@ -198,6 +203,7 @@ export async function saveCredentialsAction(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   const fullName = String(formData.get("full_name") ?? "").trim();
   const role = String(formData.get("role") ?? "").trim();
+  const company = String(formData.get("company") ?? "").trim() || null;
   const department = String(formData.get("department") ?? "").trim() || null;
   const hrScope = String(formData.get("hr_scope") ?? "").trim() || null;
   const isActive = formData.get("is_active") === "on";
@@ -206,8 +212,12 @@ export async function saveCredentialsAction(formData: FormData) {
     adminRedirect({ tab: "credentials", error: "Name, username, and role are required." });
   }
 
-  if (role === "Manager" && !department) {
-    adminRedirect({ tab: "credentials", error: "Department is required for managers." });
+  if (role === "Manager" && (!company || !department)) {
+    adminRedirect({ tab: "credentials", error: "Company and department are required for managers." });
+  }
+
+  if (role === "Manager" && company && !(COMPANIES as readonly string[]).includes(company)) {
+    adminRedirect({ tab: "credentials", error: "Invalid company." });
   }
 
   if (role === "HR" && hrScope && !(HR_SCOPES as readonly string[]).includes(hrScope)) {
@@ -232,6 +242,7 @@ export async function saveCredentialsAction(formData: FormData) {
         username,
         fullName,
         role,
+        company: role === "Manager" ? company : null,
         department: role === "Manager" ? department : null,
         hrScope: role === "HR" ? hrScope : null,
         isActive,
@@ -257,6 +268,7 @@ export async function saveCredentialsAction(formData: FormData) {
       password,
       fullName,
       role,
+      company: role === "Manager" ? company : null,
       department: role === "Manager" ? department : null,
       hrScope: role === "HR" ? hrScope : null,
     });
@@ -282,6 +294,7 @@ async function savePortalUserAction(
   const fullName = String(formData.get("full_name") ?? "").trim();
   const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+  const company = String(formData.get("company") ?? "").trim() || null;
   const department = String(formData.get("department") ?? "").trim() || null;
   const hrScope = String(formData.get("hr_scope") ?? "").trim() || null;
   const isActive = formData.get("is_active") === "on";
@@ -290,8 +303,12 @@ async function savePortalUserAction(
     adminRedirect({ tab, error: "Name and username are required." });
   }
 
-  if (role === "Manager" && !department) {
-    adminRedirect({ tab, error: "Department is required for managers." });
+  if (role === "Manager" && (!company || !department)) {
+    adminRedirect({ tab, error: "Company and department are required for managers." });
+  }
+
+  if (role === "Manager" && company && !(COMPANIES as readonly string[]).includes(company)) {
+    adminRedirect({ tab, error: "Invalid company." });
   }
 
   if (role === "HR" && hrScope && !(HR_SCOPES as readonly string[]).includes(hrScope)) {
@@ -315,6 +332,7 @@ async function savePortalUserAction(
       await updateUser(id, {
         fullName,
         username,
+        company: role === "Manager" ? company : null,
         department: role === "Manager" ? department : null,
         hrScope: role === "HR" ? hrScope : null,
         isActive,
@@ -340,6 +358,7 @@ async function savePortalUserAction(
       password,
       fullName,
       role,
+      company: role === "Manager" ? company : null,
       department: role === "Manager" ? department : null,
       hrScope: role === "HR" ? hrScope : null,
     });

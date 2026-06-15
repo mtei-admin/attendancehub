@@ -1,6 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 
-import { DEPARTMENTS, EMPLOYEES_BY_DEPARTMENT } from "../src/lib/constants";
+import { DEFAULT_COMPANY, DEPARTMENTS, EMPLOYEES_BY_DEPARTMENT } from "../src/lib/constants";
 
 const ATTENDANCE_ALTER_STATEMENTS = [
   `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS department text`,
@@ -10,7 +10,22 @@ const ATTENDANCE_ALTER_STATEMENTS = [
   `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS archived_at timestamptz`,
   `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS archived_by text`,
   `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS rejection_reason text`,
+  `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS company text`,
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hint text`,
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS company text`,
+];
+
+const DEPARTMENT_ALTER_STATEMENTS = [
+  `ALTER TABLE departments ADD COLUMN IF NOT EXISTS company text NOT NULL DEFAULT '${DEFAULT_COMPANY}'`,
+  `UPDATE departments SET company = '${DEFAULT_COMPANY}' WHERE company IS NULL OR company = ''`,
+  `ALTER TABLE departments DROP CONSTRAINT IF EXISTS departments_name_key`,
+  `DROP INDEX IF EXISTS departments_name_key`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS departments_company_name_unique ON departments (company, name)`,
+];
+
+const BACKFILL_STATEMENTS = [
+  `UPDATE attendance_requests SET company = '${DEFAULT_COMPANY}' WHERE company IS NULL OR company = ''`,
+  `UPDATE users SET company = '${DEFAULT_COMPANY}' WHERE role = 'Manager' AND (company IS NULL OR company = '')`,
 ];
 
 const CREATE_USERS_TABLE = `
@@ -18,8 +33,10 @@ CREATE TABLE IF NOT EXISTS users (
   id serial PRIMARY KEY,
   username text NOT NULL UNIQUE,
   password_hash text NOT NULL,
+  password_hint text,
   full_name text NOT NULL,
   role text NOT NULL,
+  company text,
   department text,
   hr_scope text,
   is_active boolean NOT NULL DEFAULT true,
@@ -30,10 +47,15 @@ CREATE TABLE IF NOT EXISTS users (
 const CREATE_DEPARTMENTS_TABLE = `
 CREATE TABLE IF NOT EXISTS departments (
   id serial PRIMARY KEY,
-  name text NOT NULL UNIQUE,
+  company text NOT NULL DEFAULT '${DEFAULT_COMPANY}',
+  name text NOT NULL,
   is_active boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+`;
+
+const CREATE_DEPARTMENTS_UNIQUE_INDEX = `
+CREATE UNIQUE INDEX IF NOT EXISTS departments_company_name_unique ON departments (company, name);
 `;
 
 const EMPLOYEE_ALTER_STATEMENTS = [
@@ -63,11 +85,17 @@ async function seedDepartmentsAndEmployees(
   }
 
   for (const name of DEPARTMENTS) {
-    await sql`INSERT INTO departments (name) VALUES (${name}) ON CONFLICT (name) DO NOTHING`;
+    await sql`
+      INSERT INTO departments (company, name)
+      VALUES (${DEFAULT_COMPANY}, ${name})
+      ON CONFLICT DO NOTHING
+    `;
   }
-  console.log(`OK: seeded ${DEPARTMENTS.length} departments`);
+  console.log(`OK: seeded ${DEPARTMENTS.length} departments for ${DEFAULT_COMPANY}`);
 
-  const deptRows = await sql`SELECT id, name FROM departments`;
+  const deptRows = await sql`
+    SELECT id, name FROM departments WHERE company = ${DEFAULT_COMPANY}
+  `;
   const deptByName = new Map(
     (deptRows as { id: number; name: string }[]).map((row) => [row.name, row.id]),
   );
@@ -108,10 +136,23 @@ async function main() {
   await sql(CREATE_DEPARTMENTS_TABLE);
   console.log("OK: departments table ready");
 
+  await sql(CREATE_DEPARTMENTS_UNIQUE_INDEX);
+  console.log("OK: departments unique index ready");
+
+  for (const statement of DEPARTMENT_ALTER_STATEMENTS) {
+    await sql(statement);
+    console.log(`OK: ${statement}`);
+  }
+
   await sql(CREATE_EMPLOYEES_TABLE);
   console.log("OK: employees table ready");
 
   for (const statement of EMPLOYEE_ALTER_STATEMENTS) {
+    await sql(statement);
+    console.log(`OK: ${statement}`);
+  }
+
+  for (const statement of BACKFILL_STATEMENTS) {
     await sql(statement);
     console.log(`OK: ${statement}`);
   }

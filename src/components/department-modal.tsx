@@ -1,5 +1,6 @@
 "use client";
 
+import { COMPANIES, DEFAULT_COMPANY } from "@/lib/constants";
 import type { Department } from "@/lib/schema";
 
 import { FormField, inputClassName } from "./form-field";
@@ -30,6 +31,21 @@ export function DepartmentModal({
     >
       <form action={saveAction} className="mt-5 space-y-4">
         {isEditing && editing && <input type="hidden" name="id" value={editing.id} />}
+
+        <FormField label="Company">
+          <select
+            name="company"
+            required
+            defaultValue={editing?.company ?? DEFAULT_COMPANY}
+            className={inputClassName}
+          >
+            {COMPANIES.map((company) => (
+              <option key={company} value={company}>
+                {company}
+              </option>
+            ))}
+          </select>
+        </FormField>
 
         <FormField label="Department name">
           <input

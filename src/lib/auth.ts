@@ -13,6 +13,7 @@ export type SessionUser = {
   username: string;
   fullName: string;
   role: Role;
+  company: string | null;
   department: string | null;
   hrScope: string | null;
 };
@@ -27,6 +28,7 @@ export function userToSession(user: User): SessionUser {
     username: user.username,
     fullName: user.fullName,
     role: user.role,
+    company: user.company,
     department: user.department,
     hrScope: user.hrScope,
   };

@@ -23,14 +23,18 @@ export default async function ManagerPage({ searchParams }: ManagerPageProps) {
   if (!session) redirect("/");
 
   const departmentFilter =
-    session.role === "Manager" ? session.department : undefined;
+    session.role === "Manager"
+      ? session.company && session.department
+        ? { company: session.company, department: session.department }
+        : undefined
+      : undefined;
 
   const [pendingRequests, historyRequests, roster] =
     session.role === "Manager" && !departmentFilter
       ? [[], [], []]
       : await Promise.all([
-          getPendingRequests(departmentFilter ?? undefined),
-          getHistoryRequests(departmentFilter ?? undefined),
+          getPendingRequests(departmentFilter),
+          getHistoryRequests(departmentFilter),
           listEmployees(true),
         ]);
 

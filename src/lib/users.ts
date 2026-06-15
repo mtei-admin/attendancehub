@@ -52,6 +52,7 @@ export async function createUser(input: {
   password: string;
   fullName: string;
   role: string;
+  company?: string | null;
   department?: string | null;
   hrScope?: string | null;
 }): Promise<User> {
@@ -66,6 +67,7 @@ export async function createUser(input: {
       passwordHint: input.password,
       fullName: input.fullName.trim(),
       role: input.role,
+      company: input.company ?? null,
       department: input.department ?? null,
       hrScope: input.hrScope ?? null,
       isActive: true,
@@ -82,6 +84,7 @@ export async function updateUser(
     password?: string;
     fullName?: string;
     role?: string;
+    company?: string | null;
     department?: string | null;
     hrScope?: string | null;
     isActive?: boolean;
@@ -94,6 +97,7 @@ export async function updateUser(
     passwordHint: string;
     fullName: string;
     role: string;
+    company: string | null;
     department: string | null;
     hrScope: string | null;
     isActive: boolean;
@@ -102,6 +106,7 @@ export async function updateUser(
   if (input.username !== undefined) updates.username = input.username.trim();
   if (input.fullName !== undefined) updates.fullName = input.fullName.trim();
   if (input.role !== undefined) updates.role = input.role;
+  if (input.company !== undefined) updates.company = input.company;
   if (input.department !== undefined) updates.department = input.department;
   if (input.hrScope !== undefined) updates.hrScope = input.hrScope;
   if (input.isActive !== undefined) updates.isActive = input.isActive;

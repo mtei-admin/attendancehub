@@ -4,6 +4,11 @@ import { MANAGER_NAME } from "./constants";
 import { getDb } from "./db";
 import { attendanceRequests, type AttendanceRequest } from "./schema";
 
+export type RequestScope = {
+  company?: string;
+  department?: string;
+};
+
 async function generateRefId(): Promise<string> {
   const db = getDb();
   const [latest] = await db
@@ -20,7 +25,24 @@ async function generateRefId(): Promise<string> {
   return `REQ-${String(lastNum + 1).padStart(3, "0")}`;
 }
 
+function buildScopeConditions(scope?: RequestScope) {
+  if (!scope?.company && !scope?.department) {
+    return undefined;
+  }
+
+  const parts = [];
+  if (scope.company) {
+    parts.push(eq(attendanceRequests.company, scope.company));
+  }
+  if (scope.department) {
+    parts.push(eq(attendanceRequests.department, scope.department));
+  }
+
+  return parts.length === 1 ? parts[0] : and(...parts);
+}
+
 export async function addRequest(input: {
+  company: string;
   department: string;
   employeeName: string;
   requestType: string;
@@ -37,6 +59,7 @@ export async function addRequest(input: {
   await db.insert(attendanceRequests).values({
     refId,
     submittedAt: new Date(),
+    company: input.company,
     department: input.department,
     employeeName: input.employeeName,
     requestType: input.requestType,
@@ -166,10 +189,11 @@ export async function unarchiveRequest(refId: string): Promise<boolean> {
   return result.length > 0;
 }
 
-export async function getPendingRequests(department?: string): Promise<AttendanceRequest[]> {
+export async function getPendingRequests(scope?: RequestScope): Promise<AttendanceRequest[]> {
   const db = getDb();
-  const conditions = department
-    ? and(eq(attendanceRequests.status, "Pending"), eq(attendanceRequests.department, department))
+  const scopeCondition = buildScopeConditions(scope);
+  const conditions = scopeCondition
+    ? and(eq(attendanceRequests.status, "Pending"), scopeCondition)
     : eq(attendanceRequests.status, "Pending");
 
   return db
@@ -179,10 +203,11 @@ export async function getPendingRequests(department?: string): Promise<Attendanc
     .orderBy(desc(attendanceRequests.submittedAt));
 }
 
-export async function getHistoryRequests(department?: string): Promise<AttendanceRequest[]> {
+export async function getHistoryRequests(scope?: RequestScope): Promise<AttendanceRequest[]> {
   const db = getDb();
-  const conditions = department
-    ? and(ne(attendanceRequests.status, "Pending"), eq(attendanceRequests.department, department))
+  const scopeCondition = buildScopeConditions(scope);
+  const conditions = scopeCondition
+    ? and(ne(attendanceRequests.status, "Pending"), scopeCondition)
     : ne(attendanceRequests.status, "Pending");
 
   return db
@@ -196,13 +221,14 @@ export async function updateRequestStatus(
   refId: string,
   status: "Approved" | "Rejected",
   approvedBy: string = MANAGER_NAME,
-  department?: string,
+  scope?: RequestScope,
   approvedOtHrs?: string | null,
   rejectionReason?: string | null,
 ): Promise<boolean> {
   const db = getDb();
-  const conditions = department
-    ? and(eq(attendanceRequests.refId, refId), eq(attendanceRequests.department, department))
+  const scopeCondition = buildScopeConditions(scope);
+  const conditions = scopeCondition
+    ? and(eq(attendanceRequests.refId, refId), scopeCondition)
     : eq(attendanceRequests.refId, refId);
 
   const result = await db
@@ -224,6 +250,7 @@ export function toDisplayRow(request: AttendanceRequest) {
   return {
     ref_id: request.refId,
     submitted_at: request.submittedAt?.toISOString() ?? "",
+    company: request.company ?? "",
     department: request.department ?? "",
     employee_name: request.employeeName,
     request_type: request.requestType,

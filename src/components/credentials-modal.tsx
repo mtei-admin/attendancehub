@@ -1,10 +1,13 @@
 "use client";
 
+import { useState } from "react";
+
 import { saveCredentialsAction } from "@/actions/admin";
 import { HR_SCOPES, ROLES } from "@/lib/constants";
 import type { Department } from "@/lib/schema";
 import type { User } from "@/lib/schema";
 
+import { CompanyDepartmentFields } from "./company-department-fields";
 import { FormField, inputClassName } from "./form-field";
 import { FormModal } from "./form-modal";
 import { FormModalFooter } from "./form-modal-footer";
@@ -24,8 +27,8 @@ export function CredentialsModal({
   editing = null,
   isAdding = false,
 }: CredentialsModalProps) {
-  const activeDepartments = departments.filter((row) => row.isActive);
   const isEditing = Boolean(editing);
+  const [role, setRole] = useState(editing?.role ?? "Employee");
 
   if (!open) return null;
 
@@ -75,42 +78,38 @@ export function CredentialsModal({
           <select
             name="role"
             required
-            defaultValue={editing?.role ?? "Employee"}
+            value={role}
+            onChange={(event) => setRole(event.target.value)}
             className={inputClassName}
           >
-            {ROLES.map((role) => (
-              <option key={role} value={role}>
-                {role}
+            {ROLES.map((option) => (
+              <option key={option} value={option}>
+                {option}
               </option>
             ))}
           </select>
         </FormField>
 
-        <FormField label="Department">
-          <select
-            name="department"
-            defaultValue={editing?.department ?? ""}
-            className={inputClassName}
-          >
-            <option value="">— Select —</option>
-            {activeDepartments.map((department) => (
-              <option key={department.id} value={department.name}>
-                {department.name}
-              </option>
-            ))}
-          </select>
-        </FormField>
+        {role === "Manager" && (
+          <CompanyDepartmentFields
+            departments={departments}
+            defaultCompany={editing?.company ?? ""}
+            defaultDepartmentName={editing?.department ?? ""}
+          />
+        )}
 
-        <FormField label="HR scope">
-          <select name="hr_scope" defaultValue={editing?.hrScope ?? ""} className={inputClassName}>
-            <option value="">— Select —</option>
-            {HR_SCOPES.map((scope) => (
-              <option key={scope} value={scope}>
-                {scope}
-              </option>
-            ))}
-          </select>
-        </FormField>
+        {role === "HR" && (
+          <FormField label="HR scope">
+            <select name="hr_scope" defaultValue={editing?.hrScope ?? ""} className={inputClassName}>
+              <option value="">— Select —</option>
+              {HR_SCOPES.map((scope) => (
+                <option key={scope} value={scope}>
+                  {scope}
+                </option>
+              ))}
+            </select>
+          </FormField>
+        )}
 
         {isEditing && editing && (
           <FormField label="Status">

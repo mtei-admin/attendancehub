@@ -67,7 +67,7 @@ export function RosterPanel({
           <table className="min-w-full text-sm">
             <thead className="border-b border-slate-200 bg-slate-50">
               <tr>
-                {["Name", "Department", "Payroll group", "Actions"].map((header) => (
+                {["Name", "Company · Department", "Payroll group", "Actions"].map((header) => (
                   <th
                     key={header}
                     className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400"
@@ -90,7 +90,9 @@ export function RosterPanel({
                     <td className="px-4 py-3 font-semibold text-slate-900">
                       {employee.fullName}
                     </td>
-                    <td className="px-4 py-3 text-slate-700">{employee.departmentName}</td>
+                    <td className="px-4 py-3 text-slate-700">
+                      {employee.companyName} · {employee.departmentName}
+                    </td>
                     <td className="px-4 py-3">
                       <span
                         className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getEmployeeTypeBadgeClass(employee.employeeType)}`}

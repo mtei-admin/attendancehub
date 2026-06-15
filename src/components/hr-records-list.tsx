@@ -1,5 +1,6 @@
 import { checkRequestAction, hrRejectRequestAction } from "@/actions/hr";
 import type { AttendanceRequest } from "@/lib/schema";
+import { requestEmployeeKey } from "@/lib/roster";
 
 import {
   formatManagerSubmittedDate,
@@ -89,8 +90,7 @@ export function HrRecordsList({
         </thead>
         <tbody className="divide-y divide-slate-100">
           {requests.map((request) => {
-            const employeeType =
-              employeeTypeLookup[`${request.department ?? ""}::${request.employeeName}`];
+            const employeeType = employeeTypeLookup[requestEmployeeKey(request)];
             const typeLabel = getEmployeeTypeLabel(employeeType);
             const isChecked = request.archived;
 
@@ -108,6 +108,7 @@ export function HrRecordsList({
                     )}
                   </div>
                   <p className="mt-1 text-xs text-slate-500">
+                    {request.company ? `${request.company} · ` : ""}
                     {request.department || "—"} · {formatManagerSubmittedDate(request.submittedAt)}
                   </p>
                 </td>

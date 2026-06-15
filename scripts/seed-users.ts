@@ -2,6 +2,7 @@ import { hash } from "bcryptjs";
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 
+import { DEFAULT_COMPANY } from "../src/lib/constants";
 import { users } from "../src/lib/schema";
 
 const USER_SAMPLES = [
@@ -10,6 +11,7 @@ const USER_SAMPLES = [
     password: "admin2026",
     fullName: "System Admin",
     role: "Admin",
+    company: null,
     department: null,
     hrScope: null,
   },
@@ -18,6 +20,7 @@ const USER_SAMPLES = [
     password: "hr2026",
     fullName: "Ana Reyes",
     role: "Manager",
+    company: DEFAULT_COMPANY,
     department: "Human Resource",
     hrScope: null,
   },
@@ -26,6 +29,7 @@ const USER_SAMPLES = [
     password: "ops2026",
     fullName: "Carlo Santos",
     role: "Manager",
+    company: DEFAULT_COMPANY,
     department: "Operations",
     hrScope: null,
   },
@@ -34,6 +38,7 @@ const USER_SAMPLES = [
     password: "sales2026",
     fullName: "Maria Lim",
     role: "Manager",
+    company: DEFAULT_COMPANY,
     department: "Sales & Marketing",
     hrScope: null,
   },
@@ -42,6 +47,7 @@ const USER_SAMPLES = [
     password: "log2026",
     fullName: "Jose Cruz",
     role: "Manager",
+    company: DEFAULT_COMPANY,
     department: "Logistics",
     hrScope: null,
   },
@@ -50,6 +56,7 @@ const USER_SAMPLES = [
     password: "rf2026",
     fullName: "Virg",
     role: "HR",
+    company: null,
     department: null,
     hrScope: "R&F only",
   },
@@ -58,6 +65,7 @@ const USER_SAMPLES = [
     password: "confi2026",
     fullName: "HR Confi",
     role: "HR",
+    company: null,
     department: null,
     hrScope: "Confi only",
   },
@@ -66,6 +74,7 @@ const USER_SAMPLES = [
     password: "emp2026",
     fullName: "Maria Santos",
     role: "Employee",
+    company: null,
     department: "Operations",
     hrScope: null,
   },
@@ -90,6 +99,7 @@ async function main() {
         passwordHint: sample.password,
         fullName: sample.fullName,
         role: sample.role,
+        company: sample.company,
         department: sample.department,
         hrScope: sample.hrScope,
         isActive: true,
@@ -101,6 +111,7 @@ async function main() {
           passwordHint: sample.password,
           fullName: sample.fullName,
           role: sample.role,
+          company: sample.company,
           department: sample.department,
           hrScope: sample.hrScope,
           isActive: true,

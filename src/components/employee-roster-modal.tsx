@@ -7,6 +7,7 @@ import type { EmployeeWithDepartment } from "@/lib/roster";
 import { FormField, inputClassName } from "./form-field";
 import { FormModal } from "./form-modal";
 import { FormModalFooter } from "./form-modal-footer";
+import { CompanyDepartmentFields } from "./company-department-fields";
 import { getEmployeeTypeLabel } from "./manager-request-utils";
 
 type EmployeeRosterModalProps = {
@@ -24,7 +25,6 @@ export function EmployeeRosterModal({
   departments,
   editing = null,
 }: EmployeeRosterModalProps) {
-  const activeDepartments = departments.filter((row) => row.isActive);
   const isEditing = Boolean(editing);
 
   return (
@@ -48,21 +48,12 @@ export function EmployeeRosterModal({
           />
         </FormField>
 
-        <FormField label="Department">
-          <select
-            name="department_id"
-            required
-            defaultValue={editing?.departmentId ?? ""}
-            className={inputClassName}
-          >
-            <option value="">— Select —</option>
-            {activeDepartments.map((department) => (
-              <option key={department.id} value={department.id}>
-                {department.name}
-              </option>
-            ))}
-          </select>
-        </FormField>
+        <CompanyDepartmentFields
+          departments={departments}
+          defaultCompany={editing?.companyName}
+          defaultDepartmentId={editing?.departmentId}
+          departmentMode="id"
+        />
 
         <FormField label="Payroll group">
           <select

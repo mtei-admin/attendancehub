@@ -1,9 +1,30 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 
 import { getDb } from "./db";
 import { departments, employees, type AttendanceRequest, type Employee } from "./schema";
 
-export type EmployeeWithDepartment = Employee & { departmentName: string };
+export type EmployeeWithDepartment = Employee & {
+  companyName: string;
+  departmentName: string;
+};
+
+export type EmployeesByCompanyDepartment = Record<string, Record<string, string[]>>;
+
+export function employeeLookupKey(
+  company: string | null | undefined,
+  department: string | null | undefined,
+  employeeName: string,
+): string {
+  return `${company ?? ""}::${department ?? ""}::${employeeName}`;
+}
+
+export function requestEmployeeKey(request: {
+  company?: string | null;
+  department?: string | null;
+  employeeName: string;
+}): string {
+  return employeeLookupKey(request.company, request.department, request.employeeName);
+}
 
 export async function listEmployees(activeOnly = false): Promise<EmployeeWithDepartment[]> {
   const db = getDb();
@@ -15,12 +36,13 @@ export async function listEmployees(activeOnly = false): Promise<EmployeeWithDep
       employeeType: employees.employeeType,
       isActive: employees.isActive,
       createdAt: employees.createdAt,
+      companyName: departments.company,
       departmentName: departments.name,
       departmentIsActive: departments.isActive,
     })
     .from(employees)
     .innerJoin(departments, eq(employees.departmentId, departments.id))
-    .orderBy(asc(departments.name), asc(employees.fullName));
+    .orderBy(asc(departments.company), asc(departments.name), asc(employees.fullName));
 
   if (activeOnly) {
     return rows
@@ -31,18 +53,40 @@ export async function listEmployees(activeOnly = false): Promise<EmployeeWithDep
   return rows.map(({ departmentIsActive: _ignored, ...row }) => row);
 }
 
-export async function getEmployeesByDepartment(): Promise<Record<string, string[]>> {
-  const roster = await listEmployees(true);
-  const grouped: Record<string, string[]> = {};
+export function buildEmployeesByCompanyDepartment(
+  roster: EmployeeWithDepartment[],
+): EmployeesByCompanyDepartment {
+  const grouped: EmployeesByCompanyDepartment = {};
 
   for (const employee of roster) {
-    if (!grouped[employee.departmentName]) {
-      grouped[employee.departmentName] = [];
+    if (!grouped[employee.companyName]) {
+      grouped[employee.companyName] = {};
     }
-    grouped[employee.departmentName].push(employee.fullName);
+    if (!grouped[employee.companyName][employee.departmentName]) {
+      grouped[employee.companyName][employee.departmentName] = [];
+    }
+    grouped[employee.companyName][employee.departmentName].push(employee.fullName);
   }
 
   return grouped;
+}
+
+export async function getEmployeesByCompanyDepartment(): Promise<EmployeesByCompanyDepartment> {
+  return buildEmployeesByCompanyDepartment(await listEmployees(true));
+}
+
+export async function verifyEmployeePlacement(
+  company: string,
+  department: string,
+  employeeName: string,
+): Promise<boolean> {
+  const roster = await listEmployees(true);
+  return roster.some(
+    (employee) =>
+      employee.companyName === company &&
+      employee.departmentName === department &&
+      employee.fullName === employeeName,
+  );
 }
 
 export function buildEmployeeTypeLookup(
@@ -51,7 +95,8 @@ export function buildEmployeeTypeLookup(
   const lookup: Record<string, string> = {};
 
   for (const employee of roster) {
-    lookup[`${employee.departmentName}::${employee.fullName}`] = employee.employeeType;
+    lookup[employeeLookupKey(employee.companyName, employee.departmentName, employee.fullName)] =
+      employee.employeeType;
   }
 
   return lookup;
@@ -70,8 +115,7 @@ export function filterRequestsByHrScope(
   if (!allowedType) return requests;
 
   return requests.filter((request) => {
-    const employeeType =
-      employeeTypeLookup[`${request.department ?? ""}::${request.employeeName}`];
+    const employeeType = employeeTypeLookup[requestEmployeeKey(request)];
     return employeeType === allowedType;
   });
 }

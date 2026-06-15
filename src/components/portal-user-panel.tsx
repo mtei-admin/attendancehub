@@ -35,11 +35,11 @@ export function PortalUserPanel({
   const isAdmin = basePath === "/admin";
   const panelTitle = role === "Manager" ? "Manager accounts" : "HR accounts";
   const addLabel = role === "Manager" ? "+ Add manager" : "+ Add HR account";
-  const detailHeader = role === "Manager" ? "Department" : "HR scope";
+  const detailHeader = role === "Manager" ? "Company · Department" : "HR scope";
 
   const adminHeaders =
     role === "Manager"
-      ? ["Name", "Username", "Password", "Department", "Actions"]
+      ? ["Name", "Username", "Password", "Company · Department", "Actions"]
       : ["Name", "Username", "Password", "HR scope", "Actions"];
 
   const hrHeaders = ["Name", "Username", detailHeader, "Status", "Actions"];
@@ -101,7 +101,11 @@ export function PortalUserPanel({
                       </td>
                     )}
                     <td className="px-4 py-3 text-slate-700">
-                      {role === "Manager" ? user.department || "—" : user.hrScope || "—"}
+                      {role === "Manager"
+                        ? user.company && user.department
+                          ? `${user.company} · ${user.department}`
+                          : user.department || "—"
+                        : user.hrScope || "—"}
                     </td>
                     {!isAdmin && (
                       <td className="px-4 py-3">

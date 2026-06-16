@@ -13,6 +13,7 @@ import { RosterDeleteButton } from "./roster-delete-button";
 type RosterPanelProps = {
   employees: EmployeeWithDepartment[];
   departments: Department[];
+  companies: string[];
   saveAction: (formData: FormData) => Promise<void>;
   deleteAction?: (formData: FormData) => Promise<void>;
   editId?: number;
@@ -25,6 +26,7 @@ type RosterPanelProps = {
 export function RosterPanel({
   employees,
   departments,
+  companies,
   saveAction,
   deleteAction,
   editId,
@@ -47,6 +49,7 @@ export function RosterPanel({
         cancelHref={rosterHref}
         saveAction={saveAction}
         departments={departments}
+        companies={companies}
         editing={editing}
       />
 

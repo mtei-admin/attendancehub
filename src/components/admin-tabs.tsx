@@ -5,6 +5,7 @@ export type AdminTab =
   | "employees"
   | "managers"
   | "hr"
+  | "companies"
   | "departments"
   | "credentials";
 
@@ -13,6 +14,7 @@ type AdminTabsProps = {
   employeeCount: number;
   managerCount: number;
   hrCount: number;
+  companyCount: number;
   departmentCount: number;
 };
 
@@ -21,6 +23,7 @@ export function AdminTabs({
   employeeCount,
   managerCount,
   hrCount,
+  companyCount,
   departmentCount,
 }: AdminTabsProps) {
   const tabs: {
@@ -46,6 +49,12 @@ export function AdminTabs({
       id: "hr",
       label: "HR accounts",
       count: hrCount,
+      countClass: "bg-slate-100 text-slate-500",
+    },
+    {
+      id: "companies",
+      label: "Companies",
+      count: companyCount,
       countClass: "bg-slate-100 text-slate-500",
     },
     {

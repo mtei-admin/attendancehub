@@ -15,6 +15,7 @@ type EmployeeRosterModalProps = {
   cancelHref: string;
   saveAction: (formData: FormData) => Promise<void>;
   departments: Department[];
+  companies: string[];
   editing?: EmployeeWithDepartment | null;
 };
 
@@ -23,6 +24,7 @@ export function EmployeeRosterModal({
   cancelHref,
   saveAction,
   departments,
+  companies,
   editing = null,
 }: EmployeeRosterModalProps) {
   const isEditing = Boolean(editing);
@@ -50,6 +52,7 @@ export function EmployeeRosterModal({
 
         <CompanyDepartmentFields
           departments={departments}
+          companies={companies}
           defaultCompany={editing?.companyName}
           defaultDepartmentId={editing?.departmentId}
           departmentMode="id"

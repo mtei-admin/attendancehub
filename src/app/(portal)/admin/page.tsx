@@ -1,20 +1,24 @@
 import {
   saveAdminEmployeeAction,
   deleteAdminEmployeeAction,
+  deleteAdminCompanyAction,
   deleteAdminDepartmentAction,
   deleteAdminUserAction,
   saveAdminHrAction,
   saveAdminManagerAction,
+  saveCompanyAction,
   saveDepartmentAction,
 } from "@/actions/admin";
 import { AdminDashboard } from "@/components/admin-dashboard";
 import { AdminTabs, type AdminTab } from "@/components/admin-tabs";
+import { CompanyPanel } from "@/components/company-panel";
 import { CredentialsPanel } from "@/components/credentials-panel";
 import { DepartmentPanel } from "@/components/department-panel";
 import { FlashMessage } from "@/components/flash-message";
 import { PortalUserPanel } from "@/components/portal-user-panel";
 import { RosterPanel } from "@/components/roster-panel";
 import { buildAdminDashboardStats } from "@/lib/admin-stats";
+import { listCompanies } from "@/lib/companies";
 import { listDepartments } from "@/lib/departments";
 import { getAllRequests } from "@/lib/requests";
 import { listEmployees } from "@/lib/roster";
@@ -35,6 +39,7 @@ function resolveTab(tab?: string): AdminTab {
     tab === "employees" ||
     tab === "managers" ||
     tab === "hr" ||
+    tab === "companies" ||
     tab === "departments" ||
     tab === "credentials"
   ) {
@@ -52,8 +57,9 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const editId = params.edit ? Number(params.edit) : undefined;
   const showAdd = params.add === "1";
 
-  const [departments, employees, managers, hrUsers, allUsers, allRequests] =
+  const [companies, departments, employees, managers, hrUsers, allUsers, allRequests] =
     await Promise.all([
+      listCompanies(),
       listDepartments(),
       listEmployees(),
       listUsersByRole("Manager", true),
@@ -63,7 +69,9 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
     ]);
 
   const activeEmployees = employees.filter((employee) => employee.isActive);
+  const activeCompanies = companies.filter((company) => company.isActive);
   const activeDepartments = departments.filter((department) => department.isActive);
+  const companyNames = activeCompanies.map((company) => company.name);
   const dashboardStats = buildAdminDashboardStats(allRequests, activeEmployees.length);
 
   return (
@@ -73,6 +81,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
         employeeCount={activeEmployees.length}
         managerCount={managers.length}
         hrCount={hrUsers.length}
+        companyCount={activeCompanies.length}
         departmentCount={activeDepartments.length}
       />
 
@@ -81,9 +90,22 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
 
         {activeTab === "dashboard" && <AdminDashboard stats={dashboardStats} />}
 
+        {activeTab === "companies" && (
+          <CompanyPanel
+            companies={companies}
+            saveAction={saveCompanyAction}
+            deleteAction={deleteAdminCompanyAction}
+            editId={editId}
+            showAdd={showAdd}
+            basePath="/admin"
+            tab="companies"
+          />
+        )}
+
         {activeTab === "departments" && (
           <DepartmentPanel
             departments={departments}
+            companies={companyNames}
             saveAction={saveDepartmentAction}
             deleteAction={deleteAdminDepartmentAction}
             editId={editId}
@@ -96,6 +118,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
           <RosterPanel
             employees={employees}
             departments={departments}
+            companies={companyNames}
             saveAction={saveAdminEmployeeAction}
             deleteAction={deleteAdminEmployeeAction}
             editId={editId}
@@ -109,6 +132,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
           <PortalUserPanel
             users={managers}
             departments={departments}
+            companies={companyNames}
             saveAction={saveAdminManagerAction}
             deleteAction={deleteAdminUserAction}
             role="Manager"
@@ -123,6 +147,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
           <PortalUserPanel
             users={hrUsers}
             departments={departments}
+            companies={companyNames}
             saveAction={saveAdminHrAction}
             deleteAction={deleteAdminUserAction}
             role="HR"
@@ -137,6 +162,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
           <CredentialsPanel
             users={allUsers}
             departments={departments}
+            companies={companyNames}
             editId={editId}
             showAdd={showAdd}
             deleteAction={deleteAdminUserAction}

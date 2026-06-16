@@ -15,6 +15,7 @@ type PortalUserModalProps = {
   saveAction: (formData: FormData) => Promise<void>;
   role: "Manager" | "HR";
   departments: Department[];
+  companies: string[];
   editing?: User | null;
 };
 
@@ -24,6 +25,7 @@ export function PortalUserModal({
   saveAction,
   role,
   departments,
+  companies,
   editing = null,
 }: PortalUserModalProps) {
   const isEditing = Boolean(editing);
@@ -73,6 +75,7 @@ export function PortalUserModal({
         {role === "Manager" && (
           <CompanyDepartmentFields
             departments={departments}
+            companies={companies}
             defaultCompany={editing?.company ?? ""}
             defaultDepartmentName={editing?.department ?? ""}
           />

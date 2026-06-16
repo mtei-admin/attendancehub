@@ -1,61 +1,43 @@
 "use client";
 
-import { DEFAULT_COMPANY } from "@/lib/constants";
-import type { Department } from "@/lib/schema";
+import type { Company } from "@/lib/schema";
 
 import { FormField, inputClassName } from "./form-field";
 import { FormModal } from "./form-modal";
 import { FormModalFooter } from "./form-modal-footer";
 
-type DepartmentModalProps = {
+type CompanyModalProps = {
   open: boolean;
   cancelHref: string;
   saveAction: (formData: FormData) => Promise<void>;
-  companies: string[];
-  editing?: Department | null;
+  editing?: Company | null;
 };
 
-export function DepartmentModal({
+export function CompanyModal({
   open,
   cancelHref,
   saveAction,
-  companies,
   editing = null,
-}: DepartmentModalProps) {
+}: CompanyModalProps) {
   const isEditing = Boolean(editing);
 
   return (
     <FormModal
       open={open}
       cancelHref={cancelHref}
-      title={isEditing ? "Edit department" : "Add department"}
-      titleId="department-modal-title"
+      title={isEditing ? "Edit company" : "Add company"}
+      titleId="company-modal-title"
     >
       <form action={saveAction} className="mt-5 space-y-4">
         {isEditing && editing && <input type="hidden" name="id" value={editing.id} />}
 
-        <FormField label="Company">
-          <select
-            name="company"
-            required
-            defaultValue={editing?.company ?? DEFAULT_COMPANY}
-            className={inputClassName}
-          >
-            {companies.map((company) => (
-              <option key={company} value={company}>
-                {company}
-              </option>
-            ))}
-          </select>
-        </FormField>
-
-        <FormField label="Department name">
+        <FormField label="Company name">
           <input
             name="name"
             required
             defaultValue={editing?.name ?? ""}
             className={inputClassName}
-            placeholder="e.g. Operations"
+            placeholder="e.g. MTEI"
             autoFocus
           />
         </FormField>

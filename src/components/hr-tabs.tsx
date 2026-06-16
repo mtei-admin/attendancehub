@@ -1,15 +1,16 @@
 import Link from "next/link";
 
-export type HrTab = "pending" | "checked" | "all" | "employees" | "managers";
+export type HrTab = "pending" | "checked" | "all" | "employees" | "managers" | "companies";
 
 type HrTabsProps = {
   activeTab: HrTab;
   pendingCount: number;
   checkedCount: number;
   allCount: number;
+  companyCount: number;
 };
 
-export function HrTabs({ activeTab, pendingCount, checkedCount, allCount }: HrTabsProps) {
+export function HrTabs({ activeTab, pendingCount, checkedCount, allCount, companyCount }: HrTabsProps) {
   const tabs: {
     id: HrTab;
     label: string;
@@ -36,6 +37,12 @@ export function HrTabs({ activeTab, pendingCount, checkedCount, allCount }: HrTa
     },
     { id: "employees", label: "Employees", count: null, countClass: "" },
     { id: "managers", label: "Managers", count: null, countClass: "" },
+    {
+      id: "companies",
+      label: "Companies",
+      count: companyCount,
+      countClass: "bg-slate-100 text-slate-500",
+    },
   ];
 
   return (

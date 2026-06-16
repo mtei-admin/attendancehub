@@ -9,6 +9,7 @@ import { PortalUserModal } from "./portal-user-modal";
 type PortalUserPanelProps = {
   users: User[];
   departments: Department[];
+  companies: string[];
   saveAction: (formData: FormData) => Promise<void>;
   deleteAction?: (formData: FormData) => Promise<void>;
   role: "Manager" | "HR";
@@ -21,6 +22,7 @@ type PortalUserPanelProps = {
 export function PortalUserPanel({
   users,
   departments,
+  companies,
   saveAction,
   deleteAction,
   role,
@@ -53,6 +55,7 @@ export function PortalUserPanel({
         saveAction={saveAction}
         role={role}
         departments={departments}
+        companies={companies}
         editing={editing}
       />
 

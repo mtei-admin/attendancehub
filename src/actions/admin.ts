@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireRoles, isNextNavigationError } from "@/lib/action-auth";
-import { COMPANIES, EMPLOYEE_TYPES, HR_SCOPES } from "@/lib/constants";
+import { EMPLOYEE_TYPES, HR_SCOPES } from "@/lib/constants";
+import { createCompany, isActiveCompany, updateCompany } from "@/lib/companies";
 import { createDepartment, updateDepartment } from "@/lib/departments";
 import { createEmployee, updateEmployee } from "@/lib/roster";
 import { createUser, deactivateUser, getUserById, getUserByUsername, updateUser } from "@/lib/users";
@@ -28,8 +29,8 @@ export async function saveDepartmentAction(formData: FormData) {
     adminRedirect({ tab: "departments", error: "Company and department name are required." });
   }
 
-  if (!(COMPANIES as readonly string[]).includes(company)) {
-    adminRedirect({ tab: "departments", error: "Invalid company." });
+  if (!(await isActiveCompany(company))) {
+    adminRedirect({ tab: "departments", error: "Invalid or inactive company." });
   }
 
   try {
@@ -169,6 +170,69 @@ export async function deleteAdminUserAction(formData: FormData) {
   }
 }
 
+export async function saveCompanyAction(formData: FormData) {
+  await requireRoles(["Admin"]);
+  const id = Number(formData.get("id") ?? 0);
+  const name = String(formData.get("name") ?? "").trim();
+  const isActive = formData.get("is_active") === "on";
+
+  if (!name) {
+    adminRedirect({ tab: "companies", error: "Company name is required." });
+  }
+
+  try {
+    if (id > 0) {
+      const updated = await updateCompany(id, { name, isActive });
+      if (!updated) {
+        adminRedirect({ tab: "companies", error: "Company not found." });
+      }
+      revalidatePath("/admin");
+      revalidatePath("/hr");
+      revalidatePath("/employee");
+      adminRedirect({ tab: "companies", success: `Updated company ${name}.` });
+    }
+
+    await createCompany(name);
+    revalidatePath("/admin");
+    revalidatePath("/hr");
+    revalidatePath("/employee");
+    adminRedirect({ tab: "companies", success: `Added company ${name}.` });
+  } catch (error) {
+    if (isNextNavigationError(error)) throw error;
+    adminRedirect({
+      tab: "companies",
+      error: `Unable to save company. ${String(error)}`,
+    });
+  }
+}
+
+export async function deleteAdminCompanyAction(formData: FormData) {
+  await requireRoles(["Admin"]);
+  const id = Number(formData.get("id") ?? 0);
+
+  if (!id) {
+    adminRedirect({ tab: "companies", error: "Company not found." });
+  }
+
+  try {
+    const updated = await updateCompany(id, { isActive: false });
+    if (!updated) {
+      adminRedirect({ tab: "companies", error: "Company not found." });
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/hr");
+    revalidatePath("/employee");
+    adminRedirect({ tab: "companies", success: `Removed company ${updated.name}.` });
+  } catch (error) {
+    if (isNextNavigationError(error)) throw error;
+    adminRedirect({
+      tab: "companies",
+      error: `Unable to remove company. ${String(error)}`,
+    });
+  }
+}
+
 export async function deleteAdminDepartmentAction(formData: FormData) {
   await requireRoles(["Admin"]);
   const id = Number(formData.get("id") ?? 0);
@@ -216,8 +280,8 @@ export async function saveCredentialsAction(formData: FormData) {
     adminRedirect({ tab: "credentials", error: "Company and department are required for managers." });
   }
 
-  if (role === "Manager" && company && !(COMPANIES as readonly string[]).includes(company)) {
-    adminRedirect({ tab: "credentials", error: "Invalid company." });
+  if (role === "Manager" && company && !(await isActiveCompany(company))) {
+    adminRedirect({ tab: "credentials", error: "Invalid or inactive company." });
   }
 
   if (role === "HR" && hrScope && !(HR_SCOPES as readonly string[]).includes(hrScope)) {
@@ -307,8 +371,8 @@ async function savePortalUserAction(
     adminRedirect({ tab, error: "Company and department are required for managers." });
   }
 
-  if (role === "Manager" && company && !(COMPANIES as readonly string[]).includes(company)) {
-    adminRedirect({ tab, error: "Invalid company." });
+  if (role === "Manager" && company && !(await isActiveCompany(company))) {
+    adminRedirect({ tab, error: "Invalid or inactive company." });
   }
 
   if (role === "HR" && hrScope && !(HR_SCOPES as readonly string[]).includes(hrScope)) {

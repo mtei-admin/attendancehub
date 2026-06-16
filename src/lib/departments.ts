@@ -3,20 +3,6 @@ import { and, asc, eq } from "drizzle-orm";
 import { getDb } from "./db";
 import { departments, type Department } from "./schema";
 
-export function listCompaniesFromDepartments(
-  departmentRows: { company: string; isActive: boolean }[],
-): string[] {
-  const companies = new Set<string>();
-
-  for (const row of departmentRows) {
-    if (row.isActive) {
-      companies.add(row.company);
-    }
-  }
-
-  return Array.from(companies).sort();
-}
-
 export async function listDepartments(activeOnly = false): Promise<Department[]> {
   const db = getDb();
   const rows = await db
@@ -29,11 +15,6 @@ export async function listDepartments(activeOnly = false): Promise<Department[]>
   }
 
   return rows;
-}
-
-export async function listCompanies(activeOnly = false): Promise<string[]> {
-  const rows = await listDepartments(activeOnly);
-  return listCompaniesFromDepartments(rows);
 }
 
 export async function getDepartmentById(id: number): Promise<Department | undefined> {

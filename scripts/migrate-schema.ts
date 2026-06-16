@@ -1,6 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 
-import { DEFAULT_COMPANY, DEPARTMENTS, EMPLOYEES_BY_DEPARTMENT } from "../src/lib/constants";
+import { COMPANIES, DEFAULT_COMPANY, DEPARTMENTS, EMPLOYEES_BY_DEPARTMENT } from "../src/lib/constants";
 
 const ATTENDANCE_ALTER_STATEMENTS = [
   `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS department text`,
@@ -54,8 +54,13 @@ CREATE TABLE IF NOT EXISTS departments (
 );
 `;
 
-const CREATE_DEPARTMENTS_UNIQUE_INDEX = `
-CREATE UNIQUE INDEX IF NOT EXISTS departments_company_name_unique ON departments (company, name);
+const CREATE_COMPANIES_TABLE = `
+CREATE TABLE IF NOT EXISTS companies (
+  id serial PRIMARY KEY,
+  name text NOT NULL UNIQUE,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
 `;
 
 const EMPLOYEE_ALTER_STATEMENTS = [
@@ -117,6 +122,34 @@ async function seedDepartmentsAndEmployees(
   console.log(`OK: seeded ${employeeCount} employees`);
 }
 
+async function seedCompanies(
+  sql: (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown>,
+) {
+  for (const name of COMPANIES) {
+    await sql`
+      INSERT INTO companies (name)
+      VALUES (${name})
+      ON CONFLICT (name) DO NOTHING
+    `;
+  }
+
+  const deptCompanies = (await sql`
+    SELECT DISTINCT company AS name
+    FROM departments
+    WHERE company IS NOT NULL AND company != ''
+  `) as { name: string }[];
+
+  for (const row of deptCompanies) {
+    await sql`
+      INSERT INTO companies (name)
+      VALUES (${row.name})
+      ON CONFLICT (name) DO NOTHING
+    `;
+  }
+
+  console.log(`OK: seeded companies (${COMPANIES.length} defaults + department names)`);
+}
+
 async function main() {
   const url = process.env.DATABASE_URL;
   if (!url) {
@@ -136,13 +169,15 @@ async function main() {
   await sql(CREATE_DEPARTMENTS_TABLE);
   console.log("OK: departments table ready");
 
-  await sql(CREATE_DEPARTMENTS_UNIQUE_INDEX);
-  console.log("OK: departments unique index ready");
-
   for (const statement of DEPARTMENT_ALTER_STATEMENTS) {
     await sql(statement);
     console.log(`OK: ${statement}`);
   }
+
+  await sql(CREATE_COMPANIES_TABLE);
+  console.log("OK: companies table ready");
+
+  await seedCompanies(sql);
 
   await sql(CREATE_EMPLOYEES_TABLE);
   console.log("OK: employees table ready");

@@ -2,13 +2,13 @@
 
 import { useMemo, useState } from "react";
 
-import { COMPANIES } from "@/lib/constants";
 import type { Department } from "@/lib/schema";
 
 import { FormField, inputClassName } from "./form-field";
 
 type CompanyDepartmentFieldsProps = {
   departments: Department[];
+  companies: string[];
   defaultCompany?: string;
   defaultDepartmentName?: string;
   defaultDepartmentId?: number;
@@ -18,6 +18,7 @@ type CompanyDepartmentFieldsProps = {
 
 export function CompanyDepartmentFields({
   departments,
+  companies,
   defaultCompany = "",
   defaultDepartmentName = "",
   defaultDepartmentId,
@@ -29,8 +30,8 @@ export function CompanyDepartmentFields({
 
   const companyOptions = useMemo(() => {
     const fromDepartments = new Set(activeDepartments.map((row) => row.company));
-    return Array.from(new Set([...COMPANIES, ...fromDepartments])).sort();
-  }, [activeDepartments]);
+    return Array.from(new Set([...companies, ...fromDepartments])).sort();
+  }, [activeDepartments, companies]);
 
   const filteredDepartments = useMemo(() => {
     if (!company) return [];

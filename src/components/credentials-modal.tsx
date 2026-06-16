@@ -16,6 +16,7 @@ type CredentialsModalProps = {
   open: boolean;
   cancelHref: string;
   departments: Department[];
+  companies: string[];
   editing?: User | null;
   isAdding?: boolean;
 };
@@ -24,6 +25,7 @@ export function CredentialsModal({
   open,
   cancelHref,
   departments,
+  companies,
   editing = null,
   isAdding = false,
 }: CredentialsModalProps) {
@@ -93,6 +95,7 @@ export function CredentialsModal({
         {role === "Manager" && (
           <CompanyDepartmentFields
             departments={departments}
+            companies={companies}
             defaultCompany={editing?.company ?? ""}
             defaultDepartmentName={editing?.department ?? ""}
           />

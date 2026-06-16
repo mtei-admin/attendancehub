@@ -9,6 +9,7 @@ import { CredentialsModal } from "./credentials-modal";
 type CredentialsPanelProps = {
   users: User[];
   departments: Department[];
+  companies: string[];
   editId?: number;
   showAdd?: boolean;
   deleteAction?: (formData: FormData) => Promise<void>;
@@ -17,6 +18,7 @@ type CredentialsPanelProps = {
 export function CredentialsPanel({
   users,
   departments,
+  companies,
   editId,
   showAdd = false,
   deleteAction,
@@ -32,6 +34,7 @@ export function CredentialsPanel({
         open={showModal}
         cancelHref={panelHref}
         departments={departments}
+        companies={companies}
         editing={editing}
         isAdding={showAdd && !editing}
       />

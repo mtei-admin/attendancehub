@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireRoles, isNextNavigationError } from "@/lib/action-auth";
-import { COMPANIES, EMPLOYEE_TYPES } from "@/lib/constants";
+import { EMPLOYEE_TYPES } from "@/lib/constants";
+import { createCompany, isActiveCompany, updateCompany } from "@/lib/companies";
 import { createEmployee, updateEmployee } from "@/lib/roster";
 import { archiveRequest, hrRejectApprovedRequest, unarchiveRequest } from "@/lib/requests";
 import { createUser, getUserById, getUserByUsername, updateUser } from "@/lib/users";
@@ -162,8 +163,8 @@ export async function saveManagerAction(formData: FormData) {
     hrRedirect({ tab: "managers", error: "Name, username, company, and department are required." });
   }
 
-  if (!(COMPANIES as readonly string[]).includes(company)) {
-    hrRedirect({ tab: "managers", error: "Invalid company." });
+  if (!(await isActiveCompany(company))) {
+    hrRedirect({ tab: "managers", error: "Invalid or inactive company." });
   }
 
   try {
@@ -220,6 +221,42 @@ export async function saveManagerAction(formData: FormData) {
     hrRedirect({
       tab: "managers",
       error: `Unable to save manager. ${String(error)}`,
+    });
+  }
+}
+
+export async function saveHrCompanyAction(formData: FormData) {
+  await requireRoles(["HR"]);
+  const id = Number(formData.get("id") ?? 0);
+  const name = String(formData.get("name") ?? "").trim();
+  const isActive = formData.get("is_active") === "on";
+
+  if (!name) {
+    hrRedirect({ tab: "companies", error: "Company name is required." });
+  }
+
+  try {
+    if (id > 0) {
+      const updated = await updateCompany(id, { name, isActive });
+      if (!updated) {
+        hrRedirect({ tab: "companies", error: "Company not found." });
+      }
+      revalidatePath("/hr");
+      revalidatePath("/admin");
+      revalidatePath("/employee");
+      hrRedirect({ tab: "companies", success: `Updated company ${name}.` });
+    }
+
+    await createCompany(name);
+    revalidatePath("/hr");
+    revalidatePath("/admin");
+    revalidatePath("/employee");
+    hrRedirect({ tab: "companies", success: `Added company ${name}.` });
+  } catch (error) {
+    if (isNextNavigationError(error)) throw error;
+    hrRedirect({
+      tab: "companies",
+      error: `Unable to save company. ${String(error)}`,
     });
   }
 }

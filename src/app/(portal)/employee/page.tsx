@@ -1,6 +1,6 @@
 import { EmployeeForm } from "@/components/employee-form";
 import { FlashMessage } from "@/components/flash-message";
-import { listCompanies } from "@/lib/departments";
+import { listCompanyNames } from "@/lib/companies";
 import { getEmployeesByCompanyDepartment } from "@/lib/roster";
 
 type EmployeePageProps = {
@@ -10,7 +10,7 @@ type EmployeePageProps = {
 export default async function EmployeePage({ searchParams }: EmployeePageProps) {
   const params = await searchParams;
   const [companies, employeesByCompanyDepartment] = await Promise.all([
-    listCompanies(true),
+    listCompanyNames(true),
     getEmployeesByCompanyDepartment(),
   ]);
 

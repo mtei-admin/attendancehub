@@ -1,10 +1,12 @@
-import { saveEmployeeRosterAction, saveManagerAction } from "@/actions/hr";
+import { saveEmployeeRosterAction, saveHrCompanyAction, saveManagerAction } from "@/actions/hr";
 import { FlashMessage } from "@/components/flash-message";
+import { CompanyPanel } from "@/components/company-panel";
 import { HrRecordsList } from "@/components/hr-records-list";
 import { HrTabs, type HrTab } from "@/components/hr-tabs";
 import { PortalUserPanel } from "@/components/portal-user-panel";
 import { RosterPanel } from "@/components/roster-panel";
 import { getSession } from "@/lib/auth";
+import { listCompanies } from "@/lib/companies";
 import { listDepartments } from "@/lib/departments";
 import {
   getAllApprovedRequests,
@@ -34,7 +36,8 @@ function resolveTab(tab?: string): HrTab {
     tab === "checked" ||
     tab === "all" ||
     tab === "employees" ||
-    tab === "managers"
+    tab === "managers" ||
+    tab === "companies"
   ) {
     return tab;
   }
@@ -51,16 +54,20 @@ export default async function HrPage({ searchParams }: HrPageProps) {
 
   const hrScope = session.role === "HR" ? session.hrScope : null;
 
-  const [pendingRaw, checkedRaw, allRaw, employees, departments, managers, roster] =
+  const [pendingRaw, checkedRaw, allRaw, employees, companies, departments, managers, roster] =
     await Promise.all([
       getApprovedRequests(),
       getArchivedRequests(),
       getAllApprovedRequests(),
       listEmployees(),
+      listCompanies(),
       listDepartments(),
       listUsersByRole("Manager"),
       listEmployees(true),
     ]);
+
+  const activeCompanies = companies.filter((company) => company.isActive);
+  const companyNames = activeCompanies.map((company) => company.name);
 
   const employeeTypeLookup = buildEmployeeTypeLookup(roster);
   const pendingRequests = filterRequestsByHrScope(pendingRaw, employeeTypeLookup, hrScope);
@@ -74,6 +81,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
         pendingCount={pendingRequests.length}
         checkedCount={checkedRequests.length}
         allCount={allRequests.length}
+        companyCount={activeCompanies.length}
       />
 
       <div className="mx-auto max-w-6xl space-y-8 px-4 py-8 md:px-6">
@@ -133,6 +141,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
             <RosterPanel
               employees={employees}
               departments={departments}
+              companies={companyNames}
               saveAction={saveEmployeeRosterAction}
               editId={editId}
               showAdd={params.add === "1"}
@@ -147,12 +156,24 @@ export default async function HrPage({ searchParams }: HrPageProps) {
           <PortalUserPanel
             users={managers}
             departments={departments}
+            companies={companyNames}
             saveAction={saveManagerAction}
             role="Manager"
             editId={editId}
             showAdd={params.add === "1"}
             basePath="/hr"
             tab="managers"
+          />
+        )}
+
+        {activeTab === "companies" && (
+          <CompanyPanel
+            companies={companies}
+            saveAction={saveHrCompanyAction}
+            editId={editId}
+            showAdd={params.add === "1"}
+            basePath="/hr"
+            tab="companies"
           />
         )}
       </div>

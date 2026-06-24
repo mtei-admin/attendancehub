@@ -1,13 +1,28 @@
-import { saveEmployeeRosterAction, saveHrCompanyAction, saveManagerAction } from "@/actions/hr";
+import {
+  saveEmployeeRosterAction,
+  saveHrCompanyAction,
+  saveManagerAction,
+  saveOtEligibleTypesAction,
+  savePayrollCutoffRulesAction,
+} from "@/actions/hr";
 import { FlashMessage } from "@/components/flash-message";
 import { CompanyPanel } from "@/components/company-panel";
 import { HrRecordsList } from "@/components/hr-records-list";
 import { HrTabs, type HrTab } from "@/components/hr-tabs";
+import { OtSummaryPanel } from "@/components/ot-summary-panel";
 import { PortalUserPanel } from "@/components/portal-user-panel";
 import { RosterPanel } from "@/components/roster-panel";
 import { getSession } from "@/lib/auth";
 import { listCompanies } from "@/lib/companies";
+import { listCutoffPeriods, parseCutoffPeriodId } from "@/lib/cutoff";
 import { listDepartments } from "@/lib/departments";
+import {
+  allowedPayrollGroups,
+  getPayrollCutoffRule,
+  listOtEligibleTypes,
+  listPayrollCutoffRules,
+} from "@/lib/ot-settings";
+import { buildOtSummaryReport, type OtExportBasis } from "@/lib/ot-summary";
 import {
   getAllApprovedRequests,
   getApprovedRequests,
@@ -15,6 +30,7 @@ import {
 } from "@/lib/requests";
 import {
   buildEmployeeTypeLookup,
+  buildEmployeesByCompanyDepartment,
   filterRequestsByHrScope,
   listEmployees,
 } from "@/lib/roster";
@@ -28,6 +44,16 @@ type HrPageProps = {
     add?: string;
     success?: string;
     error?: string;
+    settings?: string;
+    ot_group?: string;
+    ot_period?: string;
+    ot_start?: string;
+    ot_end?: string;
+    ot_custom?: string;
+    ot_basis?: string;
+    ot_company?: string;
+    ot_department?: string;
+    ot_employee?: string;
   }>;
 };
 
@@ -37,11 +63,16 @@ function resolveTab(tab?: string): HrTab {
     tab === "all" ||
     tab === "employees" ||
     tab === "managers" ||
-    tab === "companies"
+    tab === "companies" ||
+    tab === "ot-summary"
   ) {
     return tab;
   }
   return "pending";
+}
+
+function parseExportBasis(value?: string): OtExportBasis {
+  return value === "checked" ? "checked" : "approved";
 }
 
 export default async function HrPage({ searchParams }: HrPageProps) {
@@ -53,26 +84,83 @@ export default async function HrPage({ searchParams }: HrPageProps) {
   if (!session) redirect("/");
 
   const hrScope = session.role === "HR" ? session.hrScope : null;
+  const payrollGroups = allowedPayrollGroups(hrScope);
 
-  const [pendingRaw, checkedRaw, allRaw, employees, companies, departments, managers, roster] =
-    await Promise.all([
-      getApprovedRequests(),
-      getArchivedRequests(),
-      getAllApprovedRequests(),
-      listEmployees(),
-      listCompanies(),
-      listDepartments(),
-      listUsersByRole("Manager"),
-      listEmployees(true),
-    ]);
+  const [
+    pendingRaw,
+    checkedRaw,
+    allRaw,
+    employees,
+    companies,
+    departments,
+    managers,
+    roster,
+    cutoffRules,
+    eligibleTypes,
+  ] = await Promise.all([
+    getApprovedRequests(),
+    getArchivedRequests(),
+    getAllApprovedRequests(),
+    listEmployees(),
+    listCompanies(),
+    listDepartments(),
+    listUsersByRole("Manager"),
+    listEmployees(true),
+    listPayrollCutoffRules(),
+    listOtEligibleTypes(),
+  ]);
 
   const activeCompanies = companies.filter((company) => company.isActive);
   const companyNames = activeCompanies.map((company) => company.name);
 
   const employeeTypeLookup = buildEmployeeTypeLookup(roster);
+  const employeesByCompanyDepartment = buildEmployeesByCompanyDepartment(roster);
   const pendingRequests = filterRequestsByHrScope(pendingRaw, employeeTypeLookup, hrScope);
   const checkedRequests = filterRequestsByHrScope(checkedRaw, employeeTypeLookup, hrScope);
   const allRequests = filterRequestsByHrScope(allRaw, employeeTypeLookup, hrScope);
+
+  const otPayrollGroup =
+    params.ot_group && payrollGroups.includes(params.ot_group)
+      ? params.ot_group
+      : payrollGroups[0] ?? "Rank & File";
+  const otUseCustomRange = params.ot_custom === "1";
+  const otExportBasis = parseExportBasis(params.ot_basis);
+  const otPeriodId = params.ot_period?.trim() ?? "";
+  const otStartDate = params.ot_start?.trim() ?? "";
+  const otEndDate = params.ot_end?.trim() ?? "";
+
+  const otCutoffRule = await getPayrollCutoffRule(otPayrollGroup);
+  const otPeriodOptions = otCutoffRule ? listCutoffPeriods(otCutoffRule) : [];
+
+  let otResolvedStart = otStartDate;
+  let otResolvedEnd = otEndDate;
+  if (!otUseCustomRange && otPeriodId) {
+    const parsedPeriod = parseCutoffPeriodId(otPeriodId);
+    if (parsedPeriod) {
+      otResolvedStart = parsedPeriod.startDate;
+      otResolvedEnd = parsedPeriod.endDate;
+    }
+  }
+
+  const otHasPeriod =
+    Boolean(otResolvedStart && otResolvedEnd) &&
+    otResolvedStart <= otResolvedEnd &&
+    (otUseCustomRange ? Boolean(otStartDate && otEndDate) : Boolean(otPeriodId));
+
+  const otReport =
+    activeTab === "ot-summary" && otHasPeriod
+      ? await buildOtSummaryReport({
+          startDate: otResolvedStart,
+          endDate: otResolvedEnd,
+          exportBasis: otExportBasis,
+          payrollGroup: otPayrollGroup,
+          company: params.ot_company?.trim() || undefined,
+          department: params.ot_department?.trim() || undefined,
+          employeeName: params.ot_employee?.trim() || undefined,
+          employeeTypeLookup,
+          hrScope,
+        })
+      : null;
 
   return (
     <>
@@ -174,6 +262,32 @@ export default async function HrPage({ searchParams }: HrPageProps) {
             showAdd={params.add === "1"}
             basePath="/hr"
             tab="companies"
+          />
+        )}
+
+        {activeTab === "ot-summary" && (
+          <OtSummaryPanel
+            payrollGroups={payrollGroups}
+            cutoffRules={cutoffRules}
+            periodOptions={otPeriodOptions}
+            companies={companyNames}
+            employeesByCompanyDepartment={employeesByCompanyDepartment}
+            report={otReport}
+            filters={{
+              payrollGroup: otPayrollGroup,
+              periodId: otPeriodId,
+              startDate: otStartDate,
+              endDate: otEndDate,
+              useCustomRange: otUseCustomRange,
+              exportBasis: otExportBasis,
+              company: params.ot_company?.trim() ?? "",
+              department: params.ot_department?.trim() ?? "",
+              employeeName: params.ot_employee?.trim() ?? "",
+            }}
+            showSettings={params.settings === "1"}
+            saveCutoffRulesAction={savePayrollCutoffRulesAction}
+            saveOtEligibleTypesAction={saveOtEligibleTypesAction}
+            eligibleTypes={eligibleTypes}
           />
         )}
       </div>

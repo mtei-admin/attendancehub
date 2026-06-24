@@ -94,3 +94,20 @@ export const attendanceRequests = pgTable("attendance_requests", {
 
 export type AttendanceRequest = typeof attendanceRequests.$inferSelect;
 export type NewAttendanceRequest = typeof attendanceRequests.$inferInsert;
+
+export const payrollCutoffRules = pgTable("payroll_cutoff_rules", {
+  id: serial("id").primaryKey(),
+  employeeType: text("employee_type").notNull().unique(),
+  cutoffDay1: integer("cutoff_day_1").notNull(),
+  cutoffDay2: integer("cutoff_day_2").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type PayrollCutoffRule = typeof payrollCutoffRules.$inferSelect;
+
+export const otEligibleRequestTypes = pgTable("ot_eligible_request_types", {
+  requestType: text("request_type").primaryKey(),
+  isActive: boolean("is_active").notNull().default(true),
+});
+
+export type OtEligibleRequestType = typeof otEligibleRequestTypes.$inferSelect;

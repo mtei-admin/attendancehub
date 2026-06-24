@@ -6,16 +6,27 @@ import { redirect } from "next/navigation";
 import { requireRoles, isNextNavigationError } from "@/lib/action-auth";
 import { EMPLOYEE_TYPES } from "@/lib/constants";
 import { createCompany, isActiveCompany, updateCompany } from "@/lib/companies";
+import {
+  saveOtEligibleTypes,
+  updatePayrollCutoffRule,
+  validateCutoffDays,
+} from "@/lib/ot-settings";
 import { createEmployee, updateEmployee } from "@/lib/roster";
 import { archiveRequest, hrRejectApprovedRequest, unarchiveRequest } from "@/lib/requests";
 import { createUser, getUserById, getUserByUsername, updateUser } from "@/lib/users";
 import { listDepartments } from "@/lib/departments";
 
-function hrRedirect(params: { tab?: string; success?: string; error?: string }): never {
+function hrRedirect(params: {
+  tab?: string;
+  success?: string;
+  error?: string;
+  settings?: boolean;
+}): never {
   const search = new URLSearchParams();
   if (params.tab) search.set("tab", params.tab);
   if (params.success) search.set("success", params.success);
   if (params.error) search.set("error", params.error);
+  if (params.settings) search.set("settings", "1");
   redirect(`/hr?${search.toString()}`);
 }
 
@@ -223,6 +234,44 @@ export async function saveManagerAction(formData: FormData) {
       error: `Unable to save manager. ${String(error)}`,
     });
   }
+}
+
+export async function savePayrollCutoffRulesAction(formData: FormData) {
+  await requireRoles(["HR"]);
+  const employeeType = String(formData.get("employee_type") ?? "").trim();
+  const cutoffDay1 = Number(formData.get("cutoff_day_1"));
+  const cutoffDay2 = Number(formData.get("cutoff_day_2"));
+
+  if (!employeeType) {
+    hrRedirect({ tab: "ot-summary", settings: true, error: "Employee type is required." });
+  }
+
+  const validationError = validateCutoffDays(cutoffDay1, cutoffDay2);
+  if (validationError) {
+    hrRedirect({ tab: "ot-summary", settings: true, error: validationError });
+  }
+
+  const updated = await updatePayrollCutoffRule(employeeType, cutoffDay1, cutoffDay2);
+  revalidatePath("/hr");
+
+  if (!updated) {
+    hrRedirect({ tab: "ot-summary", settings: true, error: "Cutoff rule not found." });
+  }
+
+  hrRedirect({
+    tab: "ot-summary",
+    settings: true,
+    success: `Updated ${employeeType} cutoff days to ${cutoffDay1} and ${cutoffDay2}.`,
+  });
+}
+
+export async function saveOtEligibleTypesAction(formData: FormData) {
+  await requireRoles(["HR"]);
+  const activeTypes = formData.getAll("eligible_types").map((value) => String(value));
+
+  await saveOtEligibleTypes(activeTypes);
+  revalidatePath("/hr");
+  hrRedirect({ tab: "ot-summary", settings: true, success: "Updated OT-eligible request types." });
 }
 
 export async function saveHrCompanyAction(formData: FormData) {

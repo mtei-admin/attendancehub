@@ -78,6 +78,23 @@ CREATE TABLE IF NOT EXISTS employees (
 );
 `;
 
+const CREATE_PAYROLL_CUTOFF_RULES_TABLE = `
+CREATE TABLE IF NOT EXISTS payroll_cutoff_rules (
+  id serial PRIMARY KEY,
+  employee_type text NOT NULL UNIQUE,
+  cutoff_day_1 integer NOT NULL,
+  cutoff_day_2 integer NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+`;
+
+const CREATE_OT_ELIGIBLE_TYPES_TABLE = `
+CREATE TABLE IF NOT EXISTS ot_eligible_request_types (
+  request_type text PRIMARY KEY,
+  is_active boolean NOT NULL DEFAULT true
+);
+`;
+
 async function seedDepartmentsAndEmployees(
   sql: (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown>,
 ) {
@@ -150,6 +167,45 @@ async function seedCompanies(
   console.log(`OK: seeded companies (${COMPANIES.length} defaults + department names)`);
 }
 
+async function seedPayrollAndOtSettings(
+  sql: (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown>,
+) {
+  await sql`
+    INSERT INTO payroll_cutoff_rules (employee_type, cutoff_day_1, cutoff_day_2)
+    VALUES ('Confi', 10, 25)
+    ON CONFLICT (employee_type) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO payroll_cutoff_rules (employee_type, cutoff_day_1, cutoff_day_2)
+    VALUES ('Rank & File', 14, 29)
+    ON CONFLICT (employee_type) DO NOTHING
+  `;
+
+  const defaultActive = ["Overtime", "Holiday/Rest Day Work"];
+  const allTypes = [
+    "Late/Undertime",
+    "Absent/Leave",
+    "Early/Overbreak",
+    "Overtime",
+    "Holiday/Rest Day Work",
+    "OT Offset",
+    "Work From Home",
+    "Trip Ticket",
+    "Change Shift",
+  ];
+
+  for (const requestType of allTypes) {
+    const isActive = defaultActive.includes(requestType);
+    await sql`
+      INSERT INTO ot_eligible_request_types (request_type, is_active)
+      VALUES (${requestType}, ${isActive})
+      ON CONFLICT (request_type) DO NOTHING
+    `;
+  }
+
+  console.log("OK: payroll cutoff rules and OT-eligible request types seeded");
+}
+
 async function main() {
   const url = process.env.DATABASE_URL;
   if (!url) {
@@ -193,6 +249,14 @@ async function main() {
   }
 
   await seedDepartmentsAndEmployees(sql);
+
+  await sql(CREATE_PAYROLL_CUTOFF_RULES_TABLE);
+  console.log("OK: payroll_cutoff_rules table ready");
+
+  await sql(CREATE_OT_ELIGIBLE_TYPES_TABLE);
+  console.log("OK: ot_eligible_request_types table ready");
+
+  await seedPayrollAndOtSettings(sql);
 
   console.log("Schema migration complete.");
 }

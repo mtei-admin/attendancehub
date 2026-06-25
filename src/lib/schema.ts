@@ -38,17 +38,24 @@ export const departments = pgTable(
 export type Department = typeof departments.$inferSelect;
 export type NewDepartment = typeof departments.$inferInsert;
 
-export const employees = pgTable("employees", {
-  id: serial("id").primaryKey(),
-  fullName: text("full_name").notNull(),
-  departmentId: integer("department_id")
-    .notNull()
-    .references(() => departments.id),
-  employeeType: text("employee_type").notNull().default("Rank & File"),
-  email: text("email"),
-  isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const employees = pgTable(
+  "employees",
+  {
+    id: serial("id").primaryKey(),
+    fullName: text("full_name").notNull(),
+    departmentId: integer("department_id")
+      .notNull()
+      .references(() => departments.id),
+    employeeType: text("employee_type").notNull().default("Rank & File"),
+    email: text("email"),
+    biometricNo: integer("biometric_no"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    biometricNoIdx: uniqueIndex("employees_biometric_no_unique").on(table.biometricNo),
+  }),
+);
 
 export type Employee = typeof employees.$inferSelect;
 export type NewEmployee = typeof employees.$inferInsert;

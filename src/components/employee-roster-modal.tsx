@@ -1,6 +1,7 @@
 "use client";
 
 import { EMPLOYEE_TYPES } from "@/lib/constants";
+import { formatBiometricNo } from "@/lib/biometric";
 import type { Department } from "@/lib/schema";
 import type { EmployeeWithDepartment } from "@/lib/roster";
 
@@ -80,6 +81,18 @@ export function EmployeeRosterModal({
             defaultValue={editing?.email ?? ""}
             className={inputClassName}
             placeholder="name@company.com"
+          />
+        </FormField>
+
+        <FormField label="Biometric number">
+          <input
+            type="number"
+            name="biometric_no"
+            min={1}
+            step={1}
+            defaultValue={formatBiometricNo(editing?.biometricNo)}
+            className={inputClassName}
+            placeholder="Optional — unique across all companies"
           />
         </FormField>
 

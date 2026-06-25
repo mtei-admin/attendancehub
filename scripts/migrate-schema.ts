@@ -66,6 +66,8 @@ CREATE TABLE IF NOT EXISTS companies (
 const EMPLOYEE_ALTER_STATEMENTS = [
   `ALTER TABLE employees ADD COLUMN IF NOT EXISTS employee_type text NOT NULL DEFAULT 'Rank & File'`,
   `ALTER TABLE employees ADD COLUMN IF NOT EXISTS email text`,
+  `ALTER TABLE employees ADD COLUMN IF NOT EXISTS biometric_no integer`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS employees_biometric_no_unique ON employees (biometric_no)`,
 ];
 
 const ATTENDANCE_ALTER_EXTRA = [
@@ -79,6 +81,7 @@ CREATE TABLE IF NOT EXISTS employees (
   department_id integer NOT NULL REFERENCES departments(id),
   employee_type text NOT NULL DEFAULT 'Rank & File',
   email text,
+  biometric_no integer,
   is_active boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now()
 );

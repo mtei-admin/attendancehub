@@ -12,7 +12,8 @@ import {
   updatePayrollCutoffRule,
   validateCutoffDays,
 } from "@/lib/ot-settings";
-import { createEmployee, updateEmployee } from "@/lib/roster";
+import { parseOptionalBiometricNo } from "@/lib/biometric";
+import { createEmployee, updateEmployee, isBiometricNoTaken } from "@/lib/roster";
 import { archiveRequest, hrRejectApprovedRequest, unarchiveRequest } from "@/lib/requests";
 import { createUser, getUserById, getUserByUsername, updateUser } from "@/lib/users";
 import { listDepartments } from "@/lib/departments";
@@ -122,9 +123,14 @@ export async function saveEmployeeRosterAction(formData: FormData) {
   const isActive = formData.get("is_active") === "on";
   const emailRaw = String(formData.get("email") ?? "").trim();
   const email = emailRaw ? normalizeEmail(emailRaw) : null;
+  const biometricParsed = parseOptionalBiometricNo(String(formData.get("biometric_no") ?? ""));
 
   if (!fullName || !departmentId || !employeeType) {
     hrRedirect({ tab: "employees", error: "Employee name, department, and type are required." });
+  }
+
+  if (biometricParsed.error) {
+    hrRedirect({ tab: "employees", error: biometricParsed.error });
   }
 
   if (emailRaw && !isValidEmail(emailRaw)) {
@@ -141,6 +147,13 @@ export async function saveEmployeeRosterAction(formData: FormData) {
     hrRedirect({ tab: "employees", error: "Selected department is not available." });
   }
 
+  if (biometricParsed.value != null && (await isBiometricNoTaken(biometricParsed.value, id > 0 ? id : undefined))) {
+    hrRedirect({
+      tab: "employees",
+      error: `Biometric number ${biometricParsed.value} is already assigned to another employee.`,
+    });
+  }
+
   try {
     if (id > 0) {
       const updated = await updateEmployee(id, {
@@ -148,6 +161,7 @@ export async function saveEmployeeRosterAction(formData: FormData) {
         departmentId,
         employeeType,
         email,
+        biometricNo: biometricParsed.value,
         isActive,
       });
       if (!updated) {
@@ -159,7 +173,13 @@ export async function saveEmployeeRosterAction(formData: FormData) {
       hrRedirect({ tab: "employees", success: `Updated employee ${fullName}.` });
     }
 
-    await createEmployee({ fullName, departmentId, employeeType, email });
+    await createEmployee({
+      fullName,
+      departmentId,
+      employeeType,
+      email,
+      biometricNo: biometricParsed.value,
+    });
     revalidatePath("/hr");
     revalidatePath("/admin");
     revalidatePath("/employee");

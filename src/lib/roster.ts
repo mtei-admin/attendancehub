@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, ne } from "drizzle-orm";
 
 import { getDb } from "./db";
 import { departments, employees, type AttendanceRequest, type Employee } from "./schema";
@@ -35,6 +35,7 @@ export async function listEmployees(activeOnly = false): Promise<EmployeeWithDep
       departmentId: employees.departmentId,
       employeeType: employees.employeeType,
       email: employees.email,
+      biometricNo: employees.biometricNo,
       isActive: employees.isActive,
       createdAt: employees.createdAt,
       companyName: departments.company,
@@ -154,11 +155,30 @@ export function buildEmployeeEmailLookup(
   return lookup;
 }
 
+export async function isBiometricNoTaken(
+  biometricNo: number,
+  excludeEmployeeId?: number,
+): Promise<boolean> {
+  const db = getDb();
+  const conditions = excludeEmployeeId
+    ? and(eq(employees.biometricNo, biometricNo), ne(employees.id, excludeEmployeeId))
+    : eq(employees.biometricNo, biometricNo);
+
+  const [row] = await db
+    .select({ id: employees.id })
+    .from(employees)
+    .where(conditions)
+    .limit(1);
+
+  return Boolean(row);
+}
+
 export async function createEmployee(input: {
   fullName: string;
   departmentId: number;
   employeeType: string;
   email?: string | null;
+  biometricNo?: number | null;
 }): Promise<Employee> {
   const db = getDb();
   const [row] = await db
@@ -168,6 +188,7 @@ export async function createEmployee(input: {
       departmentId: input.departmentId,
       employeeType: input.employeeType,
       email: input.email?.trim() || null,
+      biometricNo: input.biometricNo ?? null,
     })
     .returning();
 
@@ -181,6 +202,7 @@ export async function updateEmployee(
     departmentId?: number;
     employeeType?: string;
     email?: string | null;
+    biometricNo?: number | null;
     isActive?: boolean;
   },
 ): Promise<Employee | null> {
@@ -192,6 +214,7 @@ export async function updateEmployee(
       ...(input.departmentId !== undefined ? { departmentId: input.departmentId } : {}),
       ...(input.employeeType !== undefined ? { employeeType: input.employeeType } : {}),
       ...(input.email !== undefined ? { email: input.email?.trim() || null } : {}),
+      ...(input.biometricNo !== undefined ? { biometricNo: input.biometricNo ?? null } : {}),
       ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
     })
     .where(eq(employees.id, id))

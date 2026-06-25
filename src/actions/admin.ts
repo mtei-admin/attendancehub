@@ -8,7 +8,8 @@ import { EMPLOYEE_TYPES, HR_SCOPES } from "@/lib/constants";
 import { isValidEmail, normalizeEmail } from "@/lib/email";
 import { createCompany, isActiveCompany, updateCompany } from "@/lib/companies";
 import { createDepartment, updateDepartment } from "@/lib/departments";
-import { createEmployee, updateEmployee } from "@/lib/roster";
+import { createEmployee, updateEmployee, isBiometricNoTaken } from "@/lib/roster";
+import { parseOptionalBiometricNo } from "@/lib/biometric";
 import { createUser, deactivateUser, getUserById, getUserByUsername, updateUser } from "@/lib/users";
 
 function adminRedirect(params: { tab?: string; success?: string; error?: string }): never {
@@ -69,9 +70,14 @@ export async function saveAdminEmployeeAction(formData: FormData) {
   const isActive = formData.get("is_active") === "on";
   const emailRaw = String(formData.get("email") ?? "").trim();
   const email = emailRaw ? normalizeEmail(emailRaw) : null;
+  const biometricParsed = parseOptionalBiometricNo(String(formData.get("biometric_no") ?? ""));
 
   if (!fullName || !departmentId || !employeeType) {
     adminRedirect({ tab: "employees", error: "Employee name, department, and type are required." });
+  }
+
+  if (biometricParsed.error) {
+    adminRedirect({ tab: "employees", error: biometricParsed.error });
   }
 
   if (emailRaw && !isValidEmail(emailRaw)) {
@@ -82,6 +88,13 @@ export async function saveAdminEmployeeAction(formData: FormData) {
     adminRedirect({ tab: "employees", error: "Invalid employee type." });
   }
 
+  if (biometricParsed.value != null && (await isBiometricNoTaken(biometricParsed.value, id > 0 ? id : undefined))) {
+    adminRedirect({
+      tab: "employees",
+      error: `Biometric number ${biometricParsed.value} is already assigned to another employee.`,
+    });
+  }
+
   try {
     if (id > 0) {
       const updated = await updateEmployee(id, {
@@ -89,6 +102,7 @@ export async function saveAdminEmployeeAction(formData: FormData) {
         departmentId,
         employeeType,
         email,
+        biometricNo: biometricParsed.value,
         isActive,
       });
       if (!updated) {
@@ -100,7 +114,13 @@ export async function saveAdminEmployeeAction(formData: FormData) {
       adminRedirect({ tab: "employees", success: `Updated employee ${fullName}.` });
     }
 
-    await createEmployee({ fullName, departmentId, employeeType, email });
+    await createEmployee({
+      fullName,
+      departmentId,
+      employeeType,
+      email,
+      biometricNo: biometricParsed.value,
+    });
     revalidatePath("/admin");
     revalidatePath("/hr");
     revalidatePath("/employee");

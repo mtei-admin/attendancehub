@@ -3,7 +3,7 @@ import { EmployeeTabs, type EmployeeSection } from "@/components/employee-tabs";
 import { FlashMessage } from "@/components/flash-message";
 import { RequestRecordsForm } from "@/components/request-records-form";
 import { listCompanyNames } from "@/lib/companies";
-import { isSmtpConfigured } from "@/lib/mail";
+import { isMailConfigured } from "@/lib/mail";
 import {
   buildEmployeeEmailLookup,
   buildEmployeesByCompanyDepartment,
@@ -45,7 +45,7 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
             companies={companies}
             employeesByCompanyDepartment={employeesByCompanyDepartment}
             employeeEmails={employeeEmails}
-            smtpConfigured={isSmtpConfigured()}
+            smtpConfigured={isMailConfigured()}
           />
         )}
       </div>

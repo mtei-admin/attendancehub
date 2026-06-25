@@ -41,7 +41,7 @@ export function EmployeeForm({ companies, employeesByCompanyDepartment }: Employ
   return (
     <form
       action={submitRequestAction}
-      className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8"
+      className="space-y-5 rounded-b-2xl border-0 bg-white p-6 shadow-none md:p-8"
     >
       <div className="grid gap-5 md:grid-cols-2">
         <FormField label="Company">

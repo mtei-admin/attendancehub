@@ -65,6 +65,11 @@ CREATE TABLE IF NOT EXISTS companies (
 
 const EMPLOYEE_ALTER_STATEMENTS = [
   `ALTER TABLE employees ADD COLUMN IF NOT EXISTS employee_type text NOT NULL DEFAULT 'Rank & File'`,
+  `ALTER TABLE employees ADD COLUMN IF NOT EXISTS email text`,
+];
+
+const ATTENDANCE_ALTER_EXTRA = [
+  `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS requested_ot_hrs text`,
 ];
 
 const CREATE_EMPLOYEES_TABLE = `
@@ -73,8 +78,28 @@ CREATE TABLE IF NOT EXISTS employees (
   full_name text NOT NULL,
   department_id integer NOT NULL REFERENCES departments(id),
   employee_type text NOT NULL DEFAULT 'Rank & File',
+  email text,
   is_active boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now()
+);
+`;
+
+const CREATE_RECORD_REQUEST_LOGS_TABLE = `
+CREATE TABLE IF NOT EXISTS record_request_logs (
+  id serial PRIMARY KEY,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  employee_id integer NOT NULL REFERENCES employees(id),
+  employee_name text NOT NULL,
+  company text NOT NULL,
+  department text NOT NULL,
+  email_sent_to text NOT NULL,
+  submitted_from date NOT NULL,
+  submitted_to date NOT NULL,
+  request_type_filter text,
+  status_filter text,
+  row_count integer NOT NULL DEFAULT 0,
+  ip_address text,
+  user_agent text
 );
 `;
 
@@ -257,6 +282,21 @@ async function main() {
   console.log("OK: ot_eligible_request_types table ready");
 
   await seedPayrollAndOtSettings(sql);
+
+  for (const statement of ATTENDANCE_ALTER_EXTRA) {
+    await sql(statement);
+    console.log(`OK: ${statement}`);
+  }
+
+  await sql(`
+    UPDATE attendance_requests
+    SET requested_ot_hrs = ot_hrs
+    WHERE requested_ot_hrs IS NULL AND ot_hrs IS NOT NULL AND ot_hrs != ''
+  `);
+  console.log("OK: backfilled requested_ot_hrs from ot_hrs");
+
+  await sql(CREATE_RECORD_REQUEST_LOGS_TABLE);
+  console.log("OK: record_request_logs table ready");
 
   console.log("Schema migration complete.");
 }

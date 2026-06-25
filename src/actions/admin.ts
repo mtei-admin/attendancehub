@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { requireRoles, isNextNavigationError } from "@/lib/action-auth";
 import { EMPLOYEE_TYPES, HR_SCOPES } from "@/lib/constants";
+import { isValidEmail, normalizeEmail } from "@/lib/email";
 import { createCompany, isActiveCompany, updateCompany } from "@/lib/companies";
 import { createDepartment, updateDepartment } from "@/lib/departments";
 import { createEmployee, updateEmployee } from "@/lib/roster";
@@ -66,9 +67,15 @@ export async function saveAdminEmployeeAction(formData: FormData) {
   const departmentId = Number(formData.get("department_id") ?? 0);
   const employeeType = String(formData.get("employee_type") ?? "").trim();
   const isActive = formData.get("is_active") === "on";
+  const emailRaw = String(formData.get("email") ?? "").trim();
+  const email = emailRaw ? normalizeEmail(emailRaw) : null;
 
   if (!fullName || !departmentId || !employeeType) {
     adminRedirect({ tab: "employees", error: "Employee name, department, and type are required." });
+  }
+
+  if (emailRaw && !isValidEmail(emailRaw)) {
+    adminRedirect({ tab: "employees", error: "Please enter a valid email address." });
   }
 
   if (!(EMPLOYEE_TYPES as readonly string[]).includes(employeeType)) {
@@ -77,7 +84,13 @@ export async function saveAdminEmployeeAction(formData: FormData) {
 
   try {
     if (id > 0) {
-      const updated = await updateEmployee(id, { fullName, departmentId, employeeType, isActive });
+      const updated = await updateEmployee(id, {
+        fullName,
+        departmentId,
+        employeeType,
+        email,
+        isActive,
+      });
       if (!updated) {
         adminRedirect({ tab: "employees", error: "Employee not found." });
       }
@@ -87,7 +100,7 @@ export async function saveAdminEmployeeAction(formData: FormData) {
       adminRedirect({ tab: "employees", success: `Updated employee ${fullName}.` });
     }
 
-    await createEmployee({ fullName, departmentId, employeeType });
+    await createEmployee({ fullName, departmentId, employeeType, email });
     revalidatePath("/admin");
     revalidatePath("/hr");
     revalidatePath("/employee");

@@ -7,7 +7,8 @@ export type AdminTab =
   | "hr"
   | "companies"
   | "departments"
-  | "credentials";
+  | "credentials"
+  | "record-logs";
 
 type AdminTabsProps = {
   activeTab: AdminTab;
@@ -64,6 +65,7 @@ export function AdminTabs({
       countClass: "bg-slate-100 text-slate-500",
     },
     { id: "credentials", label: "Credentials", count: null, countClass: "" },
+    { id: "record-logs", label: "Record logs", count: null, countClass: "" },
   ];
 
   return (

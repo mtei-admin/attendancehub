@@ -17,10 +17,12 @@ import { DepartmentPanel } from "@/components/department-panel";
 import { FlashMessage } from "@/components/flash-message";
 import { PortalUserPanel } from "@/components/portal-user-panel";
 import { RosterPanel } from "@/components/roster-panel";
+import { RecordRequestLogsPanel } from "@/components/record-request-logs-panel";
 import { buildAdminDashboardStats } from "@/lib/admin-stats";
 import { listCompanies } from "@/lib/companies";
 import { listDepartments } from "@/lib/departments";
 import { getAllRequests } from "@/lib/requests";
+import { listRecordRequestLogs } from "@/lib/record-requests";
 import { listEmployees } from "@/lib/roster";
 import { listAllUsers, listUsersByRole } from "@/lib/users";
 
@@ -41,7 +43,8 @@ function resolveTab(tab?: string): AdminTab {
     tab === "hr" ||
     tab === "companies" ||
     tab === "departments" ||
-    tab === "credentials"
+    tab === "credentials" ||
+    tab === "record-logs"
   ) {
     return tab;
   }
@@ -57,7 +60,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const editId = params.edit ? Number(params.edit) : undefined;
   const showAdd = params.add === "1";
 
-  const [companies, departments, employees, managers, hrUsers, allUsers, allRequests] =
+  const [companies, departments, employees, managers, hrUsers, allUsers, allRequests, recordRequestLogs] =
     await Promise.all([
       listCompanies(),
       listDepartments(),
@@ -66,6 +69,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       listUsersByRole("HR", true),
       listAllUsers(true),
       getAllRequests(),
+      listRecordRequestLogs(),
     ]);
 
   const activeEmployees = employees.filter((employee) => employee.isActive);
@@ -168,6 +172,8 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             deleteAction={deleteAdminUserAction}
           />
         )}
+
+        {activeTab === "record-logs" && <RecordRequestLogsPanel logs={recordRequestLogs} />}
       </div>
     </>
   );

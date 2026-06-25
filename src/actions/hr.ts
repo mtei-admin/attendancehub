@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { requireRoles, isNextNavigationError } from "@/lib/action-auth";
 import { EMPLOYEE_TYPES } from "@/lib/constants";
+import { isValidEmail, normalizeEmail } from "@/lib/email";
 import { createCompany, isActiveCompany, updateCompany } from "@/lib/companies";
 import {
   saveOtEligibleTypes,
@@ -119,9 +120,15 @@ export async function saveEmployeeRosterAction(formData: FormData) {
   const departmentId = Number(formData.get("department_id") ?? 0);
   const employeeType = String(formData.get("employee_type") ?? "").trim();
   const isActive = formData.get("is_active") === "on";
+  const emailRaw = String(formData.get("email") ?? "").trim();
+  const email = emailRaw ? normalizeEmail(emailRaw) : null;
 
   if (!fullName || !departmentId || !employeeType) {
     hrRedirect({ tab: "employees", error: "Employee name, department, and type are required." });
+  }
+
+  if (emailRaw && !isValidEmail(emailRaw)) {
+    hrRedirect({ tab: "employees", error: "Please enter a valid email address." });
   }
 
   if (!(EMPLOYEE_TYPES as readonly string[]).includes(employeeType)) {
@@ -136,7 +143,13 @@ export async function saveEmployeeRosterAction(formData: FormData) {
 
   try {
     if (id > 0) {
-      const updated = await updateEmployee(id, { fullName, departmentId, employeeType, isActive });
+      const updated = await updateEmployee(id, {
+        fullName,
+        departmentId,
+        employeeType,
+        email,
+        isActive,
+      });
       if (!updated) {
         hrRedirect({ tab: "employees", error: "Employee not found." });
       }
@@ -146,7 +159,7 @@ export async function saveEmployeeRosterAction(formData: FormData) {
       hrRedirect({ tab: "employees", success: `Updated employee ${fullName}.` });
     }
 
-    await createEmployee({ fullName, departmentId, employeeType });
+    await createEmployee({ fullName, departmentId, employeeType, email });
     revalidatePath("/hr");
     revalidatePath("/admin");
     revalidatePath("/employee");

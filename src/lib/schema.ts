@@ -45,6 +45,7 @@ export const employees = pgTable("employees", {
     .notNull()
     .references(() => departments.id),
   employeeType: text("employee_type").notNull().default("Rank & File"),
+  email: text("email"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -82,6 +83,7 @@ export const attendanceRequests = pgTable("attendance_requests", {
   timeIn: text("time_in"),
   timeOut: text("time_out"),
   otHrs: text("ot_hrs"),
+  requestedOtHrs: text("requested_ot_hrs"),
   reason: text("reason").notNull(),
   rejectionReason: text("rejection_reason"),
   status: text("status").notNull().default("Pending"),
@@ -111,3 +113,24 @@ export const otEligibleRequestTypes = pgTable("ot_eligible_request_types", {
 });
 
 export type OtEligibleRequestType = typeof otEligibleRequestTypes.$inferSelect;
+
+export const recordRequestLogs = pgTable("record_request_logs", {
+  id: serial("id").primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  employeeId: integer("employee_id")
+    .notNull()
+    .references(() => employees.id),
+  employeeName: text("employee_name").notNull(),
+  company: text("company").notNull(),
+  department: text("department").notNull(),
+  emailSentTo: text("email_sent_to").notNull(),
+  submittedFrom: date("submitted_from").notNull(),
+  submittedTo: date("submitted_to").notNull(),
+  requestTypeFilter: text("request_type_filter"),
+  statusFilter: text("status_filter"),
+  rowCount: integer("row_count").notNull().default(0),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+});
+
+export type RecordRequestLog = typeof recordRequestLogs.$inferSelect;

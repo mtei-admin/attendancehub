@@ -34,6 +34,7 @@ export async function listEmployees(activeOnly = false): Promise<EmployeeWithDep
       fullName: employees.fullName,
       departmentId: employees.departmentId,
       employeeType: employees.employeeType,
+      email: employees.email,
       isActive: employees.isActive,
       createdAt: employees.createdAt,
       companyName: departments.company,
@@ -126,10 +127,38 @@ export function hrPortalScopeLabel(hrScope: string | null): string {
   return "";
 }
 
+export async function getEmployeeByPlacement(
+  company: string,
+  department: string,
+  employeeName: string,
+): Promise<EmployeeWithDepartment | null> {
+  const roster = await listEmployees(true);
+  return (
+    roster.find(
+      (employee) =>
+        employee.companyName === company &&
+        employee.departmentName === department &&
+        employee.fullName === employeeName,
+    ) ?? null
+  );
+}
+
+export function buildEmployeeEmailLookup(
+  roster: EmployeeWithDepartment[],
+): Record<string, string | null> {
+  const lookup: Record<string, string | null> = {};
+  for (const employee of roster) {
+    lookup[employeeLookupKey(employee.companyName, employee.departmentName, employee.fullName)] =
+      employee.email;
+  }
+  return lookup;
+}
+
 export async function createEmployee(input: {
   fullName: string;
   departmentId: number;
   employeeType: string;
+  email?: string | null;
 }): Promise<Employee> {
   const db = getDb();
   const [row] = await db
@@ -138,6 +167,7 @@ export async function createEmployee(input: {
       fullName: input.fullName.trim(),
       departmentId: input.departmentId,
       employeeType: input.employeeType,
+      email: input.email?.trim() || null,
     })
     .returning();
 
@@ -150,6 +180,7 @@ export async function updateEmployee(
     fullName?: string;
     departmentId?: number;
     employeeType?: string;
+    email?: string | null;
     isActive?: boolean;
   },
 ): Promise<Employee | null> {
@@ -160,6 +191,7 @@ export async function updateEmployee(
       ...(input.fullName !== undefined ? { fullName: input.fullName.trim() } : {}),
       ...(input.departmentId !== undefined ? { departmentId: input.departmentId } : {}),
       ...(input.employeeType !== undefined ? { employeeType: input.employeeType } : {}),
+      ...(input.email !== undefined ? { email: input.email?.trim() || null } : {}),
       ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
     })
     .where(eq(employees.id, id))

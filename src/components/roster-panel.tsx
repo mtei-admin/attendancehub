@@ -70,7 +70,7 @@ export function RosterPanel({
           <table className="min-w-full text-sm">
             <thead className="border-b border-slate-200 bg-slate-50">
               <tr>
-                {["Name", "Company · Department", "Payroll group", "Actions"].map((header) => (
+                {["Name", "Company · Department", "Email", "Payroll group", "Actions"].map((header) => (
                   <th
                     key={header}
                     className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400"
@@ -83,7 +83,7 @@ export function RosterPanel({
             <tbody className="divide-y divide-slate-100">
               {rosterEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
                     No employees in the roster yet.
                   </td>
                 </tr>
@@ -95,6 +95,11 @@ export function RosterPanel({
                     </td>
                     <td className="px-4 py-3 text-slate-700">
                       {employee.companyName} · {employee.departmentName}
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">
+                      {employee.email ?? (
+                        <span className="text-slate-400">Not set</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <span

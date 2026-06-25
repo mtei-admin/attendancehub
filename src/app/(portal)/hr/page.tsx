@@ -10,6 +10,7 @@ import { CompanyPanel } from "@/components/company-panel";
 import { HrRecordsList } from "@/components/hr-records-list";
 import { HrTabs, type HrTab } from "@/components/hr-tabs";
 import { OtSummaryPanel } from "@/components/ot-summary-panel";
+import { RecordRequestLogsPanel } from "@/components/record-request-logs-panel";
 import { PortalUserPanel } from "@/components/portal-user-panel";
 import { RosterPanel } from "@/components/roster-panel";
 import { getSession } from "@/lib/auth";
@@ -23,6 +24,7 @@ import {
   listPayrollCutoffRules,
 } from "@/lib/ot-settings";
 import { buildOtSummaryReport, type OtExportBasis } from "@/lib/ot-summary";
+import { listRecordRequestLogs } from "@/lib/record-requests";
 import {
   getAllApprovedRequests,
   getApprovedRequests,
@@ -64,7 +66,8 @@ function resolveTab(tab?: string): HrTab {
     tab === "employees" ||
     tab === "managers" ||
     tab === "companies" ||
-    tab === "ot-summary"
+    tab === "ot-summary" ||
+    tab === "record-logs"
   ) {
     return tab;
   }
@@ -97,6 +100,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
     roster,
     cutoffRules,
     eligibleTypes,
+    recordRequestLogs,
   ] = await Promise.all([
     getApprovedRequests(),
     getArchivedRequests(),
@@ -108,6 +112,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
     listEmployees(true),
     listPayrollCutoffRules(),
     listOtEligibleTypes(),
+    listRecordRequestLogs(),
   ]);
 
   const activeCompanies = companies.filter((company) => company.isActive);
@@ -290,6 +295,8 @@ export default async function HrPage({ searchParams }: HrPageProps) {
             eligibleTypes={eligibleTypes}
           />
         )}
+
+        {activeTab === "record-logs" && <RecordRequestLogsPanel logs={recordRequestLogs} />}
       </div>
     </>
   );

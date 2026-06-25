@@ -73,6 +73,16 @@ export function EmployeeRosterModal({
           </select>
         </FormField>
 
+        <FormField label="Email (for record requests)">
+          <input
+            type="email"
+            name="email"
+            defaultValue={editing?.email ?? ""}
+            className={inputClassName}
+            placeholder="name@company.com"
+          />
+        </FormField>
+
         {isEditing && editing && (
           <FormField label="Status">
             <label className="flex items-center gap-2 text-sm text-slate-700">

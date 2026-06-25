@@ -55,6 +55,7 @@ export async function addRequest(input: {
 }): Promise<string> {
   const db = getDb();
   const refId = await generateRefId();
+  const otValue = input.otHrs || null;
 
   await db.insert(attendanceRequests).values({
     refId,
@@ -67,7 +68,8 @@ export async function addRequest(input: {
     dateOfIncident: input.dateOfIncident,
     timeIn: input.timeIn || null,
     timeOut: input.timeOut || null,
-    otHrs: input.otHrs || null,
+    otHrs: otValue,
+    requestedOtHrs: otValue,
     reason: input.reason,
     status: "Pending",
   });
@@ -259,6 +261,7 @@ export function toDisplayRow(request: AttendanceRequest) {
     time_in: request.timeIn ?? "",
     time_out: request.timeOut ?? "",
     ot_hrs: request.otHrs ?? "",
+    requested_ot_hrs: request.requestedOtHrs ?? "",
     reason: request.reason,
     status: request.status,
     approved_by: request.approvedBy ?? "",

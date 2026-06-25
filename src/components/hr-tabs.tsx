@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export type HrTab = "pending" | "checked" | "all" | "employees" | "managers" | "companies" | "ot-summary";
+export type HrTab = "pending" | "checked" | "all" | "employees" | "managers" | "companies" | "ot-summary" | "record-logs";
 
 type HrTabsProps = {
   activeTab: HrTab;
@@ -44,6 +44,7 @@ export function HrTabs({ activeTab, pendingCount, checkedCount, allCount, compan
       countClass: "bg-slate-100 text-slate-500",
     },
     { id: "ot-summary", label: "OT Summary", count: null, countClass: "" },
+    { id: "record-logs", label: "Record logs", count: null, countClass: "" },
   ];
 
   return (

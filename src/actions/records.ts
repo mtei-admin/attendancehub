@@ -139,8 +139,12 @@ export async function requestRecordsAction(formData: FormData) {
     });
   } catch (error) {
     if (isNextNavigationError(error)) throw error;
-    recordsRedirect({
-      error: `Unable to send records email. ${String(error)}`,
-    });
+    const message = error instanceof Error ? error.message : String(error);
+    const friendly = message.includes("ETIMEDOUT") || message.includes("timeout")
+      ? "Email server timed out. Please try again or contact HR/IT."
+      : message.includes("ECONNREFUSED") || message.includes("connect")
+        ? "Could not connect to the email server. Please contact HR/IT."
+        : `Unable to send records email. ${message}`;
+    recordsRedirect({ error: friendly });
   }
 }

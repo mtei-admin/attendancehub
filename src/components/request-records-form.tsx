@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useFormStatus } from "react-dom";
 
 import { requestRecordsAction } from "@/actions/records";
 import { REQUEST_TYPES, STATUSES } from "@/lib/constants";
@@ -12,6 +13,7 @@ type RequestRecordsFormProps = {
   companies: string[];
   employeesByCompanyDepartment: Record<string, Record<string, string[]>>;
   employeeEmails: Record<string, string | null>;
+  smtpConfigured: boolean;
 };
 
 function defaultFromDate() {
@@ -24,10 +26,25 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function SubmitButton({ canSubmit }: { canSubmit: boolean }) {
+  const { pending } = useFormStatus();
+
+  return (
+    <button
+      type="submit"
+      disabled={!canSubmit || pending}
+      className="w-full rounded-lg bg-brand-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {pending ? "Sending records…" : "Send records to my email"}
+    </button>
+  );
+}
+
 export function RequestRecordsForm({
   companies,
   employeesByCompanyDepartment,
   employeeEmails,
+  smtpConfigured,
 }: RequestRecordsFormProps) {
   const [company, setCompany] = useState("");
   const [department, setDepartment] = useState("");
@@ -49,6 +66,7 @@ export function RequestRecordsForm({
       : null;
 
   const missingEmail = Boolean(employeeName && !selectedEmail?.trim());
+  const canSubmit = Boolean(company && department && employeeName);
 
   return (
     <form
@@ -63,10 +81,20 @@ export function RequestRecordsForm({
         </p>
       </div>
 
+      {!smtpConfigured && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Email delivery is not configured on the server yet. Please contact HR or IT before
+          requesting records.
+        </div>
+      )}
+
+      {company && <input type="hidden" name="company" value={company} />}
+      {department && <input type="hidden" name="department" value={department} />}
+      {employeeName && <input type="hidden" name="employee_name" value={employeeName} />}
+
       <div className="grid gap-5 md:grid-cols-2">
         <FormField label="Company">
           <select
-            name="company"
             required
             value={company}
             onChange={(event) => {
@@ -87,7 +115,6 @@ export function RequestRecordsForm({
 
         <FormField label="Department">
           <select
-            name="department"
             required
             value={department}
             disabled={!company}
@@ -110,7 +137,6 @@ export function RequestRecordsForm({
 
         <FormField label="Employee name">
           <select
-            name="employee_name"
             required
             value={employeeName}
             disabled={!department}
@@ -186,13 +212,13 @@ export function RequestRecordsForm({
         </FormField>
       </div>
 
-      <button
-        type="submit"
-        disabled={missingEmail}
-        className="w-full rounded-lg bg-brand-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        Send records to my email
-      </button>
+      {!canSubmit && (
+        <p className="text-sm text-slate-500">
+          Select company, department, and employee name to enable sending.
+        </p>
+      )}
+
+      <SubmitButton canSubmit={canSubmit && smtpConfigured && !missingEmail} />
     </form>
   );
 }

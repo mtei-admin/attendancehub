@@ -3,6 +3,7 @@ import { EmployeeTabs, type EmployeeSection } from "@/components/employee-tabs";
 import { FlashMessage } from "@/components/flash-message";
 import { RequestRecordsForm } from "@/components/request-records-form";
 import { listCompanyNames } from "@/lib/companies";
+import { isSmtpConfigured } from "@/lib/mail";
 import {
   buildEmployeeEmailLookup,
   buildEmployeesByCompanyDepartment,
@@ -12,6 +13,8 @@ import {
 type EmployeePageProps = {
   searchParams: Promise<{ section?: string; success?: string; error?: string }>;
 };
+
+export const maxDuration = 60;
 
 function resolveSection(section?: string): EmployeeSection {
   return section === "records" ? "records" : "file";
@@ -42,6 +45,7 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
             companies={companies}
             employeesByCompanyDepartment={employeesByCompanyDepartment}
             employeeEmails={employeeEmails}
+            smtpConfigured={isSmtpConfigured()}
           />
         )}
       </div>

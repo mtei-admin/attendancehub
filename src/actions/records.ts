@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { isNextNavigationError } from "@/lib/action-auth";
 import { maskEmail, normalizeEmail, isValidEmail } from "@/lib/email";
-import { isMailConfigured, sendMail } from "@/lib/mail";
+import { isSmtpConfigured, sendMail } from "@/lib/mail";
 import {
   buildRecordsEmailContent,
   isRecordRequestRateLimited,
@@ -72,7 +72,7 @@ export async function requestRecordsAction(formData: FormData) {
     });
   }
 
-  if (!isMailConfigured()) {
+  if (!isSmtpConfigured()) {
     recordsRedirect({
       error: "Email delivery is not configured yet. Please contact HR or IT.",
     });

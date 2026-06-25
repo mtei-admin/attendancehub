@@ -140,11 +140,15 @@ export async function requestRecordsAction(formData: FormData) {
   } catch (error) {
     if (isNextNavigationError(error)) throw error;
     const message = error instanceof Error ? error.message : String(error);
-    const friendly = message.includes("ETIMEDOUT") || message.includes("timeout")
-      ? "Email server timed out. Please try again or contact HR/IT."
-      : message.includes("ECONNREFUSED") || message.includes("connect")
-        ? "Could not connect to the email server. Please contact HR/IT."
-        : `Unable to send records email. ${message}`;
+    const friendly =
+      message.includes("Greeting never received") ||
+      message.includes("Greeting timeout")
+        ? "The mail server did not respond from the cloud host. Ask IT to allow external SMTP, or try SMTP port 587 with SMTP_SECURE=false on Vercel."
+        : message.includes("ETIMEDOUT") || message.includes("timeout")
+          ? "Email server timed out. Please try again or contact HR/IT."
+          : message.includes("ECONNREFUSED") || message.includes("connect")
+            ? "Could not connect to the email server. Please contact HR/IT."
+            : `Unable to send records email. ${message}`;
     recordsRedirect({ error: friendly });
   }
 }

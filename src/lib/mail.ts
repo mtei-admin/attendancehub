@@ -44,9 +44,13 @@ export async function sendMail(input: SendMailInput): Promise<void> {
     secure: config.secure,
     requireTLS: config.requireTLS,
     auth: config.auth,
-    connectionTimeout: 15_000,
-    greetingTimeout: 15_000,
-    socketTimeout: 20_000,
+    name: config.host,
+    tls: {
+      servername: config.host,
+    },
+    connectionTimeout: 20_000,
+    greetingTimeout: 20_000,
+    socketTimeout: 25_000,
   });
 
   await transporter.sendMail({

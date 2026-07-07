@@ -71,7 +71,7 @@ export const ROLE_ROUTES: Record<Role, string> = {
   Admin: "/admin",
 };
 
-export const PORTAL_SLUGS = ["employee", "manager", "verification", "hr", "admin"] as const;
+export const PORTAL_SLUGS = ["employee", "verification", "manager", "hr", "admin"] as const;
 export type PortalSlug = (typeof PORTAL_SLUGS)[number];
 
 export function isPortalSlug(value: string): value is PortalSlug {

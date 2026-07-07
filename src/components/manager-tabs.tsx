@@ -1,13 +1,17 @@
 import Link from "next/link";
 
+import type { ManagerCutoffRange } from "@/lib/manager-grouping";
+
 type ManagerTabsProps = {
   activeTab: "pending" | "history";
+  range: ManagerCutoffRange;
   pendingCount: number;
   historyCount: number;
 };
 
 export function ManagerTabs({
   activeTab,
+  range,
   pendingCount,
   historyCount,
 }: ManagerTabsProps) {
@@ -24,7 +28,7 @@ export function ManagerTabs({
           return (
             <Link
               key={tab.id}
-              href={`/manager?tab=${tab.id}`}
+              href={`/manager?tab=${tab.id}&range=${range}`}
               className={`relative flex items-center gap-2 py-4 text-sm font-medium transition ${
                 isActive ? "text-brand-600" : "text-slate-500 hover:text-slate-700"
               }`}

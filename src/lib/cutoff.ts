@@ -117,6 +117,58 @@ export function listCutoffPeriods(
   return unique.slice(0, count);
 }
 
+export function getCurrentCutoffPeriod(
+  rule: PayrollCutoffRule,
+  refDate: Date = new Date(),
+): CutoffPeriod | null {
+  const iso = refDate.toISOString().slice(0, 10);
+  return findCutoffPeriodForDate(rule, iso);
+}
+
+export function findCutoffPeriodForDate(
+  rule: PayrollCutoffRule,
+  dateIso: string,
+): CutoffPeriod | null {
+  const [yearPart, monthPart] = dateIso.split("-");
+  const year = Number.parseInt(yearPart ?? "", 10);
+  const month = Number.parseInt(monthPart ?? "", 10);
+
+  if (!year || !month) {
+    return null;
+  }
+
+  for (let offset = -3; offset <= 1; offset += 1) {
+    let targetMonth = month + offset;
+    let targetYear = year;
+
+    while (targetMonth < 1) {
+      targetMonth += 12;
+      targetYear -= 1;
+    }
+    while (targetMonth > 12) {
+      targetMonth -= 12;
+      targetYear += 1;
+    }
+
+    for (const cutoffDay of [rule.cutoffDay2, rule.cutoffDay1]) {
+      const period = buildCutoffPeriod(
+        targetYear,
+        targetMonth,
+        cutoffDay,
+        rule.cutoffDay1,
+        rule.cutoffDay2,
+        rule.employeeType,
+      );
+
+      if (isDateInPeriod(dateIso, period.startDate, period.endDate)) {
+        return period;
+      }
+    }
+  }
+
+  return null;
+}
+
 export function parseCutoffPeriodId(periodId: string): { startDate: string; endDate: string } | null {
   const [startDate, endDate] = periodId.split("|");
   if (!startDate || !endDate || !/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {

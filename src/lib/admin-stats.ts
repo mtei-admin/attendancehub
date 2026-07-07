@@ -10,6 +10,7 @@ export type DepartmentRequestStats = {
 
 export type AdminDashboardStats = {
   totalEmployees: number;
+  pendingVerification: number;
   pendingManagerApproval: number;
   pendingHrProcessing: number;
   totalRequests: number;
@@ -53,6 +54,9 @@ export function buildAdminDashboardStats(
 
   return {
     totalEmployees,
+    pendingVerification: requests.filter(
+      (row) => row.status === "Pending" && !row.verifiedOn,
+    ).length,
     pendingManagerApproval: requests.filter((row) => row.status === "Pending").length,
     pendingHrProcessing: requests.filter(
       (row) => row.status === "Approved" && !row.archived,

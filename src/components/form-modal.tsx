@@ -10,7 +10,7 @@ type FormModalProps = {
   title: string;
   titleId: string;
   children: ReactNode;
-  size?: "md" | "lg";
+  size?: "md" | "lg" | "xl";
 };
 
 export function FormModal({
@@ -72,7 +72,7 @@ export function FormModal({
         aria-modal="true"
         aria-labelledby={titleId}
         className={`relative w-full rounded-xl border border-slate-200 bg-white p-6 shadow-xl ${
-          size === "lg" ? "max-w-lg" : "max-w-md"
+          size === "xl" ? "max-w-3xl" : size === "lg" ? "max-w-lg" : "max-w-md"
         }`}
       >
         <h3 id={titleId} className="text-lg font-semibold text-slate-900">

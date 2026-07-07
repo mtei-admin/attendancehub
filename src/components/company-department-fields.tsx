@@ -14,6 +14,7 @@ type CompanyDepartmentFieldsProps = {
   defaultDepartmentId?: number;
   departmentMode?: "name" | "id";
   requireCompany?: boolean;
+  requireDepartment?: boolean;
 };
 
 export function CompanyDepartmentFields({
@@ -24,6 +25,7 @@ export function CompanyDepartmentFields({
   defaultDepartmentId,
   departmentMode = "name",
   requireCompany = true,
+  requireDepartment = true,
 }: CompanyDepartmentFieldsProps) {
   const activeDepartments = departments.filter((row) => row.isActive);
   const [company, setCompany] = useState(defaultCompany);
@@ -57,16 +59,22 @@ export function CompanyDepartmentFields({
         </select>
       </FormField>
 
-      <FormField label="Department">
+      <FormField label={requireDepartment ? "Department" : "Department (optional)"}>
         {departmentMode === "id" ? (
           <select
             name="department_id"
-            required
+            required={requireDepartment}
             defaultValue={defaultDepartmentId ?? ""}
             disabled={!company}
             className={`${inputClassName} disabled:cursor-not-allowed disabled:opacity-60`}
           >
-            <option value="">{company ? "— Select —" : "Select company first"}</option>
+            <option value="">
+              {company
+                ? requireDepartment
+                  ? "— Select —"
+                  : "— All departments —"
+                : "Select company first"}
+            </option>
             {filteredDepartments.map((department) => (
               <option key={department.id} value={department.id}>
                 {department.name}
@@ -76,12 +84,18 @@ export function CompanyDepartmentFields({
         ) : (
           <select
             name="department"
-            required
+            required={requireDepartment}
             defaultValue={defaultDepartmentName}
             disabled={!company}
             className={`${inputClassName} disabled:cursor-not-allowed disabled:opacity-60`}
           >
-            <option value="">{company ? "— Select —" : "Select company first"}</option>
+            <option value="">
+              {company
+                ? requireDepartment
+                  ? "— Select —"
+                  : "— All departments —"
+                : "Select company first"}
+            </option>
             {filteredDepartments.map((department) => (
               <option key={department.id} value={department.name}>
                 {department.name}

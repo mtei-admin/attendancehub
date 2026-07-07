@@ -10,7 +10,7 @@ import { createCompany, isActiveCompany, updateCompany } from "@/lib/companies";
 import { createDepartment, updateDepartment } from "@/lib/departments";
 import { createEmployee, updateEmployee, isBiometricNoTaken } from "@/lib/roster";
 import { parseOptionalBiometricNo } from "@/lib/biometric";
-import { createUser, deactivateUser, getUserById, getUserByUsername, updateUser } from "@/lib/users";
+import { createUser, deactivateUser, getUserById, getUserByUsername, findPortalRoleConflict, updateUser } from "@/lib/users";
 
 function adminRedirect(params: { tab?: string; success?: string; error?: string }): never {
   const search = new URLSearchParams();
@@ -159,6 +159,11 @@ export async function deleteAdminEmployeeAction(formData: FormData) {
       error: `Unable to remove employee. ${String(error)}`,
     });
   }
+}
+
+export async function saveAdminVerifierAction(formData: FormData) {
+  await requireRoles(["Admin"]);
+  await savePortalUserAction(formData, "Verifier", "verifiers");
 }
 
 export async function saveAdminManagerAction(formData: FormData) {
@@ -313,8 +318,32 @@ export async function saveCredentialsAction(formData: FormData) {
     adminRedirect({ tab: "credentials", error: "Company and department are required for managers." });
   }
 
-  if (role === "Manager" && company && !(await isActiveCompany(company))) {
+  if (role === "Verifier" && !company) {
+    adminRedirect({ tab: "credentials", error: "Company is required for verifiers." });
+  }
+
+  if ((role === "Manager" || role === "Verifier") && company && !(await isActiveCompany(company))) {
     adminRedirect({ tab: "credentials", error: "Invalid or inactive company." });
+  }
+
+  if (role === "Manager" && company) {
+    const conflict = await findPortalRoleConflict(fullName, company, "Manager", id > 0 ? id : undefined);
+    if (conflict) {
+      adminRedirect({
+        tab: "credentials",
+        error: `${fullName} already has a verifier account for ${company}.`,
+      });
+    }
+  }
+
+  if (role === "Verifier" && company) {
+    const conflict = await findPortalRoleConflict(fullName, company, "Verifier", id > 0 ? id : undefined);
+    if (conflict) {
+      adminRedirect({
+        tab: "credentials",
+        error: `${fullName} already has a manager account for ${company}.`,
+      });
+    }
   }
 
   if (role === "HR" && hrScope && !(HR_SCOPES as readonly string[]).includes(hrScope)) {
@@ -339,8 +368,8 @@ export async function saveCredentialsAction(formData: FormData) {
         username,
         fullName,
         role,
-        company: role === "Manager" ? company : null,
-        department: role === "Manager" ? department : null,
+        company: role === "Manager" || role === "Verifier" ? company : null,
+        department: role === "Manager" ? department : role === "Verifier" ? department : null,
         hrScope: role === "HR" ? hrScope : null,
         isActive,
         ...(password ? { password } : {}),
@@ -348,6 +377,7 @@ export async function saveCredentialsAction(formData: FormData) {
 
       revalidatePath("/admin");
       revalidatePath("/hr");
+      revalidatePath("/verification");
       adminRedirect({ tab: "credentials", success: `Updated credentials for ${fullName}.` });
     }
 
@@ -365,13 +395,14 @@ export async function saveCredentialsAction(formData: FormData) {
       password,
       fullName,
       role,
-      company: role === "Manager" ? company : null,
-      department: role === "Manager" ? department : null,
+      company: role === "Manager" || role === "Verifier" ? company : null,
+      department: role === "Manager" ? department : role === "Verifier" ? department : null,
       hrScope: role === "HR" ? hrScope : null,
     });
 
     revalidatePath("/admin");
     revalidatePath("/hr");
+    revalidatePath("/verification");
     adminRedirect({ tab: "credentials", success: `Created account for ${fullName}.` });
   } catch (error) {
     if (isNextNavigationError(error)) throw error;
@@ -384,8 +415,8 @@ export async function saveCredentialsAction(formData: FormData) {
 
 async function savePortalUserAction(
   formData: FormData,
-  role: "Manager" | "HR",
-  tab: "managers" | "hr",
+  role: "Manager" | "HR" | "Verifier",
+  tab: "managers" | "hr" | "verifiers",
 ) {
   const id = Number(formData.get("id") ?? 0);
   const fullName = String(formData.get("full_name") ?? "").trim();
@@ -404,8 +435,32 @@ async function savePortalUserAction(
     adminRedirect({ tab, error: "Company and department are required for managers." });
   }
 
-  if (role === "Manager" && company && !(await isActiveCompany(company))) {
+  if (role === "Verifier" && !company) {
+    adminRedirect({ tab, error: "Company is required for verifiers." });
+  }
+
+  if ((role === "Manager" || role === "Verifier") && company && !(await isActiveCompany(company))) {
     adminRedirect({ tab, error: "Invalid or inactive company." });
+  }
+
+  if (role === "Manager" && company) {
+    const conflict = await findPortalRoleConflict(fullName, company, "Manager", id > 0 ? id : undefined);
+    if (conflict) {
+      adminRedirect({
+        tab,
+        error: `${fullName} already has a verifier account for ${company}.`,
+      });
+    }
+  }
+
+  if (role === "Verifier" && company) {
+    const conflict = await findPortalRoleConflict(fullName, company, "Verifier", id > 0 ? id : undefined);
+    if (conflict) {
+      adminRedirect({
+        tab,
+        error: `${fullName} already has a manager account for ${company}.`,
+      });
+    }
   }
 
   if (role === "HR" && hrScope && !(HR_SCOPES as readonly string[]).includes(hrScope)) {
@@ -429,8 +484,9 @@ async function savePortalUserAction(
       await updateUser(id, {
         fullName,
         username,
-        company: role === "Manager" ? company : null,
-        department: role === "Manager" ? department : null,
+        company: role === "Manager" || role === "Verifier" ? company : null,
+        department:
+          role === "Manager" ? department : role === "Verifier" ? department : null,
         hrScope: role === "HR" ? hrScope : null,
         isActive,
         ...(password ? { password } : {}),
@@ -438,6 +494,7 @@ async function savePortalUserAction(
 
       revalidatePath("/admin");
       revalidatePath("/hr");
+      revalidatePath("/verification");
       adminRedirect({ tab, success: `Updated ${role.toLowerCase()} account for ${fullName}.` });
     }
 
@@ -455,13 +512,14 @@ async function savePortalUserAction(
       password,
       fullName,
       role,
-      company: role === "Manager" ? company : null,
-      department: role === "Manager" ? department : null,
+      company: role === "Manager" || role === "Verifier" ? company : null,
+      department: role === "Manager" ? department : role === "Verifier" ? department : null,
       hrScope: role === "HR" ? hrScope : null,
     });
 
     revalidatePath("/admin");
     revalidatePath("/hr");
+    revalidatePath("/verification");
     adminRedirect({ tab, success: `Created ${role.toLowerCase()} account for ${fullName}.` });
   } catch (error) {
     if (isNextNavigationError(error)) throw error;

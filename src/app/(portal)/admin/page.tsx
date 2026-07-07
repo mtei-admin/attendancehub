@@ -6,6 +6,7 @@ import {
   deleteAdminUserAction,
   saveAdminHrAction,
   saveAdminManagerAction,
+  saveAdminVerifierAction,
   saveCompanyAction,
   saveDepartmentAction,
 } from "@/actions/admin";
@@ -40,6 +41,7 @@ function resolveTab(tab?: string): AdminTab {
   if (
     tab === "employees" ||
     tab === "managers" ||
+    tab === "verifiers" ||
     tab === "hr" ||
     tab === "companies" ||
     tab === "departments" ||
@@ -60,12 +62,13 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const editId = params.edit ? Number(params.edit) : undefined;
   const showAdd = params.add === "1";
 
-  const [companies, departments, employees, managers, hrUsers, allUsers, allRequests, recordRequestLogs] =
+  const [companies, departments, employees, managers, verifiers, hrUsers, allUsers, allRequests, recordRequestLogs] =
     await Promise.all([
       listCompanies(),
       listDepartments(),
       listEmployees(),
       listUsersByRole("Manager", true),
+      listUsersByRole("Verifier", true),
       listUsersByRole("HR", true),
       listAllUsers(true),
       getAllRequests(),
@@ -84,6 +87,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
         activeTab={activeTab}
         employeeCount={activeEmployees.length}
         managerCount={managers.length}
+        verifierCount={verifiers.length}
         hrCount={hrUsers.length}
         companyCount={activeCompanies.length}
         departmentCount={activeDepartments.length}
@@ -144,6 +148,21 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             showAdd={showAdd}
             basePath="/admin"
             tab="managers"
+          />
+        )}
+
+        {activeTab === "verifiers" && (
+          <PortalUserPanel
+            users={verifiers}
+            departments={departments}
+            companies={companyNames}
+            saveAction={saveAdminVerifierAction}
+            deleteAction={deleteAdminUserAction}
+            role="Verifier"
+            editId={editId}
+            showAdd={showAdd}
+            basePath="/admin"
+            tab="verifiers"
           />
         )}
 

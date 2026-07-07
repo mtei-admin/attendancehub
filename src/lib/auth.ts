@@ -85,6 +85,7 @@ export function canAccessRoute(role: Role, pathname: string): boolean {
   const routeRoleMap: Record<string, Role> = {
     "/employee": "Employee",
     "/manager": "Manager",
+    "/verification": "Verifier",
     "/hr": "HR",
     "/admin": "Admin",
   };

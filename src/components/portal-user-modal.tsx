@@ -13,7 +13,7 @@ type PortalUserModalProps = {
   open: boolean;
   cancelHref: string;
   saveAction: (formData: FormData) => Promise<void>;
-  role: "Manager" | "HR";
+  role: "Manager" | "HR" | "Verifier";
   departments: Department[];
   companies: string[];
   editing?: User | null;
@@ -29,7 +29,8 @@ export function PortalUserModal({
   editing = null,
 }: PortalUserModalProps) {
   const isEditing = Boolean(editing);
-  const roleLabel = role === "Manager" ? "manager" : "HR account";
+  const roleLabel =
+    role === "Manager" ? "manager" : role === "Verifier" ? "verifier" : "HR account";
 
   return (
     <FormModal
@@ -78,6 +79,16 @@ export function PortalUserModal({
             companies={companies}
             defaultCompany={editing?.company ?? ""}
             defaultDepartmentName={editing?.department ?? ""}
+          />
+        )}
+
+        {role === "Verifier" && (
+          <CompanyDepartmentFields
+            departments={departments}
+            companies={companies}
+            defaultCompany={editing?.company ?? ""}
+            defaultDepartmentName={editing?.department ?? ""}
+            requireDepartment={false}
           />
         )}
 

@@ -4,8 +4,15 @@ import { redirect } from "next/navigation";
 
 import { createSession, destroySession, verifyCredentials } from "@/lib/auth";
 import { isNextNavigationError } from "@/lib/action-auth";
-import { isPortalSlug, type PortalSlug } from "@/lib/constants";
+import { isPortalSlug, type PortalSlug, type Role } from "@/lib/constants";
 import { isRole, routeForRole } from "@/lib/role";
+
+const PORTAL_EXPECTED_ROLE: Partial<Record<PortalSlug, Role>> = {
+  manager: "Manager",
+  verification: "Verifier",
+  hr: "HR",
+  admin: "Admin",
+};
 
 export async function loginAction(formData: FormData) {
   const portal = String(formData.get("portal") ?? "");
@@ -38,6 +45,13 @@ export async function loginAction(formData: FormData) {
     if (!isRole(user.role)) {
       redirect(
         `${loginPath}?error=${encodeURIComponent("Account role is not configured correctly.")}`,
+      );
+    }
+
+    const expectedRole = PORTAL_EXPECTED_ROLE[portal];
+    if (expectedRole && user.role !== expectedRole) {
+      redirect(
+        `${loginPath}?error=${encodeURIComponent("This account cannot sign in to this portal.")}`,
       );
     }
 

@@ -25,7 +25,7 @@ export default async function WelcomePage({ searchParams }: WelcomePageProps) {
           </div>
         )}
 
-        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {PORTAL_SLUGS.map((portal) => (
             <WelcomePortalCard key={portal} portal={portal} />
           ))}

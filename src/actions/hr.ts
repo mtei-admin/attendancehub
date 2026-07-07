@@ -15,7 +15,7 @@ import {
 import { parseOptionalBiometricNo } from "@/lib/biometric";
 import { createEmployee, updateEmployee, isBiometricNoTaken } from "@/lib/roster";
 import { archiveRequest, hrRejectApprovedRequest, unarchiveRequest } from "@/lib/requests";
-import { createUser, getUserById, getUserByUsername, updateUser } from "@/lib/users";
+import { createUser, getUserById, getUserByUsername, findPortalRoleConflict, updateUser } from "@/lib/users";
 import { listDepartments } from "@/lib/departments";
 
 function hrRedirect(params: {
@@ -67,6 +67,7 @@ export async function hrRejectRequestAction(formData: FormData) {
   const rejected = await hrRejectApprovedRequest(refId, session.fullName, rejectionReason);
   revalidatePath("/hr");
   revalidatePath("/manager");
+  revalidatePath("/verification");
   revalidatePath("/api/export/csv");
 
   if (!rejected) {
@@ -211,6 +212,19 @@ export async function saveManagerAction(formData: FormData) {
     hrRedirect({ tab: "managers", error: "Invalid or inactive company." });
   }
 
+  const managerConflict = await findPortalRoleConflict(
+    fullName,
+    company,
+    "Manager",
+    id > 0 ? id : undefined,
+  );
+  if (managerConflict) {
+    hrRedirect({
+      tab: "managers",
+      error: `${fullName} already has a verifier account for ${company}.`,
+    });
+  }
+
   try {
     if (id > 0) {
       const existing = await getUserById(id);
@@ -236,6 +250,7 @@ export async function saveManagerAction(formData: FormData) {
 
       revalidatePath("/hr");
       revalidatePath("/admin");
+      revalidatePath("/verification");
       hrRedirect({ tab: "managers", success: `Updated manager ${fullName}.` });
     }
 
@@ -259,12 +274,104 @@ export async function saveManagerAction(formData: FormData) {
 
     revalidatePath("/hr");
     revalidatePath("/admin");
+    revalidatePath("/verification");
     hrRedirect({ tab: "managers", success: `Created manager account for ${fullName}.` });
   } catch (error) {
     if (isNextNavigationError(error)) throw error;
     hrRedirect({
       tab: "managers",
       error: `Unable to save manager. ${String(error)}`,
+    });
+  }
+}
+
+export async function saveVerifierAction(formData: FormData) {
+  await requireRoles(["HR"]);
+  const id = Number(formData.get("id") ?? 0);
+  const fullName = String(formData.get("full_name") ?? "").trim();
+  const username = String(formData.get("username") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  const company = String(formData.get("company") ?? "").trim();
+  const department = String(formData.get("department") ?? "").trim() || null;
+  const isActive = formData.get("is_active") === "on";
+
+  if (!fullName || !username || !company) {
+    hrRedirect({ tab: "verifiers", error: "Name, username, and company are required." });
+  }
+
+  if (!(await isActiveCompany(company))) {
+    hrRedirect({ tab: "verifiers", error: "Invalid or inactive company." });
+  }
+
+  const verifierConflict = await findPortalRoleConflict(
+    fullName,
+    company,
+    "Verifier",
+    id > 0 ? id : undefined,
+  );
+  if (verifierConflict) {
+    hrRedirect({
+      tab: "verifiers",
+      error: `${fullName} already has a manager account for ${company}.`,
+    });
+  }
+
+  try {
+    if (id > 0) {
+      const existing = await getUserById(id);
+      if (!existing || existing.role !== "Verifier") {
+        hrRedirect({ tab: "verifiers", error: "Verifier account not found." });
+      }
+
+      if (username !== existing.username) {
+        const taken = await getUserByUsername(username);
+        if (taken) {
+          hrRedirect({ tab: "verifiers", error: "Username is already in use." });
+        }
+      }
+
+      await updateUser(id, {
+        fullName,
+        username,
+        company,
+        department,
+        isActive,
+        ...(password ? { password } : {}),
+      });
+
+      revalidatePath("/hr");
+      revalidatePath("/admin");
+      revalidatePath("/verification");
+      hrRedirect({ tab: "verifiers", success: `Updated verifier ${fullName}.` });
+    }
+
+    if (!password) {
+      hrRedirect({ tab: "verifiers", error: "Password is required for new verifier accounts." });
+    }
+
+    const taken = await getUserByUsername(username);
+    if (taken) {
+      hrRedirect({ tab: "verifiers", error: "Username is already in use." });
+    }
+
+    await createUser({
+      username,
+      password,
+      fullName,
+      role: "Verifier",
+      company,
+      department,
+    });
+
+    revalidatePath("/hr");
+    revalidatePath("/admin");
+    revalidatePath("/verification");
+    hrRedirect({ tab: "verifiers", success: `Created verifier account for ${fullName}.` });
+  } catch (error) {
+    if (isNextNavigationError(error)) throw error;
+    hrRedirect({
+      tab: "verifiers",
+      error: `Unable to save verifier. ${String(error)}`,
     });
   }
 }

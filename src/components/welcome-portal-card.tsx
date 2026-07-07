@@ -24,6 +24,7 @@ export function WelcomePortalCard({ portal }: WelcomePortalCardProps) {
       <h2 className="text-lg font-semibold text-slate-900">
         {portal === "employee" && "Employee"}
         {portal === "manager" && "Manager"}
+        {portal === "verification" && "Verification"}
         {portal === "hr" && "HR"}
         {portal === "admin" && "IT / Admin"}
       </h2>

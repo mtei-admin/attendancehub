@@ -2,6 +2,7 @@ import {
   saveEmployeeRosterAction,
   saveHrCompanyAction,
   saveManagerAction,
+  saveVerifierAction,
   saveOtEligibleTypesAction,
   savePayrollCutoffRulesAction,
 } from "@/actions/hr";
@@ -65,6 +66,7 @@ function resolveTab(tab?: string): HrTab {
     tab === "all" ||
     tab === "employees" ||
     tab === "managers" ||
+    tab === "verifiers" ||
     tab === "companies" ||
     tab === "ot-summary" ||
     tab === "record-logs"
@@ -97,6 +99,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
     companies,
     departments,
     managers,
+    verifiers,
     roster,
     cutoffRules,
     eligibleTypes,
@@ -109,6 +112,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
     listCompanies(),
     listDepartments(),
     listUsersByRole("Manager"),
+    listUsersByRole("Verifier"),
     listEmployees(true),
     listPayrollCutoffRules(),
     listOtEligibleTypes(),
@@ -256,6 +260,20 @@ export default async function HrPage({ searchParams }: HrPageProps) {
             showAdd={params.add === "1"}
             basePath="/hr"
             tab="managers"
+          />
+        )}
+
+        {activeTab === "verifiers" && (
+          <PortalUserPanel
+            users={verifiers}
+            departments={departments}
+            companies={companyNames}
+            saveAction={saveVerifierAction}
+            role="Verifier"
+            editId={editId}
+            showAdd={params.add === "1"}
+            basePath="/hr"
+            tab="verifiers"
           />
         )}
 

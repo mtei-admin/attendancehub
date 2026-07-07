@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { isNextNavigationError } from "@/lib/action-auth";
 import { getSession } from "@/lib/auth";
-import { ROLE_ROUTES } from "@/lib/constants";
+import { ROLE_ROUTES, type Role } from "@/lib/constants";
 import { addRequest, updateRequestStatus } from "@/lib/requests";
 import { verifyEmployeePlacement } from "@/lib/roster";
 
@@ -59,7 +59,7 @@ export async function submitRequestAction(formData: FormData) {
       otHrs: otHrs || null,
     });
     revalidateRolePaths();
-    redirect(`/employee?success=Request ${refId} submitted successfully and is pending manager review.`);
+    redirect(`/employee?success=Request ${refId} submitted successfully and is pending verification and manager review.`);
   } catch (error) {
     if (isNextNavigationError(error)) throw error;
     redirect(

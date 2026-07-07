@@ -36,6 +36,7 @@ function canAccess(role: Role, pathname: string): boolean {
   const rules: Record<string, Role> = {
     "/employee": "Employee",
     "/manager": "Manager",
+    "/verification": "Verifier",
     "/hr": "HR",
     "/admin": "Admin",
   };

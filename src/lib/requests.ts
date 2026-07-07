@@ -1,4 +1,4 @@
-import { and, desc, eq, ne } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, ne } from "drizzle-orm";
 
 import { MANAGER_NAME } from "./constants";
 import { getDb } from "./db";
@@ -191,6 +191,120 @@ export async function unarchiveRequest(refId: string): Promise<boolean> {
   return result.length > 0;
 }
 
+export async function getRequestByRefId(refId: string): Promise<AttendanceRequest | undefined> {
+  const db = getDb();
+  const [request] = await db
+    .select()
+    .from(attendanceRequests)
+    .where(eq(attendanceRequests.refId, refId))
+    .limit(1);
+  return request;
+}
+
+export async function getUnverifiedPendingRequests(
+  scope?: RequestScope,
+): Promise<AttendanceRequest[]> {
+  const db = getDb();
+  const scopeCondition = buildScopeConditions(scope);
+  const conditions = scopeCondition
+    ? and(
+        eq(attendanceRequests.status, "Pending"),
+        isNull(attendanceRequests.verifiedOn),
+        scopeCondition,
+      )
+    : and(eq(attendanceRequests.status, "Pending"), isNull(attendanceRequests.verifiedOn));
+
+  return db
+    .select()
+    .from(attendanceRequests)
+    .where(conditions)
+    .orderBy(desc(attendanceRequests.submittedAt));
+}
+
+export async function getVerifiedPendingRequests(
+  scope?: RequestScope,
+): Promise<AttendanceRequest[]> {
+  const db = getDb();
+  const scopeCondition = buildScopeConditions(scope);
+  const conditions = scopeCondition
+    ? and(
+        eq(attendanceRequests.status, "Pending"),
+        isNotNull(attendanceRequests.verifiedOn),
+        scopeCondition,
+      )
+    : and(eq(attendanceRequests.status, "Pending"), isNotNull(attendanceRequests.verifiedOn));
+
+  return db
+    .select()
+    .from(attendanceRequests)
+    .where(conditions)
+    .orderBy(desc(attendanceRequests.verifiedOn));
+}
+
+export type VerificationRequestInput = {
+  company: string;
+  department: string;
+  employeeName: string;
+  requestType: string;
+  dateRequested: string;
+  dateOfIncident: string;
+  timeIn?: string | null;
+  timeOut?: string | null;
+  otHrs?: string | null;
+  reason: string;
+  verificationNote?: string | null;
+};
+
+export async function verifyRequest(
+  refId: string,
+  input: VerificationRequestInput,
+  verifiedBy: string,
+  scope?: RequestScope,
+): Promise<boolean> {
+  const db = getDb();
+  const scopeCondition = buildScopeConditions(scope);
+  const conditions = scopeCondition
+    ? and(
+        eq(attendanceRequests.refId, refId),
+        eq(attendanceRequests.status, "Pending"),
+        isNull(attendanceRequests.verifiedOn),
+        scopeCondition,
+      )
+    : and(
+        eq(attendanceRequests.refId, refId),
+        eq(attendanceRequests.status, "Pending"),
+        isNull(attendanceRequests.verifiedOn),
+      );
+
+  const otValue = input.otHrs || null;
+  const now = new Date();
+
+  const result = await db
+    .update(attendanceRequests)
+    .set({
+      company: input.company,
+      department: input.department,
+      employeeName: input.employeeName,
+      requestType: input.requestType,
+      dateRequested: input.dateRequested || null,
+      dateOfIncident: input.dateOfIncident,
+      timeIn: input.timeIn || null,
+      timeOut: input.timeOut || null,
+      otHrs: otValue,
+      requestedOtHrs: otValue,
+      reason: input.reason,
+      verificationNote: input.verificationNote || null,
+      verifiedBy,
+      verifiedOn: now,
+      lastEditedBy: verifiedBy,
+      lastEditedOn: now,
+    })
+    .where(conditions)
+    .returning({ id: attendanceRequests.id });
+
+  return result.length > 0;
+}
+
 export async function getPendingRequests(scope?: RequestScope): Promise<AttendanceRequest[]> {
   const db = getDb();
   const scopeCondition = buildScopeConditions(scope);
@@ -264,6 +378,9 @@ export function toDisplayRow(request: AttendanceRequest) {
     requested_ot_hrs: request.requestedOtHrs ?? "",
     reason: request.reason,
     status: request.status,
+    verified_by: request.verifiedBy ?? "",
+    verified_on: request.verifiedOn?.toISOString() ?? "",
+    verification_note: request.verificationNote ?? "",
     approved_by: request.approvedBy ?? "",
     approved_on: request.approvedOn?.toISOString() ?? "",
   };

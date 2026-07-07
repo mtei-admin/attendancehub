@@ -1,34 +1,36 @@
-import { updateStatusAction } from "@/actions/requests";
+import Link from "next/link";
+
 import type { AttendanceRequest } from "@/lib/schema";
 import { requestEmployeeKey } from "@/lib/roster";
+import { isOwnSlip } from "@/lib/verification";
 
-import { inputClassName } from "./form-field";
 import {
   formatManagerSubmittedDate,
   formatManagerTime,
   getEmployeeTypeBadgeClass,
   getEmployeeTypeLabel,
 } from "./manager-request-utils";
-import { RejectRequestButton } from "./reject-request-button";
 
-type ManagerPendingListProps = {
+type VerificationPendingListProps = {
   requests: AttendanceRequest[];
   employeeTypeLookup: Record<string, string>;
+  verifierFullName: string;
+  panelHref: string;
+  editRefId?: string;
 };
 
-function needsApproveHrs(requestType: string): boolean {
-  return requestType === "Overtime" || requestType === "Holiday/Rest Day Work";
-}
-
-export function ManagerPendingList({
+export function VerificationPendingList({
   requests,
   employeeTypeLookup,
-}: ManagerPendingListProps) {
+  verifierFullName,
+  panelHref,
+  editRefId,
+}: VerificationPendingListProps) {
   if (requests.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
-        <div className="mb-3 text-2xl text-brand-500">📋</div>
-        <p className="text-sm text-slate-400">No pending requests</p>
+        <div className="mb-3 text-2xl text-brand-500">✅</div>
+        <p className="text-sm text-slate-400">No requests awaiting verification</p>
       </div>
     );
   }
@@ -55,11 +57,14 @@ export function ManagerPendingList({
             {requests.map((request) => {
               const employeeType = employeeTypeLookup[requestEmployeeKey(request)];
               const typeLabel = getEmployeeTypeLabel(employeeType);
-              const showApproveHrs = needsApproveHrs(request.requestType);
-              const isVerified = Boolean(request.verifiedOn);
+              const ownSlip = isOwnSlip(verifierFullName, request.employeeName);
+              const isEditing = editRefId === request.refId;
 
               return (
-                <tr key={request.id} className="align-top hover:bg-slate-50/60">
+                <tr
+                  key={request.id}
+                  className={`align-top hover:bg-slate-50/60 ${isEditing ? "bg-cyan-50/40" : ""}`}
+                >
                   <td className="px-4 py-4">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-slate-900">
@@ -72,20 +77,15 @@ export function ManagerPendingList({
                           {typeLabel}
                         </span>
                       )}
-                      {isVerified ? (
-                        <span className="rounded bg-cyan-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-700">
-                          Verified
-                        </span>
-                      ) : (
+                      {ownSlip && (
                         <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-                          Unverified
+                          Own slip
                         </span>
                       )}
                     </div>
                     <p className="mt-1 text-xs text-slate-500">
                       {request.company ? `${request.company} · ` : ""}
                       {request.department || "—"} · {formatManagerSubmittedDate(request.submittedAt)}
-                      {isVerified && request.verifiedBy ? ` · Verified by ${request.verifiedBy}` : ""}
                     </p>
                   </td>
                   <td className="px-4 py-4">
@@ -97,39 +97,16 @@ export function ManagerPendingList({
                   <td className="px-4 py-4 text-slate-700">{formatManagerTime(request.timeIn)}</td>
                   <td className="px-4 py-4 text-slate-700">{formatManagerTime(request.timeOut)}</td>
                   <td className="px-4 py-4">
-                    {showApproveHrs && (
-                      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                        Approve hrs
-                      </p>
+                    {ownSlip ? (
+                      <span className="text-xs text-slate-400">Cannot verify</span>
+                    ) : (
+                      <Link
+                        href={`${panelHref}&edit=${encodeURIComponent(request.refId)}`}
+                        className="inline-flex rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-cyan-700"
+                      >
+                        Edit &amp; verify
+                      </Link>
                     )}
-                    <div className="flex flex-wrap items-center gap-2">
-                      <form action={updateStatusAction} className="flex items-center gap-2">
-                        <input type="hidden" name="ref_id" value={request.refId} />
-                        <input type="hidden" name="status" value="Approved" />
-                        {showApproveHrs && (
-                          <input
-                            type="text"
-                            name="approved_ot_hrs"
-                            defaultValue={request.otHrs ?? ""}
-                            placeholder="e.g. 3"
-                            className={`${inputClassName} w-14 py-1.5 text-center`}
-                          />
-                        )}
-                        <button
-                          type="submit"
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-emerald-600 text-sm font-bold text-white hover:bg-emerald-700"
-                          title="Approve"
-                        >
-                          ✓
-                        </button>
-                      </form>
-                      <RejectRequestButton
-                        refId={request.refId}
-                        action={updateStatusAction}
-                        variant="icon"
-                        hiddenFields={{ status: "Rejected" }}
-                      />
-                    </div>
                   </td>
                   <td className="max-w-xs px-4 py-4 text-slate-600">{request.reason}</td>
                 </tr>

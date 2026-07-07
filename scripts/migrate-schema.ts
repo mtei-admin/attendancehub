@@ -74,6 +74,14 @@ const ATTENDANCE_ALTER_EXTRA = [
   `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS requested_ot_hrs text`,
 ];
 
+const ATTENDANCE_VERIFICATION_ALTER = [
+  `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS verified_by text`,
+  `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS verified_on timestamptz`,
+  `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS verification_note text`,
+  `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS last_edited_by text`,
+  `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS last_edited_on timestamptz`,
+];
+
 const CREATE_EMPLOYEES_TABLE = `
 CREATE TABLE IF NOT EXISTS employees (
   id serial PRIMARY KEY,
@@ -300,6 +308,11 @@ async function main() {
 
   await sql(CREATE_RECORD_REQUEST_LOGS_TABLE);
   console.log("OK: record_request_logs table ready");
+
+  for (const statement of ATTENDANCE_VERIFICATION_ALTER) {
+    await sql(statement);
+    console.log(`OK: ${statement}`);
+  }
 
   console.log("Schema migration complete.");
 }

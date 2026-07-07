@@ -1,4 +1,4 @@
-import { asc, and, eq } from "drizzle-orm";
+import { asc, and, eq, ne, sql } from "drizzle-orm";
 import { hash } from "bcryptjs";
 
 import { getDb } from "./db";
@@ -45,6 +45,33 @@ export async function listAllUsers(activeOnly = false): Promise<User[]> {
 
 export async function deactivateUser(id: number): Promise<User | null> {
   return updateUser(id, { isActive: false });
+}
+
+export async function findPortalRoleConflict(
+  fullName: string,
+  company: string,
+  role: "Manager" | "Verifier",
+  excludeId?: number,
+): Promise<User | undefined> {
+  const conflictRole = role === "Manager" ? "Verifier" : "Manager";
+  const db = getDb();
+  const normalizedName = fullName.trim().toLowerCase();
+
+  const rows = await db
+    .select()
+    .from(users)
+    .where(
+      and(
+        eq(users.role, conflictRole),
+        eq(users.isActive, true),
+        eq(users.company, company),
+        sql`lower(trim(${users.fullName})) = ${normalizedName}`,
+        excludeId ? ne(users.id, excludeId) : undefined,
+      ),
+    )
+    .limit(1);
+
+  return rows[0];
 }
 
 export async function createUser(input: {

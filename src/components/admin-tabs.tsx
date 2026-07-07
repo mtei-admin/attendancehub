@@ -4,6 +4,7 @@ export type AdminTab =
   | "dashboard"
   | "employees"
   | "managers"
+  | "verifiers"
   | "hr"
   | "companies"
   | "departments"
@@ -14,6 +15,7 @@ type AdminTabsProps = {
   activeTab: AdminTab;
   employeeCount: number;
   managerCount: number;
+  verifierCount: number;
   hrCount: number;
   companyCount: number;
   departmentCount: number;
@@ -23,6 +25,7 @@ export function AdminTabs({
   activeTab,
   employeeCount,
   managerCount,
+  verifierCount,
   hrCount,
   companyCount,
   departmentCount,
@@ -44,6 +47,12 @@ export function AdminTabs({
       id: "managers",
       label: "Managers",
       count: managerCount,
+      countClass: "bg-slate-100 text-slate-500",
+    },
+    {
+      id: "verifiers",
+      label: "Verifiers",
+      count: verifierCount,
       countClass: "bg-slate-100 text-slate-500",
     },
     {

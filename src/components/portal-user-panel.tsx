@@ -12,7 +12,7 @@ type PortalUserPanelProps = {
   companies: string[];
   saveAction: (formData: FormData) => Promise<void>;
   deleteAction?: (formData: FormData) => Promise<void>;
-  role: "Manager" | "HR";
+  role: "Manager" | "HR" | "Verifier";
   editId?: number;
   showAdd?: boolean;
   basePath: "/hr" | "/admin";
@@ -35,12 +35,23 @@ export function PortalUserPanel({
   const showModal = showAdd || Boolean(editing);
   const panelHref = `${basePath}?tab=${tab}`;
   const isAdmin = basePath === "/admin";
-  const panelTitle = role === "Manager" ? "Manager accounts" : "HR accounts";
-  const addLabel = role === "Manager" ? "+ Add manager" : "+ Add HR account";
-  const detailHeader = role === "Manager" ? "Company · Department" : "HR scope";
+  const panelTitle =
+    role === "Manager"
+      ? "Manager accounts"
+      : role === "Verifier"
+        ? "Verifier accounts"
+        : "HR accounts";
+  const addLabel =
+    role === "Manager"
+      ? "+ Add manager"
+      : role === "Verifier"
+        ? "+ Add verifier"
+        : "+ Add HR account";
+  const detailHeader =
+    role === "Manager" || role === "Verifier" ? "Company · Department" : "HR scope";
 
   const adminHeaders =
-    role === "Manager"
+    role === "Manager" || role === "Verifier"
       ? ["Name", "Username", "Password", "Company · Department", "Actions"]
       : ["Name", "Username", "Password", "HR scope", "Actions"];
 
@@ -104,9 +115,11 @@ export function PortalUserPanel({
                       </td>
                     )}
                     <td className="px-4 py-3 text-slate-700">
-                      {role === "Manager"
-                        ? user.company && user.department
-                          ? `${user.company} · ${user.department}`
+                      {role === "Manager" || role === "Verifier"
+                        ? user.company
+                          ? user.department
+                            ? `${user.company} · ${user.department}`
+                            : `${user.company} · All departments`
                           : user.department || "—"
                         : user.hrScope || "—"}
                     </td>

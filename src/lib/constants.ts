@@ -1,4 +1,4 @@
-export const ROLES = ["Employee", "Manager", "HR", "Admin"] as const;
+export const ROLES = ["Employee", "Manager", "Verifier", "HR", "Admin"] as const;
 export type Role = (typeof ROLES)[number];
 
 export const HR_SCOPES = ["R&F only", "Confi only"] as const;
@@ -66,11 +66,12 @@ export const MANAGER_PORTAL_USER = "Ana Reyes";
 export const ROLE_ROUTES: Record<Role, string> = {
   Employee: "/employee",
   Manager: "/manager",
+  Verifier: "/verification",
   HR: "/hr",
   Admin: "/admin",
 };
 
-export const PORTAL_SLUGS = ["employee", "manager", "hr", "admin"] as const;
+export const PORTAL_SLUGS = ["employee", "manager", "verification", "hr", "admin"] as const;
 export type PortalSlug = (typeof PORTAL_SLUGS)[number];
 
 export function isPortalSlug(value: string): value is PortalSlug {
@@ -94,6 +95,13 @@ export const PORTAL_CONFIG: Record<
     description: "Review and approve team requests",
     icon: "📋",
     accent: "border-orange-200 bg-orange-50 text-orange-600",
+  },
+  verification: {
+    title: "Verification portal",
+    subtitle: "Sign in to review and verify attendance requests.",
+    description: "Review and verify requests before approval",
+    icon: "✅",
+    accent: "border-cyan-200 bg-cyan-50 text-cyan-600",
   },
   hr: {
     title: "HR portal",

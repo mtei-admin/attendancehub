@@ -13,6 +13,12 @@ export function AdminDashboard({ stats }: AdminDashboardProps) {
       valueClass: "text-brand-600",
     },
     {
+      label: "Pending verification",
+      value: stats.pendingVerification,
+      subtext: "Awaiting verifier action",
+      valueClass: "text-cyan-600",
+    },
+    {
       label: "Pending manager approval",
       value: stats.pendingManagerApproval,
       subtext: "Awaiting manager action",
@@ -34,7 +40,7 @@ export function AdminDashboard({ stats }: AdminDashboardProps) {
 
   return (
     <div className="space-y-8">
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {cards.map((card) => (
           <article
             key={card.label}

@@ -101,6 +101,16 @@ export function CredentialsModal({
           />
         )}
 
+        {role === "Verifier" && (
+          <CompanyDepartmentFields
+            departments={departments}
+            companies={companies}
+            defaultCompany={editing?.company ?? ""}
+            defaultDepartmentName={editing?.department ?? ""}
+            requireDepartment={false}
+          />
+        )}
+
         {role === "HR" && (
           <FormField label="HR scope">
             <select name="hr_scope" defaultValue={editing?.hrScope ?? ""} className={inputClassName}>

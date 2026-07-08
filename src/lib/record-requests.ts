@@ -1,5 +1,6 @@
 import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 
+import { parseOtHours } from "./ot-summary";
 import { getDb } from "./db";
 import { attendanceRequests, recordRequestLogs, type AttendanceRequest } from "./schema";
 
@@ -13,13 +14,39 @@ export type RecordRequestFilters = {
   status?: string;
 };
 
+export type RecordRequestAction = "view" | "email" | "edit";
+
 export type RecordRequestAuditInput = RecordRequestFilters & {
   employeeId: number;
-  emailSentTo: string;
   rowCount: number;
+  action: RecordRequestAction;
+  emailSentTo?: string;
+  recordRefId?: string;
   ipAddress?: string;
   userAgent?: string;
 };
+
+export function canEmployeeEditRecord(request: AttendanceRequest): boolean {
+  return (
+    request.status === "Pending" && !request.verifiedOn && !request.archived
+  );
+}
+
+export function computeTotalOtHoursCredits(
+  records: AttendanceRequest[],
+  otEligibleTypes: string[],
+): number {
+  const eligible = new Set(otEligibleTypes);
+
+  return records.reduce((sum, request) => {
+    if (request.status !== "Approved" || !eligible.has(request.requestType)) {
+      return sum;
+    }
+
+    const { hours, valid } = parseOtHours(request.otHrs);
+    return sum + (valid ? hours : 0);
+  }, 0);
+}
 
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 const RATE_LIMIT_MAX = 3;
@@ -186,12 +213,14 @@ export async function logRecordRequest(input: RecordRequestAuditInput): Promise<
     employeeName: input.employeeName,
     company: input.company,
     department: input.department,
-    emailSentTo: input.emailSentTo,
+    emailSentTo: input.emailSentTo ?? "",
     submittedFrom: input.submittedFrom,
     submittedTo: input.submittedTo,
     requestTypeFilter: input.requestType ?? null,
     statusFilter: input.status ?? null,
     rowCount: input.rowCount,
+    action: input.action,
+    recordRefId: input.recordRefId ?? null,
     ipAddress: input.ipAddress ?? null,
     userAgent: input.userAgent ?? null,
   });

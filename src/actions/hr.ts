@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireRoles, isNextNavigationError } from "@/lib/action-auth";
-import { EMPLOYEE_TYPES } from "@/lib/constants";
+import { EMPLOYEE_TYPES, needsCheckHoursOnHrCheck } from "@/lib/constants";
 import { isValidEmail, normalizeEmail } from "@/lib/email";
 import { createCompany, isActiveCompany, updateCompany } from "@/lib/companies";
 import {
@@ -13,42 +13,104 @@ import {
   validateCutoffDays,
 } from "@/lib/ot-settings";
 import { parseOptionalBiometricNo } from "@/lib/biometric";
-import { createEmployee, updateEmployee, isBiometricNoTaken } from "@/lib/roster";
-import { archiveRequest, hrRejectApprovedRequest, unarchiveRequest } from "@/lib/requests";
+import { createEmployee, getEmployeeByPlacement, updateEmployee, isBiometricNoTaken } from "@/lib/roster";
+import { archiveRequest, getRequestByRefId, hrRejectApprovedRequest, unarchiveRequest } from "@/lib/requests";
+import { parseOtHours } from "@/lib/ot-summary";
 import { createUser, getUserById, getUserByUsername, findPortalRoleConflict, updateUser } from "@/lib/users";
 import { listDepartments } from "@/lib/departments";
 
-function hrRedirect(params: {
-  tab?: string;
-  success?: string;
-  error?: string;
-  settings?: boolean;
-}): never {
+function hrRedirect(
+  params: {
+    tab?: string;
+    success?: string;
+    error?: string;
+    settings?: boolean;
+    ot_group?: string;
+    ot_basis?: string;
+    ot_period?: string;
+    ot_start?: string;
+    ot_end?: string;
+    ot_custom?: string;
+    ot_company?: string;
+    ot_department?: string;
+    ot_employee?: string;
+  } = {},
+): never {
   const search = new URLSearchParams();
   if (params.tab) search.set("tab", params.tab);
   if (params.success) search.set("success", params.success);
   if (params.error) search.set("error", params.error);
   if (params.settings) search.set("settings", "1");
+  if (params.ot_group) search.set("ot_group", params.ot_group);
+  if (params.ot_basis) search.set("ot_basis", params.ot_basis);
+  if (params.ot_period) search.set("ot_period", params.ot_period);
+  if (params.ot_start) search.set("ot_start", params.ot_start);
+  if (params.ot_end) search.set("ot_end", params.ot_end);
+  if (params.ot_custom) search.set("ot_custom", params.ot_custom);
+  if (params.ot_company) search.set("ot_company", params.ot_company);
+  if (params.ot_department) search.set("ot_department", params.ot_department);
+  if (params.ot_employee) search.set("ot_employee", params.ot_employee);
   redirect(`/hr?${search.toString()}`);
 }
 
 export async function checkRequestAction(formData: FormData) {
   const session = await requireRoles(["HR"]);
   const refId = String(formData.get("ref_id") ?? "").trim();
+  const approvedOtHrs = String(formData.get("approved_ot_hrs") ?? "").trim();
 
   if (!refId) {
     hrRedirect({ tab: "pending", error: "Invalid request reference." });
   }
 
-  const archived = await archiveRequest(refId, session.fullName);
+  const request = await getRequestByRefId(refId);
+  if (!request) {
+    hrRedirect({ tab: "pending", error: "Request not found." });
+  }
+
+  const employee = await getEmployeeByPlacement(
+    request.company ?? "",
+    request.department ?? "",
+    request.employeeName,
+  );
+
+  const requiresHours =
+    employee?.employeeType === "Confi" && needsCheckHoursOnHrCheck(request.requestType);
+
+  let checkedOtHrs: string | null = null;
+
+  if (requiresHours) {
+    if (!approvedOtHrs) {
+      hrRedirect({
+        tab: "pending",
+        error: "Number of hours approved is required before checking this request.",
+      });
+    }
+
+    const { hours, valid } = parseOtHours(approvedOtHrs);
+    if (!valid || hours <= 0) {
+      hrRedirect({
+        tab: "pending",
+        error: "Enter a valid number of approved hours greater than zero.",
+      });
+    }
+
+    checkedOtHrs = approvedOtHrs;
+  }
+
+  const archived = await archiveRequest(refId, session.fullName, checkedOtHrs);
   revalidatePath("/hr");
   revalidatePath("/api/export/csv");
+  revalidatePath("/employee");
 
   if (!archived) {
     hrRedirect({ tab: "pending", error: "Request could not be marked as checked." });
   }
 
-  hrRedirect({ tab: "pending", success: `Request ${refId} marked as checked.` });
+  const successMessage = checkedOtHrs
+    ? `Request ${refId} marked as checked with ${checkedOtHrs} approved hour(s).`
+    : `Request ${refId} marked as checked.`;
+
+  hrRedirect({ tab: "pending", success: successMessage });
 }
 
 export async function hrRejectRequestAction(formData: FormData) {
@@ -412,6 +474,132 @@ export async function saveOtEligibleTypesAction(formData: FormData) {
   await saveOtEligibleTypes(activeTypes);
   revalidatePath("/hr");
   hrRedirect({ tab: "ot-summary", settings: true, success: "Updated OT-eligible request types." });
+}
+
+function buildOtSummaryRedirectParams(formData: FormData): Record<string, string> {
+  const params: Record<string, string> = { tab: "ot-summary" };
+  const keys = [
+    "ot_group",
+    "ot_basis",
+    "ot_period",
+    "ot_start",
+    "ot_end",
+    "ot_custom",
+    "ot_company",
+    "ot_department",
+    "ot_employee",
+  ] as const;
+
+  for (const key of keys) {
+    const value = String(formData.get(key) ?? "").trim();
+    if (value) params[key] = value;
+  }
+
+  return params;
+}
+
+export async function saveOtManualOverrideAction(formData: FormData) {
+  const session = await requireRoles(["HR"]);
+  const redirectParams = buildOtSummaryRedirectParams(formData);
+
+  const payrollGroup = String(formData.get("ot_group") ?? "").trim();
+  const exportBasis = String(formData.get("ot_basis") ?? "").trim();
+  const company = String(formData.get("ot_company") ?? "").trim();
+  const department = String(formData.get("ot_department") ?? "").trim();
+  const employeeName = String(formData.get("ot_employee") ?? "").trim();
+  const hoursRaw = String(formData.get("hours") ?? "").trim();
+  const note = String(formData.get("note") ?? "").trim();
+  const useCustomRange = String(formData.get("ot_custom") ?? "") === "1";
+
+  let periodStart = String(formData.get("ot_start") ?? "").trim();
+  let periodEnd = String(formData.get("ot_end") ?? "").trim();
+
+  if (!useCustomRange) {
+    const periodId = String(formData.get("ot_period") ?? "").trim();
+    const { parseCutoffPeriodId } = await import("@/lib/cutoff");
+    const parsed = parseCutoffPeriodId(periodId);
+    if (!parsed) {
+      hrRedirect({ ...redirectParams, error: "Select a valid cutoff period before saving an override." });
+    }
+    periodStart = parsed.startDate;
+    periodEnd = parsed.endDate;
+  }
+
+  if (payrollGroup !== "Confi") {
+    hrRedirect({ ...redirectParams, error: "Manual overrides are available for Confi only." });
+  }
+
+  if (exportBasis !== "checked") {
+    hrRedirect({
+      ...redirectParams,
+      error: "Switch export basis to HR-checked (official) before saving a manual override.",
+    });
+  }
+
+  if (!company || !department || !employeeName) {
+    hrRedirect({
+      ...redirectParams,
+      error: "Select company, department, and employee before saving a manual override.",
+    });
+  }
+
+  if (!periodStart || !periodEnd || periodStart > periodEnd) {
+    hrRedirect({ ...redirectParams, error: "A valid cutoff period is required." });
+  }
+
+  const hours = Number.parseFloat(hoursRaw);
+  if (!Number.isFinite(hours) || hours <= 0) {
+    hrRedirect({ ...redirectParams, error: "Enter a valid number of hours greater than zero." });
+  }
+
+  if (!note) {
+    hrRedirect({ ...redirectParams, error: "Remarks / notes are required." });
+  }
+
+  const { verifyEmployeePlacement, listEmployees } = await import("@/lib/roster");
+  const validEmployee = await verifyEmployeePlacement(company, department, employeeName);
+  if (!validEmployee) {
+    hrRedirect({ ...redirectParams, error: "Selected employee does not match the chosen company and department." });
+  }
+
+  const roster = await listEmployees(true);
+  const employee = roster.find(
+    (row) =>
+      row.companyName === company &&
+      row.departmentName === department &&
+      row.fullName === employeeName,
+  );
+  if (!employee || employee.employeeType !== "Confi") {
+    hrRedirect({ ...redirectParams, error: "Manual overrides are limited to Confi employees on the roster." });
+  }
+
+  try {
+    const { addOtManualOverrideHours } = await import("@/lib/ot-overrides");
+    await addOtManualOverrideHours({
+      company,
+      department,
+      employeeName,
+      payrollGroup: "Confi",
+      periodStart,
+      periodEnd,
+      hoursToAdd: hours,
+      note,
+      savedBy: session.fullName,
+    });
+
+    revalidatePath("/hr");
+    revalidatePath("/api/export/ot-summary");
+    hrRedirect({
+      ...redirectParams,
+      success: `Added ${hours.toFixed(2)} manual OT hour(s) for ${employeeName}.`,
+    });
+  } catch (error) {
+    if (isNextNavigationError(error)) throw error;
+    hrRedirect({
+      ...redirectParams,
+      error: `Unable to save manual override. ${String(error)}`,
+    });
+  }
 }
 
 export async function saveHrCompanyAction(formData: FormData) {

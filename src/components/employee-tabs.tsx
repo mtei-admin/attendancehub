@@ -11,7 +11,7 @@ type EmployeeTabsProps = {
 export function EmployeeTabs({ activeSection }: EmployeeTabsProps) {
   const tabs: { id: EmployeeSection; label: string }[] = [
     { id: "file", label: "File a request" },
-    { id: "records", label: "Request my records" },
+    { id: "records", label: "My records" },
   ];
 
   return (

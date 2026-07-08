@@ -8,6 +8,7 @@ import type { EmployeesByCompanyDepartment } from "@/lib/roster";
 import type { PayrollCutoffRule } from "@/lib/schema";
 
 import { FormField, inputClassName } from "./form-field";
+import { OtManualOverrideModal } from "./ot-manual-override-modal";
 import { OtSummarySettings } from "./ot-summary-settings";
 
 type OtSummaryPanelProps = {
@@ -69,6 +70,7 @@ export function OtSummaryPanel({
   const [company, setCompany] = useState(filters.company);
   const [department, setDepartment] = useState(filters.department);
   const [useCustomRange, setUseCustomRange] = useState(filters.useCustomRange);
+  const [overrideOpen, setOverrideOpen] = useState(false);
 
   const departments = useMemo(() => {
     if (!company) return [];
@@ -84,6 +86,15 @@ export function OtSummaryPanel({
   const canExport = Boolean(
     filters.payrollGroup &&
       (useCustomRange ? filters.startDate && filters.endDate : filters.periodId),
+  );
+
+  const canManualOverride = Boolean(
+    filters.payrollGroup === "Confi" &&
+      filters.exportBasis === "checked" &&
+      company &&
+      department &&
+      filters.employeeName &&
+      canExport,
   );
 
   return (
@@ -242,33 +253,65 @@ export function OtSummaryPanel({
             </FormField>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="submit"
+                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+              >
+                Preview summary
+              </button>
+              <a
+                href={canExport ? exportUrl : "#"}
+                aria-disabled={!canExport}
+                className={`rounded-lg border px-4 py-2 text-sm font-semibold ${
+                  canExport
+                    ? "border-brand-200 bg-brand-50 text-brand-700 hover:bg-brand-100"
+                    : "pointer-events-none border-slate-200 text-slate-400"
+                }`}
+              >
+                Download CSV
+              </a>
+              <a
+                href="/hr?tab=ot-summary&settings=1"
+                className="text-sm font-medium text-slate-500 hover:text-slate-700"
+              >
+                Cutoff &amp; OT type settings
+              </a>
+            </div>
+
             <button
-              type="submit"
-              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+              type="button"
+              disabled={!canManualOverride}
+              onClick={() => setOverrideOpen(true)}
+              title={
+                canManualOverride
+                  ? "Add manual OT hours for the selected Confi employee"
+                  : "Select Confi, HR-checked, company, department, employee, and period"
+              }
+              className="rounded-lg border border-violet-200 bg-violet-50 px-4 py-2 text-sm font-semibold text-violet-700 transition hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Preview summary
+              Manual override
             </button>
-            <a
-              href={canExport ? exportUrl : "#"}
-              aria-disabled={!canExport}
-              className={`rounded-lg border px-4 py-2 text-sm font-semibold ${
-                canExport
-                  ? "border-brand-200 bg-brand-50 text-brand-700 hover:bg-brand-100"
-                  : "pointer-events-none border-slate-200 text-slate-400"
-              }`}
-            >
-              Download CSV
-            </a>
-            <a
-              href="/hr?tab=ot-summary&settings=1"
-              className="text-sm font-medium text-slate-500 hover:text-slate-700"
-            >
-              Cutoff &amp; OT type settings
-            </a>
           </div>
         </form>
       </section>
+
+      <OtManualOverrideModal
+        open={overrideOpen}
+        onClose={() => setOverrideOpen(false)}
+        employeeName={filters.employeeName}
+        contextFields={{
+          payrollGroup: filters.payrollGroup,
+          exportBasis: filters.exportBasis,
+          periodId: filters.periodId,
+          startDate: filters.startDate,
+          endDate: filters.endDate,
+          useCustomRange,
+          company,
+          department,
+        }}
+      />
 
       {report && (
         <section className="space-y-4">
@@ -312,6 +355,7 @@ export function OtSummaryPanel({
                       "Type",
                       "Date",
                       "OT hrs",
+                      "Source",
                       "Checked",
                     ].map((header) => (
                       <th
@@ -326,7 +370,7 @@ export function OtSummaryPanel({
                 <tbody className="divide-y divide-slate-100">
                   {report.details.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
+                      <td colSpan={9} className="px-4 py-8 text-center text-slate-500">
                         No OT-eligible requests in this period for the selected filters.
                       </td>
                     </tr>
@@ -340,6 +384,9 @@ export function OtSummaryPanel({
                         <td className="px-4 py-3 text-slate-700">{row.requestType}</td>
                         <td className="px-4 py-3 text-slate-700">{row.dateOfIncident}</td>
                         <td className="px-4 py-3 text-slate-700">{row.otHrs.toFixed(2)}</td>
+                        <td className="px-4 py-3 text-slate-700">
+                          {row.isManualOverride ? "Manual" : "Slip"}
+                        </td>
                         <td className="px-4 py-3 text-slate-700">{row.hrChecked ? "Yes" : "No"}</td>
                       </tr>
                     ))

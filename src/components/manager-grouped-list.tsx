@@ -1,4 +1,5 @@
 import { updateStatusAction } from "@/actions/requests";
+import { needsCheckHoursOnHrCheck } from "@/lib/constants";
 import type { AttendanceRequest } from "@/lib/schema";
 import type { ManagerGroupedRequests } from "@/lib/manager-grouping";
 
@@ -16,7 +17,7 @@ type ManagerGroupedListProps = {
 };
 
 function needsApproveHrs(requestType: string): boolean {
-  return requestType === "Overtime" || requestType === "Holiday/Rest Day Work";
+  return needsCheckHoursOnHrCheck(requestType);
 }
 
 export function ManagerGroupedList({ grouped, mode, emptyMessage }: ManagerGroupedListProps) {

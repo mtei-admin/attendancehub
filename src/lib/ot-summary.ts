@@ -2,6 +2,7 @@ import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
 
 import { getDb } from "./db";
 import { getActiveOtEligibleTypes } from "./ot-settings";
+import { listOtManualOverrides, parseStoredOtOverrideHours } from "./ot-overrides";
 import { requestEmployeeKey } from "./roster";
 import { attendanceRequests, type AttendanceRequest } from "./schema";
 
@@ -22,6 +23,7 @@ export type OtSummaryDetailRow = {
   hrChecked: boolean;
   approvedBy: string;
   approvedOn: string;
+  isManualOverride?: boolean;
 };
 
 export type OtSummaryRollup = {
@@ -202,18 +204,58 @@ export async function buildOtSummaryReport(params: BuildOtSummaryParams): Promis
   });
 
   const details = filtered.map((request) => toDetailRow(request, params.employeeTypeLookup));
-  const invalidOtWarnings = details
-    .filter((row) => !row.otHrsValid)
+  let mergedDetails = [...details];
+
+  if (params.exportBasis === "checked" && params.payrollGroup === "Confi") {
+    const overrides = await listOtManualOverrides({
+      payrollGroup: "Confi",
+      periodStart: params.startDate,
+      periodEnd: params.endDate,
+      company: params.company,
+      department: params.department,
+      employeeName: params.employeeName,
+    });
+
+    const manualRows = overrides.flatMap((override) => {
+      const hours = parseStoredOtOverrideHours(override.hours);
+      if (hours <= 0) return [];
+
+      return [
+        {
+          refId: `OT-OVERRIDE-${String(override.id).padStart(3, "0")}`,
+          company: override.company,
+          department: override.department,
+          employeeName: override.employeeName,
+          employeeType: "Confi",
+          requestType: "Manual override",
+          dateOfIncident: params.endDate,
+          otHrs: hours,
+          otHrsRaw: override.hours,
+          otHrsValid: true,
+          status: "Override",
+          hrChecked: true,
+          approvedBy: override.updatedBy,
+          approvedOn: override.updatedAt?.toISOString() ?? "",
+          isManualOverride: true,
+        } satisfies OtSummaryDetailRow,
+      ];
+    });
+
+    mergedDetails = [...details, ...manualRows];
+  }
+
+  const invalidOtWarnings = mergedDetails
+    .filter((row) => !row.otHrsValid && !row.isManualOverride)
     .map((row) => `${row.refId} (${row.employeeName}): invalid OT hours "${row.otHrsRaw}"`);
 
-  const rollups = buildRollups(details);
-  const grandTotalHours = details.reduce((sum, row) => sum + row.otHrs, 0);
+  const rollups = buildRollups(mergedDetails);
+  const grandTotalHours = mergedDetails.reduce((sum, row) => sum + row.otHrs, 0);
 
   return {
-    details,
+    details: mergedDetails,
     ...rollups,
     grandTotalHours,
-    grandTotalRequests: details.length,
+    grandTotalRequests: mergedDetails.length,
     invalidOtWarnings,
   };
 }
@@ -257,6 +299,7 @@ export function otSummaryToCsv(
       "Request type",
       "Date of incident",
       "OT hours",
+      "Source",
       "HR checked",
       "Approved by",
       "Approved on",
@@ -274,6 +317,7 @@ export function otSummaryToCsv(
         row.requestType,
         row.dateOfIncident,
         row.otHrs.toFixed(2),
+        row.isManualOverride ? "Manual override" : "Slip",
         row.hrChecked ? "Yes" : "No",
         row.approvedBy,
         row.approvedOn,

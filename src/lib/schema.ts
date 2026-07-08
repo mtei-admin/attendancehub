@@ -141,8 +141,42 @@ export const recordRequestLogs = pgTable("record_request_logs", {
   requestTypeFilter: text("request_type_filter"),
   statusFilter: text("status_filter"),
   rowCount: integer("row_count").notNull().default(0),
+  action: text("action").notNull().default("email"),
+  recordRefId: text("record_ref_id"),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
 });
 
 export type RecordRequestLog = typeof recordRequestLogs.$inferSelect;
+
+export const otManualOverrides = pgTable(
+  "ot_manual_overrides",
+  {
+    id: serial("id").primaryKey(),
+    company: text("company").notNull(),
+    department: text("department").notNull(),
+    employeeName: text("employee_name").notNull(),
+    payrollGroup: text("payroll_group").notNull().default("Confi"),
+    periodStart: date("period_start").notNull(),
+    periodEnd: date("period_end").notNull(),
+    hours: text("hours").notNull().default("0"),
+    note: text("note"),
+    createdBy: text("created_by").notNull(),
+    updatedBy: text("updated_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    employeePeriodIdx: uniqueIndex("ot_manual_overrides_employee_period_unique").on(
+      table.company,
+      table.department,
+      table.employeeName,
+      table.payrollGroup,
+      table.periodStart,
+      table.periodEnd,
+    ),
+  }),
+);
+
+export type OtManualOverride = typeof otManualOverrides.$inferSelect;
+export type NewOtManualOverride = typeof otManualOverrides.$inferInsert;

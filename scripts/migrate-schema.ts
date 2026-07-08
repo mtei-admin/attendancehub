@@ -82,6 +82,34 @@ const ATTENDANCE_VERIFICATION_ALTER = [
   `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS last_edited_on timestamptz`,
 ];
 
+const CREATE_OT_MANUAL_OVERRIDES_TABLE = `
+CREATE TABLE IF NOT EXISTS ot_manual_overrides (
+  id serial PRIMARY KEY,
+  company text NOT NULL,
+  department text NOT NULL,
+  employee_name text NOT NULL,
+  payroll_group text NOT NULL DEFAULT 'Confi',
+  period_start date NOT NULL,
+  period_end date NOT NULL,
+  hours text NOT NULL DEFAULT '0',
+  note text,
+  created_by text NOT NULL,
+  updated_by text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+`;
+
+const RECORD_REQUEST_LOGS_ALTER = [
+  `ALTER TABLE record_request_logs ADD COLUMN IF NOT EXISTS action text NOT NULL DEFAULT 'email'`,
+  `ALTER TABLE record_request_logs ADD COLUMN IF NOT EXISTS record_ref_id text`,
+];
+
+const OT_MANUAL_OVERRIDE_INDEX = `
+CREATE UNIQUE INDEX IF NOT EXISTS ot_manual_overrides_employee_period_unique
+ON ot_manual_overrides (company, department, employee_name, payroll_group, period_start, period_end);
+`;
+
 const CREATE_EMPLOYEES_TABLE = `
 CREATE TABLE IF NOT EXISTS employees (
   id serial PRIMARY KEY,
@@ -310,6 +338,17 @@ async function main() {
   console.log("OK: record_request_logs table ready");
 
   for (const statement of ATTENDANCE_VERIFICATION_ALTER) {
+    await sql(statement);
+    console.log(`OK: ${statement}`);
+  }
+
+  await sql(CREATE_OT_MANUAL_OVERRIDES_TABLE);
+  console.log("OK: ot_manual_overrides table ready");
+
+  await sql(OT_MANUAL_OVERRIDE_INDEX);
+  console.log("OK: ot_manual_overrides unique index ready");
+
+  for (const statement of RECORD_REQUEST_LOGS_ALTER) {
     await sql(statement);
     console.log(`OK: ${statement}`);
   }

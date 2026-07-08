@@ -153,6 +153,7 @@ export async function hrRejectApprovedRequest(
 export async function archiveRequest(
   refId: string,
   archivedBy: string,
+  checkedOtHrs?: string | null,
 ): Promise<boolean> {
   const db = getDb();
   const result = await db
@@ -161,6 +162,7 @@ export async function archiveRequest(
       archived: true,
       archivedAt: new Date(),
       archivedBy,
+      ...(checkedOtHrs ? { otHrs: checkedOtHrs } : {}),
     })
     .where(
       and(
@@ -357,6 +359,54 @@ export async function updateRequestStatus(
       ...(status === "Rejected" && rejectionReason ? { rejectionReason } : {}),
     })
     .where(conditions)
+    .returning({ id: attendanceRequests.id });
+
+  return result.length > 0;
+}
+
+export async function updateEmployeePendingRequest(
+  refId: string,
+  input: {
+    company: string;
+    department: string;
+    employeeName: string;
+    requestType: string;
+    dateRequested: string;
+    dateOfIncident: string;
+    reason: string;
+    timeIn?: string | null;
+    timeOut?: string | null;
+    otHrs?: string | null;
+  },
+): Promise<boolean> {
+  const db = getDb();
+  const otValue = input.otHrs || null;
+
+  const result = await db
+    .update(attendanceRequests)
+    .set({
+      requestType: input.requestType,
+      dateRequested: input.dateRequested || null,
+      dateOfIncident: input.dateOfIncident,
+      timeIn: input.timeIn || null,
+      timeOut: input.timeOut || null,
+      otHrs: otValue,
+      requestedOtHrs: otValue,
+      reason: input.reason,
+      lastEditedBy: input.employeeName,
+      lastEditedOn: new Date(),
+    })
+    .where(
+      and(
+        eq(attendanceRequests.refId, refId),
+        eq(attendanceRequests.status, "Pending"),
+        isNull(attendanceRequests.verifiedOn),
+        eq(attendanceRequests.archived, false),
+        eq(attendanceRequests.company, input.company),
+        eq(attendanceRequests.department, input.department),
+        eq(attendanceRequests.employeeName, input.employeeName),
+      ),
+    )
     .returning({ id: attendanceRequests.id });
 
   return result.length > 0;

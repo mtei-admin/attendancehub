@@ -1,4 +1,4 @@
-import { checkRequestAction, hrRejectRequestAction } from "@/actions/hr";
+import { HrCheckAction } from "@/components/hr-check-action";
 import type { AttendanceRequest } from "@/lib/schema";
 import { requestEmployeeKey } from "@/lib/roster";
 
@@ -8,7 +8,6 @@ import {
   getEmployeeTypeBadgeClass,
   getEmployeeTypeLabel,
 } from "./manager-request-utils";
-import { RejectRequestButton } from "./reject-request-button";
 
 type HrRecordsListProps = {
   requests: AttendanceRequest[];
@@ -130,22 +129,7 @@ export function HrRecordsList({
                 </td>
                 <td className="px-4 py-4">
                   {mode === "pending" && !isChecked && (
-                    <div className="flex flex-col items-start gap-2">
-                      <form action={checkRequestAction}>
-                        <input type="hidden" name="ref_id" value={request.refId} />
-                        <button
-                          type="submit"
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-sm font-bold text-white hover:bg-emerald-700"
-                          title="Mark as checked"
-                        >
-                          ✓
-                        </button>
-                      </form>
-                      <RejectRequestButton
-                        refId={request.refId}
-                        action={hrRejectRequestAction}
-                      />
-                    </div>
+                    <HrCheckAction request={request} employeeType={employeeType} />
                   )}
 
                   {mode === "all" && !isChecked && (

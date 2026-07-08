@@ -20,6 +20,10 @@ export const REQUEST_TYPES = [
 ] as const;
 export type RequestType = (typeof REQUEST_TYPES)[number];
 
+export function needsCheckHoursOnHrCheck(requestType: string): boolean {
+  return requestType === "Overtime" || requestType === "Holiday/Rest Day Work";
+}
+
 export const STATUSES = ["Pending", "Approved", "Rejected"] as const;
 export type RequestStatus = (typeof STATUSES)[number];
 

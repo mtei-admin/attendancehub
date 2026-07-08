@@ -15,7 +15,8 @@ export function RecordRequestLogsPanel({ logs }: RecordRequestLogsPanelProps) {
       <div>
         <h2 className="text-2xl font-semibold text-slate-900">Record request logs</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Audit trail when employees request records by email. Use for disputes and abuse review.
+          Audit trail when employees view, edit, or email their records. Use for disputes and abuse
+          review.
         </p>
       </div>
 
@@ -26,8 +27,9 @@ export function RecordRequestLogsPanel({ logs }: RecordRequestLogsPanelProps) {
               <tr>
                 {[
                   "When",
+                  "Action",
                   "Employee",
-                  "Email sent to",
+                  "Email / detail",
                   "Submitted range",
                   "Type",
                   "Status",
@@ -46,7 +48,7 @@ export function RecordRequestLogsPanel({ logs }: RecordRequestLogsPanelProps) {
             <tbody className="divide-y divide-slate-100">
               {logs.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={9} className="px-4 py-8 text-center text-slate-500">
                     No record requests logged yet.
                   </td>
                 </tr>
@@ -54,13 +56,22 @@ export function RecordRequestLogsPanel({ logs }: RecordRequestLogsPanelProps) {
                 logs.map((log) => (
                   <tr key={log.id} className="hover:bg-slate-50/60">
                     <td className="px-4 py-3 text-slate-700">{formatTimestamp(log.createdAt)}</td>
+                    <td className="px-4 py-3 text-slate-700">
+                      <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold capitalize text-slate-700">
+                        {log.action ?? "email"}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-slate-900">
                       <div className="font-medium">{log.employeeName}</div>
                       <div className="text-xs text-slate-500">
                         {log.company} · {log.department}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-slate-700">{log.emailSentTo}</td>
+                    <td className="px-4 py-3 text-slate-700">
+                      {log.action === "edit" && log.recordRefId
+                        ? log.recordRefId
+                        : log.emailSentTo || "—"}
+                    </td>
                     <td className="px-4 py-3 text-slate-700">
                       {log.submittedFrom} – {log.submittedTo}
                     </td>

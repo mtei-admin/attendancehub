@@ -92,6 +92,12 @@ const ATTENDANCE_PAYROLL_CONFIRM_ALTER = [
   `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS payroll_confirmed_by text`,
 ];
 
+const ATTENDANCE_HR_RETURN_ALTER = [
+  `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS hr_return_reason text`,
+  `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS hr_returned_by text`,
+  `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS hr_returned_at timestamptz`,
+];
+
 const CREATE_OT_MANUAL_OVERRIDES_TABLE = `
 CREATE TABLE IF NOT EXISTS ot_manual_overrides (
   id serial PRIMARY KEY,
@@ -369,6 +375,11 @@ async function main() {
   }
 
   for (const statement of ATTENDANCE_PAYROLL_CONFIRM_ALTER) {
+    await sql(statement);
+    console.log(`OK: ${statement}`);
+  }
+
+  for (const statement of ATTENDANCE_HR_RETURN_ALTER) {
     await sql(statement);
     console.log(`OK: ${statement}`);
   }

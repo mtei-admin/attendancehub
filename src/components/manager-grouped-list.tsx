@@ -114,6 +114,7 @@ function RequestRow({
 }) {
   const showApproveHrs = needsApproveHrs(request.requestType);
   const isVerified = Boolean(request.verifiedOn);
+  const isReturnedFromHr = Boolean(request.hrReturnReason);
 
   return (
     <tr className="align-top hover:bg-slate-50/60">
@@ -131,6 +132,11 @@ function RequestRow({
       <td className="px-4 py-3">
         {mode === "pending" ? (
           <>
+            {isReturnedFromHr && (
+              <span className="mb-2 inline-flex rounded bg-orange-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange-800">
+                Returned from HR
+              </span>
+            )}
             {isVerified ? (
               <span className="mb-2 inline-flex rounded bg-cyan-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-700">
                 Verified
@@ -182,9 +188,21 @@ function RequestRow({
         )}
       </td>
       <td className="max-w-xs px-4 py-3 text-slate-600">
-        {mode === "history" && request.status === "Rejected" && request.rejectionReason
-          ? request.rejectionReason
-          : request.reason}
+        {mode === "pending" && isReturnedFromHr ? (
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-orange-700">
+              HR return reason
+            </p>
+            <p className="mt-1">{request.hrReturnReason}</p>
+            {request.hrReturnedBy && (
+              <p className="mt-1 text-xs text-slate-400">By {request.hrReturnedBy}</p>
+            )}
+          </div>
+        ) : mode === "history" && request.status === "Rejected" && request.rejectionReason ? (
+          request.rejectionReason
+        ) : (
+          request.reason
+        )}
       </td>
     </tr>
   );

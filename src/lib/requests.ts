@@ -162,19 +162,22 @@ export async function getArchivedRequests(): Promise<AttendanceRequest[]> {
     .orderBy(desc(attendanceRequests.archivedAt));
 }
 
-export async function hrRejectApprovedRequest(
+export async function hrReturnApprovedToManager(
   refId: string,
-  rejectedBy: string,
-  rejectionReason: string,
+  returnedBy: string,
+  hrReturnReason: string,
 ): Promise<boolean> {
   const db = getDb();
+  const now = new Date();
   const result = await db
     .update(attendanceRequests)
     .set({
-      status: "Rejected",
-      approvedBy: rejectedBy,
-      approvedOn: new Date(),
-      rejectionReason,
+      status: "Pending",
+      approvedBy: null,
+      approvedOn: null,
+      hrReturnReason,
+      hrReturnedBy: returnedBy,
+      hrReturnedAt: now,
       archived: false,
       archivedAt: null,
       archivedBy: null,
@@ -183,7 +186,7 @@ export async function hrRejectApprovedRequest(
       and(
         eq(attendanceRequests.refId, refId),
         eq(attendanceRequests.status, "Approved"),
-        eq(attendanceRequests.archived, false),
+        isNull(attendanceRequests.payrollConfirmedPeriodId),
       ),
     )
     .returning({ id: attendanceRequests.id });
@@ -429,8 +432,11 @@ export async function updateRequestStatus(
       approvedOn: new Date(),
       ...(status === "Approved" && approvedOtHrs ? { otHrs: approvedOtHrs } : {}),
       ...(status === "Rejected" && rejectionReason ? { rejectionReason } : {}),
+      hrReturnReason: null,
+      hrReturnedBy: null,
+      hrReturnedAt: null,
     })
-    .where(conditions)
+    .where(and(conditions, eq(attendanceRequests.status, "Pending")))
     .returning({ id: attendanceRequests.id });
 
   return result.length > 0;

@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 
-import { checkRequestAction, hrRejectRequestAction } from "@/actions/hr";
+import { checkRequestAction, hrReturnRequestAction } from "@/actions/hr";
 import { needsCheckHoursOnHrCheck } from "@/lib/constants";
 import type { AttendanceRequest } from "@/lib/schema";
 
 import { HrCheckHoursModal } from "./hr-check-hours-modal";
-import { RejectRequestButton } from "./reject-request-button";
+import { HR_RETURN_BUTTON_LABELS, RejectRequestButton } from "./reject-request-button";
 
 type HrCheckActionProps = {
   request: AttendanceRequest;
@@ -47,7 +47,11 @@ export function HrCheckAction({ request }: HrCheckActionProps) {
           </button>
         </form>
       )}
-      <RejectRequestButton refId={request.refId} action={hrRejectRequestAction} />
+      <RejectRequestButton
+        refId={request.refId}
+        action={hrReturnRequestAction}
+        labels={HR_RETURN_BUTTON_LABELS}
+      />
     </div>
   );
 }

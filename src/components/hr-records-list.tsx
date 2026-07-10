@@ -3,6 +3,9 @@ import { groupAttendanceRequestsByPlacement } from "@/lib/admin-stats";
 import type { AttendanceRequest } from "@/lib/schema";
 import { requestEmployeeKey } from "@/lib/roster";
 
+import { hrReturnRequestAction } from "@/actions/hr";
+import { HR_RETURN_BUTTON_LABELS, RejectRequestButton } from "./reject-request-button";
+
 import {
   formatManagerSubmittedDate,
   formatManagerTime,
@@ -116,7 +119,19 @@ function HrRecordRow({
         )}
 
         {(readOnly || mode === "checked" || (mode === "all" && isChecked)) && (
-          <CheckedStatus archivedBy={request.archivedBy} archivedAt={request.archivedAt} />
+          <div className="space-y-2">
+            <CheckedStatus archivedBy={request.archivedBy} archivedAt={request.archivedAt} />
+            {!readOnly &&
+              isChecked &&
+              !request.payrollConfirmedPeriodId &&
+              (mode === "checked" || mode === "all") && (
+                <RejectRequestButton
+                  refId={request.refId}
+                  action={hrReturnRequestAction}
+                  labels={HR_RETURN_BUTTON_LABELS}
+                />
+              )}
+          </div>
         )}
       </td>
       <td className="max-w-xs px-4 py-4 text-slate-600">{request.reason}</td>

@@ -27,7 +27,7 @@ import {
   confirmPayrollPeriodRequests,
   getArchivedRequests,
   getRequestByRefId,
-  hrRejectApprovedRequest,
+  hrReturnApprovedToManager,
   unarchiveRequest,
 } from "@/lib/requests";
 import { readOtHoursFromFormData, formatOtHoursLabel } from "@/lib/ot-hours";
@@ -210,23 +210,30 @@ export async function confirmPayrollCutoffAction(formData: FormData) {
   }
 }
 
-export async function hrRejectRequestAction(formData: FormData) {
+export async function hrReturnRequestAction(formData: FormData) {
   const session = await requireHrPortalAccess();
   const pendingTab = payrollOfficerPendingTab(session);
   const refId = String(formData.get("ref_id") ?? "").trim();
-  const rejectionReason = String(formData.get("rejection_reason") ?? "").trim();
+  const hrReturnReason = String(formData.get("hr_return_reason") ?? "").trim();
 
   if (!refId) {
     hrRedirect({ tab: pendingTab, error: "Invalid request reference." });
   }
 
-  if (!rejectionReason) {
-    hrRedirect({ tab: pendingTab, error: "A rejection reason is required." });
+  if (!hrReturnReason) {
+    hrRedirect({ tab: pendingTab, error: "A return reason is required." });
   }
 
   const request = await getRequestByRefId(refId);
   if (!request) {
     hrRedirect({ tab: pendingTab, error: "Request not found." });
+  }
+
+  if (request.payrollConfirmedPeriodId) {
+    hrRedirect({
+      tab: pendingTab,
+      error: "This record is already payroll-confirmed and cannot be returned.",
+    });
   }
 
   const employee = await getEmployeeByPlacement(
@@ -238,21 +245,21 @@ export async function hrRejectRequestAction(formData: FormData) {
   if (!canHrCheckRequest(session, employee?.employeeType)) {
     hrRedirect({
       tab: pendingTab,
-      error: "You can only reject Confi slips from this account.",
+      error: "You can only return Confi slips from this account.",
     });
   }
 
-  const rejected = await hrRejectApprovedRequest(refId, session.fullName, rejectionReason);
+  const returned = await hrReturnApprovedToManager(refId, session.fullName, hrReturnReason);
   revalidatePath("/hr");
   revalidatePath("/manager");
   revalidatePath("/verification");
   revalidatePath("/api/export/csv");
 
-  if (!rejected) {
-    hrRedirect({ tab: pendingTab, error: "Request could not be rejected." });
+  if (!returned) {
+    hrRedirect({ tab: pendingTab, error: "Request could not be returned to manager." });
   }
 
-  hrRedirect({ tab: pendingTab, success: `Request ${refId} rejected.` });
+  hrRedirect({ tab: pendingTab, success: `Request ${refId} returned to manager.` });
 }
 
 export async function archiveRequestAction(formData: FormData) {

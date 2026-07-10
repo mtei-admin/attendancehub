@@ -313,7 +313,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
               requests={pendingRequests}
               employeeTypeLookup={employeeTypeLookup}
               mode="pending"
-              grouped={session.hrScope === "Confi only"}
+              grouped={session.hrScope === "Confi only" || session.hrScope === "R&F only"}
               emptyMessage="No pending records to review."
             />
           </section>
@@ -325,7 +325,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
               requests={checkedRequests}
               employeeTypeLookup={employeeTypeLookup}
               mode="checked"
-              grouped={session.hrScope === "Confi only"}
+              grouped={session.hrScope === "Confi only" || session.hrScope === "R&F only"}
               emptyMessage="No checked records yet."
             />
           </section>

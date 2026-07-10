@@ -4,22 +4,43 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireHrPortalAccess, isNextNavigationError } from "@/lib/action-auth";
-import { canHrCheckRequest } from "@/lib/hr-portal-access";
 import { EMPLOYEE_TYPES, needsCheckHoursOnHrCheck, normalizeManagerDepartment } from "@/lib/constants";
-import { isValidEmail, normalizeEmail } from "@/lib/email";
+import { parseCutoffPeriodId } from "@/lib/cutoff";
 import { createCompany, isActiveCompany, updateCompany } from "@/lib/companies";
+import { listDepartments } from "@/lib/departments";
+import { isValidEmail, normalizeEmail } from "@/lib/email";
 import {
+  canHrCheckRequest,
+  filterPayrollOfficerRfRequests,
+  payrollOfficerCheckedTab,
+  payrollOfficerPendingTab,
+} from "@/lib/hr-portal-access";
+import { parseOptionalBiometricNo } from "@/lib/biometric";
+import {
+  getPayrollCutoffRule,
   saveOtEligibleTypes,
   updatePayrollCutoffRule,
   validateCutoffDays,
 } from "@/lib/ot-settings";
-import { parseOptionalBiometricNo } from "@/lib/biometric";
-import { createEmployee, getEmployeeByPlacement, updateEmployee, isBiometricNoTaken } from "@/lib/roster";
-import { archiveRequest, getRequestByRefId, hrRejectApprovedRequest, unarchiveRequest } from "@/lib/requests";
+import {
+  archiveRequest,
+  confirmPayrollPeriodRequests,
+  getArchivedRequests,
+  getRequestByRefId,
+  hrRejectApprovedRequest,
+  unarchiveRequest,
+} from "@/lib/requests";
 import { readOtHoursFromFormData, formatOtHoursLabel } from "@/lib/ot-hours";
 import { parseOtHours } from "@/lib/ot-summary";
+import {
+  buildEmployeeTypeLookup,
+  createEmployee,
+  getEmployeeByPlacement,
+  isBiometricNoTaken,
+  listEmployees,
+  updateEmployee,
+} from "@/lib/roster";
 import { createUser, getUserById, getUserByUsername, findPortalRoleConflict, updateUser } from "@/lib/users";
-import { listDepartments } from "@/lib/departments";
 
 function hrRedirect(
   params: {
@@ -27,6 +48,7 @@ function hrRedirect(
     success?: string;
     error?: string;
     settings?: boolean;
+    period?: string;
     ot_group?: string;
     ot_basis?: string;
     ot_period?: string;
@@ -43,6 +65,7 @@ function hrRedirect(
   if (params.success) search.set("success", params.success);
   if (params.error) search.set("error", params.error);
   if (params.settings) search.set("settings", "1");
+  if (params.period) search.set("period", params.period);
   if (params.ot_group) search.set("ot_group", params.ot_group);
   if (params.ot_basis) search.set("ot_basis", params.ot_basis);
   if (params.ot_period) search.set("ot_period", params.ot_period);
@@ -57,6 +80,7 @@ function hrRedirect(
 
 export async function checkRequestAction(formData: FormData) {
   const session = await requireHrPortalAccess();
+  const pendingTab = payrollOfficerPendingTab(session);
   const refId = String(formData.get("ref_id") ?? "").trim();
   const approvedOtHours = readOtHoursFromFormData(
     formData,
@@ -65,12 +89,12 @@ export async function checkRequestAction(formData: FormData) {
   );
 
   if (!refId) {
-    hrRedirect({ tab: "pending", error: "Invalid request reference." });
+    hrRedirect({ tab: pendingTab, error: "Invalid request reference." });
   }
 
   const request = await getRequestByRefId(refId);
   if (!request) {
-    hrRedirect({ tab: "pending", error: "Request not found." });
+    hrRedirect({ tab: pendingTab, error: "Request not found." });
   }
 
   const employee = await getEmployeeByPlacement(
@@ -81,7 +105,7 @@ export async function checkRequestAction(formData: FormData) {
 
   if (!canHrCheckRequest(session, employee?.employeeType)) {
     hrRedirect({
-      tab: "pending",
+      tab: pendingTab,
       error: "You can only check Confi slips from this account.",
     });
   }
@@ -94,14 +118,14 @@ export async function checkRequestAction(formData: FormData) {
   if (requiresHours) {
     if (approvedOtHours.empty) {
       hrRedirect({
-        tab: "pending",
+        tab: pendingTab,
         error: "Number of hours approved is required before checking this request.",
       });
     }
 
     if (!approvedOtHours.valid || approvedOtHours.totalHours <= 0) {
       hrRedirect({
-        tab: "pending",
+        tab: pendingTab,
         error: approvedOtHours.error ?? "Enter a valid number of approved hours greater than zero.",
       });
     }
@@ -115,32 +139,95 @@ export async function checkRequestAction(formData: FormData) {
   revalidatePath("/employee");
 
   if (!archived) {
-    hrRedirect({ tab: "pending", error: "Request could not be marked as checked." });
+    hrRedirect({ tab: pendingTab, error: "Request could not be marked as checked." });
   }
 
   const successMessage = checkedOtHrs
     ? `Request ${refId} marked as checked with ${formatOtHoursLabel(parseOtHours(checkedOtHrs).hours)} approved.`
     : `Request ${refId} marked as checked.`;
 
-  hrRedirect({ tab: "pending", success: successMessage });
+  hrRedirect({ tab: pendingTab, success: successMessage });
+}
+
+export async function confirmPayrollCutoffAction(formData: FormData) {
+  const session = await requireHrPortalAccess();
+  if (session.role !== "Payroll Officer") {
+    hrRedirect({ tab: "rf", error: "Only payroll officers can confirm R&F cutoffs." });
+  }
+
+  const periodId = String(formData.get("period_id") ?? "").trim();
+  const parsedPeriod = parseCutoffPeriodId(periodId);
+  if (!parsedPeriod) {
+    hrRedirect({ tab: "rf", error: "Invalid cutoff period." });
+  }
+
+  const [archived, roster] = await Promise.all([getArchivedRequests(), listEmployees(true)]);
+  const employeeTypeLookup = buildEmployeeTypeLookup(roster);
+  const matching = filterPayrollOfficerRfRequests(
+    archived,
+    employeeTypeLookup,
+    parsedPeriod.startDate,
+    parsedPeriod.endDate,
+  );
+
+  if (matching.length === 0) {
+    hrRedirect({
+      tab: "rf",
+      period: periodId,
+      error: "No unconfirmed R&F records found for this cutoff.",
+    });
+  }
+
+  try {
+    const confirmed = await confirmPayrollPeriodRequests(
+      matching.map((request) => request.refId),
+      periodId,
+      session.fullName,
+    );
+
+    revalidatePath("/hr");
+    revalidatePath("/api/export/csv");
+
+    if (confirmed === 0) {
+      hrRedirect({
+        tab: "rf",
+        period: periodId,
+        error: "Records could not be confirmed. They may have already been flagged.",
+      });
+    }
+
+    hrRedirect({
+      tab: "rf",
+      period: periodId,
+      success: `Payroll confirmed ${confirmed} R&F record(s) for this cutoff.`,
+    });
+  } catch (error) {
+    if (isNextNavigationError(error)) throw error;
+    hrRedirect({
+      tab: "rf",
+      period: periodId,
+      error: `Unable to confirm cutoff. ${String(error)}`,
+    });
+  }
 }
 
 export async function hrRejectRequestAction(formData: FormData) {
   const session = await requireHrPortalAccess();
+  const pendingTab = payrollOfficerPendingTab(session);
   const refId = String(formData.get("ref_id") ?? "").trim();
   const rejectionReason = String(formData.get("rejection_reason") ?? "").trim();
 
   if (!refId) {
-    hrRedirect({ tab: "pending", error: "Invalid request reference." });
+    hrRedirect({ tab: pendingTab, error: "Invalid request reference." });
   }
 
   if (!rejectionReason) {
-    hrRedirect({ tab: "pending", error: "A rejection reason is required." });
+    hrRedirect({ tab: pendingTab, error: "A rejection reason is required." });
   }
 
   const request = await getRequestByRefId(refId);
   if (!request) {
-    hrRedirect({ tab: "pending", error: "Request not found." });
+    hrRedirect({ tab: pendingTab, error: "Request not found." });
   }
 
   const employee = await getEmployeeByPlacement(
@@ -151,7 +238,7 @@ export async function hrRejectRequestAction(formData: FormData) {
 
   if (!canHrCheckRequest(session, employee?.employeeType)) {
     hrRedirect({
-      tab: "pending",
+      tab: pendingTab,
       error: "You can only reject Confi slips from this account.",
     });
   }
@@ -163,18 +250,19 @@ export async function hrRejectRequestAction(formData: FormData) {
   revalidatePath("/api/export/csv");
 
   if (!rejected) {
-    hrRedirect({ tab: "pending", error: "Request could not be rejected." });
+    hrRedirect({ tab: pendingTab, error: "Request could not be rejected." });
   }
 
-  hrRedirect({ tab: "pending", success: `Request ${refId} rejected.` });
+  hrRedirect({ tab: pendingTab, success: `Request ${refId} rejected.` });
 }
 
 export async function archiveRequestAction(formData: FormData) {
   const session = await requireHrPortalAccess();
+  const pendingTab = payrollOfficerPendingTab(session);
   const refId = String(formData.get("ref_id") ?? "").trim();
 
   if (!refId) {
-    hrRedirect({ tab: "pending", error: "Invalid request reference." });
+    hrRedirect({ tab: pendingTab, error: "Invalid request reference." });
   }
 
   const archived = await archiveRequest(refId, session.fullName);
@@ -182,18 +270,19 @@ export async function archiveRequestAction(formData: FormData) {
   revalidatePath("/api/export/csv");
 
   if (!archived) {
-    hrRedirect({ tab: "pending", error: "Request could not be archived." });
+    hrRedirect({ tab: pendingTab, error: "Request could not be archived." });
   }
 
-  hrRedirect({ tab: "pending", success: `Request ${refId} archived.` });
+  hrRedirect({ tab: pendingTab, success: `Request ${refId} archived.` });
 }
 
 export async function unarchiveRequestAction(formData: FormData) {
-  await requireHrPortalAccess();
+  const session = await requireHrPortalAccess();
+  const checkedTab = payrollOfficerCheckedTab(session);
   const refId = String(formData.get("ref_id") ?? "").trim();
 
   if (!refId) {
-    hrRedirect({ tab: "checked", error: "Invalid request reference." });
+    hrRedirect({ tab: checkedTab, error: "Invalid request reference." });
   }
 
   const restored = await unarchiveRequest(refId);
@@ -201,10 +290,10 @@ export async function unarchiveRequestAction(formData: FormData) {
   revalidatePath("/api/export/csv");
 
   if (!restored) {
-    hrRedirect({ tab: "checked", error: "Request could not be restored." });
+    hrRedirect({ tab: checkedTab, error: "Request could not be restored." });
   }
 
-  hrRedirect({ tab: "checked", success: `Request ${refId} restored to pending.` });
+  hrRedirect({ tab: checkedTab, success: `Request ${refId} restored to pending.` });
 }
 
 export async function saveEmployeeRosterAction(formData: FormData) {

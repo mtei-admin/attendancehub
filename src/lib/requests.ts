@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull, isNull, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, ne } from "drizzle-orm";
 
 import { MANAGER_NAME } from "./constants";
 import { getDb } from "./db";
@@ -215,6 +215,37 @@ export async function archiveRequest(
     .returning({ id: attendanceRequests.id });
 
   return result.length > 0;
+}
+
+export async function confirmPayrollPeriodRequests(
+  refIds: string[],
+  periodId: string,
+  confirmedBy: string,
+): Promise<number> {
+  if (refIds.length === 0) {
+    return 0;
+  }
+
+  const db = getDb();
+  const now = new Date();
+  const result = await db
+    .update(attendanceRequests)
+    .set({
+      payrollConfirmedPeriodId: periodId,
+      payrollConfirmedAt: now,
+      payrollConfirmedBy: confirmedBy,
+    })
+    .where(
+      and(
+        inArray(attendanceRequests.refId, refIds),
+        eq(attendanceRequests.status, "Approved"),
+        eq(attendanceRequests.archived, true),
+        isNull(attendanceRequests.payrollConfirmedPeriodId),
+      ),
+    )
+    .returning({ id: attendanceRequests.id });
+
+  return result.length;
 }
 
 export async function unarchiveRequest(refId: string): Promise<boolean> {
@@ -525,5 +556,8 @@ export function toDisplayRow(request: AttendanceRequest) {
     approved_by: request.approvedBy ?? "",
     approved_on: request.approvedOn?.toISOString() ?? "",
     submitted_by: request.submittedBy ?? "",
+    payroll_confirmed_period_id: request.payrollConfirmedPeriodId ?? "",
+    payroll_confirmed_at: request.payrollConfirmedAt?.toISOString() ?? "",
+    payroll_confirmed_by: request.payrollConfirmedBy ?? "",
   };
 }

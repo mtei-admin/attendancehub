@@ -14,6 +14,7 @@ type HrRecordsListProps = {
   employeeTypeLookup: Record<string, string>;
   mode: "pending" | "checked" | "all";
   emptyMessage?: string;
+  readOnly?: boolean;
 };
 
 function formatRecordDate(date: Date | null): string {
@@ -53,6 +54,7 @@ export function HrRecordsList({
   employeeTypeLookup,
   mode,
   emptyMessage = "No records found.",
+  readOnly = false,
 }: HrRecordsListProps) {
   if (requests.length === 0) {
     return (
@@ -128,15 +130,15 @@ export function HrRecordsList({
                   </p>
                 </td>
                 <td className="px-4 py-4">
-                  {mode === "pending" && !isChecked && (
+                  {!readOnly && mode === "pending" && !isChecked && (
                     <HrCheckAction request={request} employeeType={employeeType} />
                   )}
 
-                  {mode === "all" && !isChecked && (
+                  {!readOnly && mode === "all" && !isChecked && (
                     <span className="text-sm text-slate-400">Pending</span>
                   )}
 
-                  {(mode === "checked" || (mode === "all" && isChecked)) && (
+                  {(readOnly || mode === "checked" || (mode === "all" && isChecked)) && (
                     <CheckedStatus
                       archivedBy={request.archivedBy}
                       archivedAt={request.archivedAt}

@@ -9,19 +9,26 @@ import {
 import { FlashMessage } from "@/components/flash-message";
 import { CompanyPanel } from "@/components/company-panel";
 import { HrRecordsList } from "@/components/hr-records-list";
-import { HrTabs, type HrTab } from "@/components/hr-tabs";
+import { PayrollOfficerTabs } from "@/components/payroll-officer-tabs";
+import { PayrollRfPanel } from "@/components/payroll-rf-panel";
 import { OtSummaryPanel } from "@/components/ot-summary-panel";
 import { RecordRequestLogsPanel } from "@/components/record-request-logs-panel";
 import { PortalUserPanel } from "@/components/portal-user-panel";
 import { RosterPanel } from "@/components/roster-panel";
 import { getSession } from "@/lib/auth";
 import { listCompanies } from "@/lib/companies";
-import { listCutoffPeriods, parseCutoffPeriodId } from "@/lib/cutoff";
+import { HrTabs, type HrTab } from "@/components/hr-tabs";
+import { getCurrentCutoffPeriod, listCutoffPeriods, parseCutoffPeriodId } from "@/lib/cutoff";
 import { listDepartments } from "@/lib/departments";
 import {
   canAccessHrPortal,
+  filterPayrollOfficerConfiRequests,
+  filterPayrollOfficerRfRequests,
   filterRequestsForHrPortal,
+  isPayrollOfficerRole,
+  payrollOfficerConfiView,
   resolveOtSummaryHrScope,
+  resolvePayrollOfficerTab,
 } from "@/lib/hr-portal-access";
 import {
   allowedPayrollGroups,
@@ -47,6 +54,7 @@ import { redirect } from "next/navigation";
 type HrPageProps = {
   searchParams: Promise<{
     tab?: string;
+    period?: string;
     edit?: string;
     add?: string;
     success?: string;
@@ -86,11 +94,13 @@ function parseExportBasis(value?: string): OtExportBasis {
 
 export default async function HrPage({ searchParams }: HrPageProps) {
   const params = await searchParams;
-  const activeTab = resolveTab(params.tab);
-  const editId = params.edit ? Number(params.edit) : undefined;
-
   const session = await getSession();
   if (!session || !canAccessHrPortal(session.role)) redirect("/");
+
+  const isPayrollOfficer = isPayrollOfficerRole(session.role);
+  const payrollOfficerTab = isPayrollOfficer ? resolvePayrollOfficerTab(params.tab) : null;
+  const activeTab = isPayrollOfficer ? payrollOfficerTab! : resolveTab(params.tab);
+  const editId = params.edit ? Number(params.edit) : undefined;
 
   const payrollGroups = allowedPayrollGroups(session.role, session.hrScope);
 
@@ -127,19 +137,48 @@ export default async function HrPage({ searchParams }: HrPageProps) {
 
   const employeeTypeLookup = buildEmployeeTypeLookup(roster);
   const employeesByCompanyDepartment = buildEmployeesByCompanyDepartment(roster);
-  const pendingRequests = filterRequestsForHrPortal(
-    pendingRaw,
-    employeeTypeLookup,
-    session,
-    "pending",
-  );
-  const checkedRequests = filterRequestsForHrPortal(
-    checkedRaw,
-    employeeTypeLookup,
-    session,
-    "checked",
-  );
-  const allRequests = filterRequestsForHrPortal(allRaw, employeeTypeLookup, session, "all");
+
+  const confiPendingRequests = isPayrollOfficer
+    ? filterPayrollOfficerConfiRequests(pendingRaw, employeeTypeLookup, "pending")
+    : [];
+  const confiCheckedRequests = isPayrollOfficer
+    ? filterPayrollOfficerConfiRequests(checkedRaw, employeeTypeLookup, "checked")
+    : [];
+  const confiAllRequests = isPayrollOfficer
+    ? filterPayrollOfficerConfiRequests(allRaw, employeeTypeLookup, "all")
+    : [];
+
+  const rfCutoffRule = isPayrollOfficer ? await getPayrollCutoffRule("Rank & File") : null;
+  const rfPeriodOptions = rfCutoffRule ? listCutoffPeriods(rfCutoffRule) : [];
+  const defaultRfPeriod =
+    (params.period && parseCutoffPeriodId(params.period) ? params.period : null) ??
+    (rfCutoffRule ? getCurrentCutoffPeriod(rfCutoffRule)?.id : null) ??
+    rfPeriodOptions[0]?.id ??
+    "";
+  const parsedRfPeriod = defaultRfPeriod ? parseCutoffPeriodId(defaultRfPeriod) : null;
+  const rfRequests =
+    isPayrollOfficer && parsedRfPeriod
+      ? filterPayrollOfficerRfRequests(
+          checkedRaw,
+          employeeTypeLookup,
+          parsedRfPeriod.startDate,
+          parsedRfPeriod.endDate,
+        )
+      : [];
+  const selectedRfPeriodLabel =
+    rfPeriodOptions.find((period) => period.id === defaultRfPeriod)?.label ?? defaultRfPeriod;
+
+  const pendingRequests = isPayrollOfficer
+    ? confiPendingRequests
+    : filterRequestsForHrPortal(pendingRaw, employeeTypeLookup, session, "pending");
+  const checkedRequests = isPayrollOfficer
+    ? confiCheckedRequests
+    : filterRequestsForHrPortal(checkedRaw, employeeTypeLookup, session, "checked");
+  const allRequests = isPayrollOfficer
+    ? confiAllRequests
+    : filterRequestsForHrPortal(allRaw, employeeTypeLookup, session, "all");
+
+  const confiView = isPayrollOfficer && payrollOfficerTab ? payrollOfficerConfiView(payrollOfficerTab) : null;
 
   const otPayrollGroup =
     params.ot_group && payrollGroups.includes(params.ot_group)
@@ -189,18 +228,83 @@ export default async function HrPage({ searchParams }: HrPageProps) {
 
   return (
     <>
-      <HrTabs
-        activeTab={activeTab}
-        pendingCount={pendingRequests.length}
-        checkedCount={checkedRequests.length}
-        allCount={allRequests.length}
-        companyCount={activeCompanies.length}
-      />
+      {isPayrollOfficer && payrollOfficerTab ? (
+        <PayrollOfficerTabs
+          activeTab={payrollOfficerTab}
+          rfCount={rfRequests.length}
+          confiPendingCount={confiPendingRequests.length}
+          confiCheckedCount={confiCheckedRequests.length}
+          confiAllCount={confiAllRequests.length}
+          companyCount={activeCompanies.length}
+          rfPeriodId={defaultRfPeriod || undefined}
+        />
+      ) : (
+        <HrTabs
+          activeTab={activeTab as HrTab}
+          pendingCount={pendingRequests.length}
+          checkedCount={checkedRequests.length}
+          allCount={allRequests.length}
+          companyCount={activeCompanies.length}
+        />
+      )}
 
       <div className="mx-auto max-w-6xl space-y-8 px-4 py-8 md:px-6">
         <FlashMessage success={params.success} error={params.error} />
 
-        {activeTab === "pending" && (
+        {isPayrollOfficer && payrollOfficerTab === "rf" && (
+          <PayrollRfPanel
+            requests={rfRequests}
+            employeeTypeLookup={employeeTypeLookup}
+            periodOptions={rfPeriodOptions}
+            selectedPeriodId={defaultRfPeriod}
+            selectedPeriodLabel={selectedRfPeriodLabel}
+          />
+        )}
+
+        {isPayrollOfficer && confiView === "pending" && (
+          <section className="space-y-4">
+            <HrRecordsList
+              requests={confiPendingRequests}
+              employeeTypeLookup={employeeTypeLookup}
+              mode="pending"
+              emptyMessage="No pending Confi records to review."
+            />
+          </section>
+        )}
+
+        {isPayrollOfficer && confiView === "checked" && (
+          <section className="space-y-4">
+            <HrRecordsList
+              requests={confiCheckedRequests}
+              employeeTypeLookup={employeeTypeLookup}
+              mode="checked"
+              emptyMessage="No checked Confi records yet."
+            />
+          </section>
+        )}
+
+        {isPayrollOfficer && confiView === "all" && (
+          <section className="space-y-4">
+            {confiAllRequests.length > 0 && (
+              <div className="flex justify-end">
+                <a
+                  href="/api/export/csv?group=confi"
+                  className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+                >
+                  Download CSV for Payroll
+                </a>
+              </div>
+            )}
+            <HrRecordsList
+              requests={confiAllRequests}
+              employeeTypeLookup={employeeTypeLookup}
+              mode="all"
+              emptyMessage="No Confi records to display."
+            />
+          </section>
+        )}
+
+        {!isPayrollOfficer && activeTab === "pending" && (
           <section className="space-y-4">
             <HrRecordsList
               requests={pendingRequests}
@@ -211,7 +315,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
           </section>
         )}
 
-        {activeTab === "checked" && (
+        {!isPayrollOfficer && activeTab === "checked" && (
           <section className="space-y-4">
             <HrRecordsList
               requests={checkedRequests}
@@ -222,7 +326,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
           </section>
         )}
 
-        {activeTab === "all" && (
+        {!isPayrollOfficer && activeTab === "all" && (
           <section className="space-y-4">
             {allRequests.length > 0 && (
               <div className="flex justify-end">

@@ -1,9 +1,24 @@
 import type { SessionUser } from "./auth";
 import type { Role } from "./constants";
 import type { AttendanceRequest } from "./schema";
+import { isDateInPeriod } from "./cutoff";
 import { requestEmployeeKey } from "./roster";
 
 export type HrPortalListMode = "pending" | "checked" | "all";
+
+export type PayrollOfficerConfiView = "pending" | "checked" | "all";
+
+export type PayrollOfficerTab =
+  | "rf"
+  | "confi-pending"
+  | "confi-checked"
+  | "confi-all"
+  | "employees"
+  | "managers"
+  | "verifiers"
+  | "companies"
+  | "ot-summary"
+  | "record-logs";
 
 export const HR_PORTAL_ROLES: Role[] = ["HR", "Payroll Officer"];
 
@@ -29,6 +44,82 @@ export function hrPortalTitle(session: SessionUser): string {
   return scope ? `HR portal — ${scope}` : "HR portal";
 }
 
+export function resolvePayrollOfficerTab(tab?: string): PayrollOfficerTab {
+  if (tab === "pending") return "confi-pending";
+  if (tab === "checked") return "confi-checked";
+  if (tab === "all") return "confi-all";
+
+  if (
+    tab === "rf" ||
+    tab === "confi-pending" ||
+    tab === "confi-checked" ||
+    tab === "confi-all" ||
+    tab === "employees" ||
+    tab === "managers" ||
+    tab === "verifiers" ||
+    tab === "companies" ||
+    tab === "ot-summary" ||
+    tab === "record-logs"
+  ) {
+    return tab;
+  }
+
+  return "confi-pending";
+}
+
+export function payrollOfficerConfiView(tab: PayrollOfficerTab): PayrollOfficerConfiView | null {
+  if (tab === "confi-pending") return "pending";
+  if (tab === "confi-checked") return "checked";
+  if (tab === "confi-all") return "all";
+  return null;
+}
+
+export function isPayrollOfficerConfiTab(tab: PayrollOfficerTab): boolean {
+  return tab === "confi-pending" || tab === "confi-checked" || tab === "confi-all";
+}
+
+export function filterPayrollOfficerConfiRequests(
+  requests: AttendanceRequest[],
+  employeeTypeLookup: Record<string, string>,
+  view: PayrollOfficerConfiView,
+): AttendanceRequest[] {
+  return requests.filter((request) => {
+    const employeeType = employeeTypeLookup[requestEmployeeKey(request)];
+    if (employeeType !== "Confi") return false;
+
+    if (view === "pending") {
+      return !request.archived;
+    }
+
+    if (view === "checked") {
+      return request.archived;
+    }
+
+    return true;
+  });
+}
+
+export function filterPayrollOfficerRfRequests(
+  requests: AttendanceRequest[],
+  employeeTypeLookup: Record<string, string>,
+  startDate: string,
+  endDate: string,
+): AttendanceRequest[] {
+  return requests.filter((request) => {
+    if (!request.archived || request.payrollConfirmedPeriodId) {
+      return false;
+    }
+
+    const employeeType = employeeTypeLookup[requestEmployeeKey(request)];
+    if (employeeType !== "Rank & File") {
+      return false;
+    }
+
+    const incident = String(request.dateOfIncident);
+    return isDateInPeriod(incident, startDate, endDate);
+  });
+}
+
 export function filterRequestsForHrPortal(
   requests: AttendanceRequest[],
   employeeTypeLookup: Record<string, string>,
@@ -43,22 +134,7 @@ export function filterRequestsForHrPortal(
     return [];
   }
 
-  return requests.filter((request) => {
-    const employeeType = employeeTypeLookup[requestEmployeeKey(request)];
-
-    if (mode === "pending") {
-      return employeeType === "Confi";
-    }
-
-    if (mode === "checked") {
-      return (
-        request.archived &&
-        (employeeType === "Rank & File" || employeeType === "Confi")
-      );
-    }
-
-    return employeeType === "Confi";
-  });
+  return filterPayrollOfficerConfiRequests(requests, employeeTypeLookup, mode);
 }
 
 function filterHrScopedRequests(
@@ -116,4 +192,12 @@ export function canUseOtExportBasis(
   }
 
   return true;
+}
+
+export function payrollOfficerPendingTab(session: SessionUser): string {
+  return session.role === "Payroll Officer" ? "confi-pending" : "pending";
+}
+
+export function payrollOfficerCheckedTab(session: SessionUser): string {
+  return session.role === "Payroll Officer" ? "confi-checked" : "checked";
 }

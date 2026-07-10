@@ -105,6 +105,9 @@ export const attendanceRequests = pgTable("attendance_requests", {
   archived: boolean("archived").notNull().default(false),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
   archivedBy: text("archived_by"),
+  payrollConfirmedPeriodId: text("payroll_confirmed_period_id"),
+  payrollConfirmedAt: timestamp("payroll_confirmed_at", { withTimezone: true }),
+  payrollConfirmedBy: text("payroll_confirmed_by"),
 });
 
 export type AttendanceRequest = typeof attendanceRequests.$inferSelect;

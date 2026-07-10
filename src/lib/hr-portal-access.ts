@@ -4,6 +4,21 @@ import type { AttendanceRequest } from "./schema";
 import { isDateInPeriod } from "./cutoff";
 import { requestEmployeeKey } from "./roster";
 
+export function isManagerSelfFiledRequest(request: AttendanceRequest): boolean {
+  return Boolean(request.submittedBy?.trim());
+}
+
+export function resolveEmployeeTypeForHr(
+  request: AttendanceRequest,
+  employeeTypeLookup: Record<string, string>,
+): string | undefined {
+  if (isManagerSelfFiledRequest(request)) {
+    return "Confi";
+  }
+
+  return employeeTypeLookup[requestEmployeeKey(request)];
+}
+
 export type HrPortalListMode = "pending" | "checked" | "all";
 
 export type PayrollOfficerConfiView = "pending" | "checked" | "all";
@@ -84,7 +99,7 @@ export function filterPayrollOfficerConfiRequests(
   view: PayrollOfficerConfiView,
 ): AttendanceRequest[] {
   return requests.filter((request) => {
-    const employeeType = employeeTypeLookup[requestEmployeeKey(request)];
+    const employeeType = resolveEmployeeTypeForHr(request, employeeTypeLookup);
     if (employeeType !== "Confi") return false;
 
     if (view === "pending") {
@@ -110,7 +125,7 @@ export function filterPayrollOfficerRfRequests(
       return false;
     }
 
-    const employeeType = employeeTypeLookup[requestEmployeeKey(request)];
+    const employeeType = resolveEmployeeTypeForHr(request, employeeTypeLookup);
     if (employeeType !== "Rank & File") {
       return false;
     }
@@ -150,7 +165,7 @@ function filterHrScopedRequests(
   if (!allowedType) return requests;
 
   return requests.filter((request) => {
-    const employeeType = employeeTypeLookup[requestEmployeeKey(request)];
+    const employeeType = resolveEmployeeTypeForHr(request, employeeTypeLookup);
     return employeeType === allowedType;
   });
 }

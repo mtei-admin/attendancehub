@@ -12,6 +12,7 @@ import { isValidEmail, normalizeEmail } from "@/lib/email";
 import {
   canHrCheckRequest,
   filterPayrollOfficerRfRequests,
+  isManagerSelfFiledRequest,
   payrollOfficerCheckedTab,
   payrollOfficerPendingTab,
 } from "@/lib/hr-portal-access";
@@ -103,7 +104,7 @@ export async function checkRequestAction(formData: FormData) {
     request.employeeName,
   );
 
-  if (!canHrCheckRequest(session, employee?.employeeType)) {
+  if (!canHrCheckRequest(session, isManagerSelfFiledRequest(request) ? "Confi" : employee?.employeeType)) {
     hrRedirect({
       tab: pendingTab,
       error: "You can only check Confi slips from this account.",
@@ -242,7 +243,7 @@ export async function hrReturnRequestAction(formData: FormData) {
     request.employeeName,
   );
 
-  if (!canHrCheckRequest(session, employee?.employeeType)) {
+  if (!canHrCheckRequest(session, isManagerSelfFiledRequest(request) ? "Confi" : employee?.employeeType)) {
     hrRedirect({
       tab: pendingTab,
       error: "You can only return Confi slips from this account.",

@@ -33,7 +33,7 @@ export function ManagerSlipForm({ company, department, employeeName }: ManagerSl
           <h2 className="text-lg font-semibold text-slate-900">File a slip</h2>
           <p className="mt-1 text-sm text-slate-500">
             File your own attendance slip. Verification and manager approval are skipped — the
-            request goes straight to <strong>HR Pending</strong> for checking.
+            request goes straight to <strong>HR Confi Pending</strong> for checking.
           </p>
         </div>
 

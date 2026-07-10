@@ -84,7 +84,7 @@ export async function submitManagerSlipAction(formData: FormData) {
 
     revalidateRolePaths();
     managerRedirect({
-      success: `Request ${refId} filed and sent to HR for checking (manager approval skipped).`,
+      success: `Request ${refId} filed and sent to HR Confi pending (manager approval skipped).`,
     });
   } catch (error) {
     if (isNextNavigationError(error)) throw error;

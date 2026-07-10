@@ -3,6 +3,7 @@ import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
 import { getDb } from "./db";
 import { getActiveOtEligibleTypes } from "./ot-settings";
 import { listOtManualOverrides, parseStoredOtOverrideHours } from "./ot-overrides";
+import { resolveEmployeeTypeForHr } from "./hr-portal-access";
 import { requestEmployeeKey } from "./roster";
 import { attendanceRequests, type AttendanceRequest } from "./schema";
 
@@ -79,7 +80,7 @@ function matchesHrScope(
     hrScope === "R&F only" ? "Rank & File" : hrScope === "Confi only" ? "Confi" : null;
   if (!allowedType) return true;
 
-  const employeeType = employeeTypeLookup[requestEmployeeKey(request)] ?? "Unknown";
+  const employeeType = resolveEmployeeTypeForHr(request, employeeTypeLookup) ?? "Unknown";
   return employeeType === allowedType;
 }
 
@@ -89,7 +90,7 @@ function matchesPayrollGroup(
   employeeTypeLookup: Record<string, string>,
 ): boolean {
   if (!payrollGroup) return true;
-  const employeeType = employeeTypeLookup[requestEmployeeKey(request)] ?? "Unknown";
+  const employeeType = resolveEmployeeTypeForHr(request, employeeTypeLookup) ?? "Unknown";
   return employeeType === payrollGroup;
 }
 
@@ -98,7 +99,7 @@ function toDetailRow(
   employeeTypeLookup: Record<string, string>,
 ): OtSummaryDetailRow {
   const parsed = parseOtHours(request.otHrs);
-  const employeeType = employeeTypeLookup[requestEmployeeKey(request)] ?? "Unknown";
+  const employeeType = resolveEmployeeTypeForHr(request, employeeTypeLookup) ?? "Unknown";
 
   return {
     refId: request.refId,

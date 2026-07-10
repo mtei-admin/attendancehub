@@ -14,9 +14,11 @@ export function formatManagerTime(value: string | null): string {
   return `${hour12}:${String(minute).padStart(2, "0")} ${period}`;
 }
 
-export function formatManagerSubmittedDate(date: Date | null): string {
+export function formatManagerSubmittedDate(date: Date | string | null): string {
   if (!date) return "";
-  return date.toLocaleDateString("en-US", {
+  const value = typeof date === "string" ? new Date(date) : date;
+  if (Number.isNaN(value.getTime())) return "";
+  return value.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",

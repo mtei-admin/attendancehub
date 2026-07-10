@@ -14,7 +14,7 @@ import {
 import type { GroupedCompanyRequests } from "@/lib/admin-stats";
 import { requestEmployeeKey } from "@/lib/roster";
 
-import { HrRecordRow, GROUPED_HEADERS } from "./hr-records-list";
+import { HrRecordRow, GROUPED_HEADERS } from "./hr-record-row";
 import {
   getEmployeeTypeBadgeClass,
   getEmployeeTypeLabel,
@@ -26,8 +26,8 @@ type HrRecordsGroupedListProps = {
   mode: "pending" | "checked" | "all";
   readOnly: boolean;
   collapseStorageKey: string;
-  editableRefIds?: ReadonlySet<string>;
-  getEditHref?: (refId: string) => string;
+  editableRefIds?: string[];
+  editHrefByRefId?: Record<string, string>;
 };
 
 function collectSectionIds(groupedRequests: GroupedCompanyRequests[]): string[] {
@@ -59,7 +59,7 @@ export function HrRecordsGroupedList({
   readOnly,
   collapseStorageKey,
   editableRefIds,
-  getEditHref,
+  editHrefByRefId,
 }: HrRecordsGroupedListProps) {
   const allSectionIds = useMemo(
     () => collectSectionIds(groupedRequests),
@@ -168,8 +168,8 @@ export function HrRecordsGroupedList({
                                       mode={mode}
                                       readOnly={readOnly}
                                       showEmployeeMeta={false}
-                                      canEdit={editableRefIds?.has(request.refId) ?? false}
-                                      editHref={getEditHref?.(request.refId)}
+                                      canEdit={editableRefIds?.includes(request.refId) ?? false}
+                                      editHref={editHrefByRefId?.[request.refId]}
                                     />
                                   ))}
                                 </tbody>

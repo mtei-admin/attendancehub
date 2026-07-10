@@ -98,6 +98,22 @@ const ATTENDANCE_HR_RETURN_ALTER = [
   `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS hr_returned_at timestamptz`,
 ];
 
+const BRUCE_OWN_SLIP_BACKFILL = `
+UPDATE attendance_requests
+SET
+  status = 'Approved',
+  submitted_by = COALESCE(NULLIF(TRIM(submitted_by), ''), employee_name),
+  approved_by = COALESCE(NULLIF(TRIM(approved_by), ''), employee_name),
+  approved_on = COALESCE(approved_on, submitted_at, NOW())
+WHERE LOWER(TRIM(employee_name)) = LOWER('BAGASBAS, BRUCE PETER MENAC')
+  AND status = 'Pending'
+  AND archived = false
+  AND (
+    submitted_by IS NULL
+    OR LOWER(TRIM(submitted_by)) = LOWER(TRIM(employee_name))
+  )
+`;
+
 const CREATE_OT_MANUAL_OVERRIDES_TABLE = `
 CREATE TABLE IF NOT EXISTS ot_manual_overrides (
   id serial PRIMARY KEY,
@@ -383,6 +399,9 @@ async function main() {
     await sql(statement);
     console.log(`OK: ${statement}`);
   }
+
+  await sql(BRUCE_OWN_SLIP_BACKFILL);
+  console.log("OK: moved Bruce Bagasbas own pending slips to HR Confi pending");
 
   console.log("Schema migration complete.");
 }

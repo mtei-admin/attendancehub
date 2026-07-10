@@ -71,8 +71,8 @@ export async function submitManagerSlipAction(formData: FormData) {
     const refId = await addManagerOwnRequest({
       company,
       department,
-      employeeName: managerName,
-      managerName,
+      employeeName: employee.fullName,
+      managerName: employee.fullName,
       requestType,
       dateRequested,
       dateOfIncident,

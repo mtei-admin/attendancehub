@@ -11,7 +11,8 @@ import {
   employeePortalRequestTypes,
   validateEmployeePortalOtFeatures,
 } from "@/lib/employee-portal";
-import { addRequest, updateRequestStatus } from "@/lib/requests";
+import { addManagerOwnRequest, addRequest, updateRequestStatus } from "@/lib/requests";
+import { shouldDirectHrConfiOwnSlipOnSubmit } from "@/lib/direct-hr-confi-slips";
 import { getEmployeeByPlacement, verifyEmployeePlacement } from "@/lib/roster";
 
 function revalidateRolePaths() {
@@ -74,20 +75,38 @@ export async function submitRequestAction(formData: FormData) {
   }
 
   try {
-    const refId = await addRequest({
-      company,
-      department,
-      employeeName,
-      requestType,
-      dateRequested,
-      dateOfIncident,
-      reason,
-      timeIn: timeIn || null,
-      timeOut: timeOut || null,
-      otHrs: otHours.storedValue || null,
-    });
+    const refId = shouldDirectHrConfiOwnSlipOnSubmit(employeeName)
+      ? await addManagerOwnRequest({
+          company,
+          department,
+          employeeName: employee.fullName,
+          managerName: employee.fullName,
+          requestType,
+          dateRequested,
+          dateOfIncident,
+          reason,
+          timeIn: timeIn || null,
+          timeOut: timeOut || null,
+          otHrs: otHours.storedValue || null,
+        })
+      : await addRequest({
+          company,
+          department,
+          employeeName,
+          requestType,
+          dateRequested,
+          dateOfIncident,
+          reason,
+          timeIn: timeIn || null,
+          timeOut: timeOut || null,
+          otHrs: otHours.storedValue || null,
+        });
     revalidateRolePaths();
-    redirect(`/employee?success=Request ${refId} submitted successfully and is pending verification and manager review.`);
+    redirect(
+      shouldDirectHrConfiOwnSlipOnSubmit(employeeName)
+        ? `/employee?success=Request ${refId} submitted and sent to HR Confi pending.`
+        : `/employee?success=Request ${refId} submitted successfully and is pending verification and manager review.`,
+    );
   } catch (error) {
     if (isNextNavigationError(error)) throw error;
     redirect(

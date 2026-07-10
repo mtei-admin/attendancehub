@@ -1,21 +1,17 @@
 import type { SessionUser } from "./auth";
 import type { Role } from "./constants";
+import { isDirectHrConfiOwnSlip } from "./direct-hr-confi-slips";
 import type { AttendanceRequest } from "./schema";
 import { isDateInPeriod } from "./cutoff";
 import { requestEmployeeKey } from "./roster";
 
-export function isManagerSelfFiledRequest(request: AttendanceRequest): boolean {
-  const submittedBy = request.submittedBy?.trim();
-  if (!submittedBy) return false;
-
-  return request.employeeName.trim().toLowerCase() === submittedBy.toLowerCase();
-}
+export { isDirectHrConfiOwnSlip, isManagerSelfFiledRequest } from "./direct-hr-confi-slips";
 
 export function resolveEmployeeTypeForHr(
   request: AttendanceRequest,
   employeeTypeLookup: Record<string, string>,
 ): string | undefined {
-  if (isManagerSelfFiledRequest(request)) {
+  if (isDirectHrConfiOwnSlip(request)) {
     return "Confi";
   }
 

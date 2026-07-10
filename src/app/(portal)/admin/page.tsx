@@ -6,11 +6,13 @@ import {
   deleteAdminUserAction,
   saveAdminHrAction,
   saveAdminManagerAction,
+  saveAdminPayrollOfficerAction,
   saveAdminVerifierAction,
   saveCompanyAction,
   saveDepartmentAction,
 } from "@/actions/admin";
 import { AdminDashboard } from "@/components/admin-dashboard";
+import { AdminSlipsPanel } from "@/components/admin-slips-panel";
 import { AdminTabs, type AdminTab } from "@/components/admin-tabs";
 import { CompanyPanel } from "@/components/company-panel";
 import { CredentialsPanel } from "@/components/credentials-panel";
@@ -19,23 +21,46 @@ import { FlashMessage } from "@/components/flash-message";
 import { PortalUserPanel } from "@/components/portal-user-panel";
 import { RosterPanel } from "@/components/roster-panel";
 import { RecordRequestLogsPanel } from "@/components/record-request-logs-panel";
-import { buildAdminDashboardStats } from "@/lib/admin-stats";
+import {
+  buildAdminDashboardStats,
+  filterRequestsForDashboardView,
+  groupActiveEmployeesByPlacement,
+  groupRequestsByPlacement,
+  type AdminDashboardView,
+} from "@/lib/admin-stats";
 import { listCompanies } from "@/lib/companies";
 import { listDepartments } from "@/lib/departments";
 import { getAllRequests } from "@/lib/requests";
 import { listRecordRequestLogs } from "@/lib/record-requests";
-import { listEmployees } from "@/lib/roster";
+import { listEmployees, buildEmployeesByCompanyDepartment } from "@/lib/roster";
 import { listAllUsers, listUsersByRole } from "@/lib/users";
 
 type AdminPageProps = {
   searchParams: Promise<{
     tab?: string;
     edit?: string;
+    edit_ref?: string;
     add?: string;
     success?: string;
     error?: string;
+    view?: string;
   }>;
 };
+
+const DASHBOARD_VIEWS = [
+  "employees",
+  "pending-verification",
+  "pending-manager",
+  "pending-hr",
+  "all-requests",
+] as const;
+
+function resolveDashboardView(view?: string): AdminDashboardView | undefined {
+  if (view && (DASHBOARD_VIEWS as readonly string[]).includes(view)) {
+    return view as AdminDashboardView;
+  }
+  return undefined;
+}
 
 function resolveTab(tab?: string): AdminTab {
   if (
@@ -43,6 +68,8 @@ function resolveTab(tab?: string): AdminTab {
     tab === "managers" ||
     tab === "verifiers" ||
     tab === "hr" ||
+    tab === "payroll" ||
+    tab === "slips" ||
     tab === "companies" ||
     tab === "departments" ||
     tab === "credentials" ||
@@ -60,9 +87,10 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const params = await searchParams;
   const activeTab = resolveTab(params.tab);
   const editId = params.edit ? Number(params.edit) : undefined;
+  const editRefId = params.edit_ref?.trim() || undefined;
   const showAdd = params.add === "1";
 
-  const [companies, departments, employees, managers, verifiers, hrUsers, allUsers, allRequests, recordRequestLogs] =
+  const [companies, departments, employees, managers, verifiers, hrUsers, payrollOfficers, allUsers, allRequests, recordRequestLogs] =
     await Promise.all([
       listCompanies(),
       listDepartments(),
@@ -70,6 +98,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       listUsersByRole("Manager", true),
       listUsersByRole("Verifier", true),
       listUsersByRole("HR", true),
+      listUsersByRole("Payroll Officer", true),
       listAllUsers(true),
       getAllRequests(),
       listRecordRequestLogs(),
@@ -79,7 +108,19 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const activeCompanies = companies.filter((company) => company.isActive);
   const activeDepartments = departments.filter((department) => department.isActive);
   const companyNames = activeCompanies.map((company) => company.name);
+  const employeesByCompanyDepartment = buildEmployeesByCompanyDepartment(employees);
   const dashboardStats = buildAdminDashboardStats(allRequests, activeEmployees.length);
+  const dashboardView = resolveDashboardView(params.view);
+  const filteredRequests = dashboardView
+    ? filterRequestsForDashboardView(allRequests, dashboardView)
+    : [];
+  const groupedSlips = dashboardView && dashboardView !== "employees"
+    ? groupRequestsByPlacement(filteredRequests)
+    : [];
+  const groupedEmployees =
+    dashboardView === "employees" ? groupActiveEmployeesByPlacement(employees) : [];
+  const viewCount =
+    dashboardView === "employees" ? activeEmployees.length : filteredRequests.length;
 
   return (
     <>
@@ -89,6 +130,8 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
         managerCount={managers.length}
         verifierCount={verifiers.length}
         hrCount={hrUsers.length}
+        payrollCount={payrollOfficers.length}
+        slipCount={allRequests.length}
         companyCount={activeCompanies.length}
         departmentCount={activeDepartments.length}
       />
@@ -96,7 +139,24 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       <div className="mx-auto max-w-6xl space-y-8 px-4 py-8 md:px-6">
         <FlashMessage success={params.success} error={params.error} />
 
-        {activeTab === "dashboard" && <AdminDashboard stats={dashboardStats} />}
+        {activeTab === "dashboard" && (
+          <AdminDashboard
+            stats={dashboardStats}
+            activeView={dashboardView}
+            groupedSlips={groupedSlips}
+            groupedEmployees={groupedEmployees}
+            viewCount={viewCount}
+          />
+        )}
+
+        {activeTab === "slips" && (
+          <AdminSlipsPanel
+            requests={allRequests}
+            companies={companyNames}
+            employeesByCompanyDepartment={employeesByCompanyDepartment}
+            editRefId={editRefId}
+          />
+        )}
 
         {activeTab === "companies" && (
           <CompanyPanel
@@ -178,6 +238,21 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             showAdd={showAdd}
             basePath="/admin"
             tab="hr"
+          />
+        )}
+
+        {activeTab === "payroll" && (
+          <PortalUserPanel
+            users={payrollOfficers}
+            departments={departments}
+            companies={companyNames}
+            saveAction={saveAdminPayrollOfficerAction}
+            deleteAction={deleteAdminUserAction}
+            role="Payroll Officer"
+            editId={editId}
+            showAdd={showAdd}
+            basePath="/admin"
+            tab="payroll"
           />
         )}
 

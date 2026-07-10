@@ -7,6 +7,7 @@ import { REQUEST_TYPES } from "@/lib/constants";
 import type { EmployeesByCompanyDepartment } from "@/lib/roster";
 
 import { FormField, inputClassName } from "./form-field";
+import { OtHoursFields } from "./ot-hours-fields";
 
 type EmployeeFormProps = {
   companies: string[];
@@ -164,14 +165,11 @@ export function EmployeeForm({ companies, employeesByCompanyDepartment }: Employ
               </label>
             </div>
 
-            <FormField label="Hours to claim" className="md:col-span-2">
-              <input
-                type="text"
-                name="ot_hrs"
-                placeholder="e.g. 2"
-                className={inputClassName}
-              />
-            </FormField>
+            <OtHoursFields
+              hoursName="ot_hours"
+              minutesName="ot_minutes"
+              className="md:col-span-2"
+            />
           </>
         )}
 

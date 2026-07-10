@@ -1,6 +1,6 @@
 "use client";
 
-import { HR_SCOPES } from "@/lib/constants";
+import { HR_SCOPES, managerDepartmentFieldDefault } from "@/lib/constants";
 import type { Department } from "@/lib/schema";
 import type { User } from "@/lib/schema";
 
@@ -13,7 +13,7 @@ type PortalUserModalProps = {
   open: boolean;
   cancelHref: string;
   saveAction: (formData: FormData) => Promise<void>;
-  role: "Manager" | "HR" | "Verifier";
+  role: "Manager" | "HR" | "Verifier" | "Payroll Officer";
   departments: Department[];
   companies: string[];
   editing?: User | null;
@@ -30,7 +30,13 @@ export function PortalUserModal({
 }: PortalUserModalProps) {
   const isEditing = Boolean(editing);
   const roleLabel =
-    role === "Manager" ? "manager" : role === "Verifier" ? "verifier" : "HR account";
+    role === "Manager"
+      ? "manager"
+      : role === "Verifier"
+        ? "verifier"
+        : role === "Payroll Officer"
+          ? "payroll officer"
+          : "HR account";
 
   return (
     <FormModal
@@ -78,7 +84,8 @@ export function PortalUserModal({
             departments={departments}
             companies={companies}
             defaultCompany={editing?.company ?? ""}
-            defaultDepartmentName={editing?.department ?? ""}
+            defaultDepartmentName={managerDepartmentFieldDefault(editing?.department, isEditing)}
+            allowAllDepartments
           />
         )}
 

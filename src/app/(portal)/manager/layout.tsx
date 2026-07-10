@@ -11,7 +11,7 @@ export default async function ManagerPortalLayout({
   const session = await getSession();
   if (!session) redirect("/");
 
-  const title = `${session.department ?? "Human Resource"} — Manager portal`;
+  const title = `${session.department ?? "All Departments"} — Manager portal`;
 
   return (
     <div className="min-h-screen bg-slate-50">

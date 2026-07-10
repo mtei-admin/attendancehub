@@ -2,10 +2,12 @@ import Link from "next/link";
 
 export type AdminTab =
   | "dashboard"
+  | "slips"
   | "employees"
   | "managers"
   | "verifiers"
   | "hr"
+  | "payroll"
   | "companies"
   | "departments"
   | "credentials"
@@ -17,6 +19,8 @@ type AdminTabsProps = {
   managerCount: number;
   verifierCount: number;
   hrCount: number;
+  payrollCount: number;
+  slipCount: number;
   companyCount: number;
   departmentCount: number;
 };
@@ -27,6 +31,8 @@ export function AdminTabs({
   managerCount,
   verifierCount,
   hrCount,
+  payrollCount,
+  slipCount,
   companyCount,
   departmentCount,
 }: AdminTabsProps) {
@@ -37,6 +43,12 @@ export function AdminTabs({
     countClass: string;
   }[] = [
     { id: "dashboard", label: "Dashboard", count: null, countClass: "" },
+    {
+      id: "slips",
+      label: "Slips",
+      count: slipCount,
+      countClass: "bg-slate-100 text-slate-500",
+    },
     {
       id: "employees",
       label: "Employee roster",
@@ -59,6 +71,12 @@ export function AdminTabs({
       id: "hr",
       label: "HR accounts",
       count: hrCount,
+      countClass: "bg-slate-100 text-slate-500",
+    },
+    {
+      id: "payroll",
+      label: "Payroll officers",
+      count: payrollCount,
       countClass: "bg-slate-100 text-slate-500",
     },
     {

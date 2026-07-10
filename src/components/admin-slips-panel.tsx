@@ -1,0 +1,140 @@
+import Link from "next/link";
+
+import type { AttendanceRequest } from "@/lib/schema";
+
+import { AdminSlipEditModal } from "./admin-slip-edit-modal";
+import {
+  formatManagerSubmittedDate,
+  formatManagerTime,
+} from "./manager-request-utils";
+
+type AdminSlipsPanelProps = {
+  requests: AttendanceRequest[];
+  companies: string[];
+  employeesByCompanyDepartment: import("@/lib/roster").EmployeesByCompanyDepartment;
+  editRefId?: string;
+};
+
+function workflowLabel(request: AttendanceRequest): string {
+  if (request.archived) return "Checked";
+  if (request.status === "Approved") return "HR pending";
+  if (request.status === "Rejected") return "Rejected";
+  if (request.verifiedOn) return "Manager pending";
+  return "Verification pending";
+}
+
+function workflowClass(request: AttendanceRequest): string {
+  if (request.archived) return "bg-emerald-100 text-emerald-700";
+  if (request.status === "Approved") return "bg-orange-100 text-orange-700";
+  if (request.status === "Rejected") return "bg-red-100 text-red-700";
+  if (request.verifiedOn) return "bg-amber-100 text-amber-700";
+  return "bg-cyan-100 text-cyan-700";
+}
+
+export function AdminSlipsPanel({
+  requests,
+  companies,
+  employeesByCompanyDepartment,
+  editRefId,
+}: AdminSlipsPanelProps) {
+  const panelHref = "/admin?tab=slips";
+  const editing = editRefId ? requests.find((row) => row.refId === editRefId) : null;
+  const showModal = Boolean(editing);
+
+  return (
+    <>
+      <AdminSlipEditModal
+        open={showModal}
+        cancelHref={panelHref}
+        request={editing ?? null}
+        companies={companies}
+        employeesByCompanyDepartment={employeesByCompanyDepartment}
+      />
+
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-2xl font-semibold text-slate-900">Attendance slips</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            View and correct any encoded slip regardless of workflow stage.
+          </p>
+        </div>
+
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+          <table className="min-w-full text-sm">
+            <thead className="border-b border-slate-200 bg-slate-50">
+              <tr>
+                {[
+                  "Ref",
+                  "Employee",
+                  "Type",
+                  "Incident date",
+                  "Workflow",
+                  "Submitted",
+                  "Actions",
+                ].map((header) => (
+                  <th
+                    key={header}
+                    className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400"
+                  >
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {requests.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                    No slips encoded yet.
+                  </td>
+                </tr>
+              ) : (
+                requests.map((request) => (
+                  <tr key={request.id} className="align-top hover:bg-slate-50/60">
+                    <td className="px-4 py-4 font-semibold text-slate-900">{request.refId}</td>
+                    <td className="px-4 py-4">
+                      <p className="font-medium text-slate-900">{request.employeeName}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {request.company ? `${request.company} · ` : ""}
+                        {request.department || "—"}
+                      </p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
+                        {request.requestType}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4 text-slate-700">{request.dateOfIncident}</td>
+                    <td className="px-4 py-4">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${workflowClass(request)}`}
+                      >
+                        {workflowLabel(request)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4 text-slate-600">
+                      {formatManagerSubmittedDate(request.submittedAt)}
+                      {(request.timeIn || request.timeOut) && (
+                        <p className="mt-1 text-xs text-slate-500">
+                          {formatManagerTime(request.timeIn)} – {formatManagerTime(request.timeOut)}
+                        </p>
+                      )}
+                    </td>
+                    <td className="px-4 py-4">
+                      <Link
+                        href={`${panelHref}&edit_ref=${encodeURIComponent(request.refId)}`}
+                        className="rounded-lg border border-brand-200 px-3 py-1.5 text-sm font-medium text-brand-600 transition hover:bg-brand-50"
+                      >
+                        Edit
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </>
+  );
+}

@@ -2,6 +2,7 @@ import { compare } from "bcryptjs";
 import { cookies } from "next/headers";
 
 import { type Role } from "./constants";
+import { canAccessHrPortal } from "./hr-portal-access";
 import { isRole } from "./role";
 import { getUserByUsername } from "./users";
 import type { User } from "./schema";
@@ -82,11 +83,14 @@ export async function verifyCredentials(
 export function canAccessRoute(role: Role, pathname: string): boolean {
   if (role === "Admin") return true;
 
+  if (pathname.startsWith("/hr")) {
+    return canAccessHrPortal(role);
+  }
+
   const routeRoleMap: Record<string, Role> = {
     "/employee": "Employee",
     "/manager": "Manager",
     "/verification": "Verifier",
-    "/hr": "HR",
     "/admin": "Admin",
   };
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import { type Role, ROLE_ROUTES } from "@/lib/constants";
+import { HR_PORTAL_ROLES } from "@/lib/hr-portal-access";
 
 const SESSION_COOKIE = "attendancehub_session";
 
@@ -33,11 +34,14 @@ function routeForRole(role: Role): string {
 function canAccess(role: Role, pathname: string): boolean {
   if (role === "Admin") return true;
 
+  if (pathname.startsWith("/hr")) {
+    return HR_PORTAL_ROLES.includes(role);
+  }
+
   const rules: Record<string, Role> = {
     "/employee": "Employee",
     "/manager": "Manager",
     "/verification": "Verifier",
-    "/hr": "HR",
     "/admin": "Admin",
   };
 

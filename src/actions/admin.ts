@@ -4,17 +4,26 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireRoles, isNextNavigationError } from "@/lib/action-auth";
-import { EMPLOYEE_TYPES, HR_SCOPES } from "@/lib/constants";
+import { EMPLOYEE_TYPES, HR_SCOPES, REQUEST_TYPES, normalizeManagerDepartment } from "@/lib/constants";
 import { isValidEmail, normalizeEmail } from "@/lib/email";
 import { createCompany, isActiveCompany, updateCompany } from "@/lib/companies";
 import { createDepartment, updateDepartment } from "@/lib/departments";
 import { createEmployee, updateEmployee, isBiometricNoTaken } from "@/lib/roster";
 import { parseOptionalBiometricNo } from "@/lib/biometric";
 import { createUser, deactivateUser, getUserById, getUserByUsername, findPortalRoleConflict, updateUser } from "@/lib/users";
+import { readOtHoursFromFormData } from "@/lib/ot-hours";
+import { adminUpdateRequest } from "@/lib/requests";
+import { verifyEmployeePlacement } from "@/lib/roster";
 
-function adminRedirect(params: { tab?: string; success?: string; error?: string }): never {
+function adminRedirect(params: {
+  tab?: string;
+  success?: string;
+  error?: string;
+  edit_ref?: string;
+}): never {
   const search = new URLSearchParams();
   if (params.tab) search.set("tab", params.tab);
+  if (params.edit_ref) search.set("edit_ref", params.edit_ref);
   if (params.success) search.set("success", params.success);
   if (params.error) search.set("error", params.error);
   redirect(`/admin?${search.toString()}`);
@@ -176,6 +185,106 @@ export async function saveAdminHrAction(formData: FormData) {
   await savePortalUserAction(formData, "HR", "hr");
 }
 
+export async function saveAdminPayrollOfficerAction(formData: FormData) {
+  await requireRoles(["Admin"]);
+  await savePortalUserAction(formData, "Payroll Officer", "payroll");
+}
+
+export async function saveAdminSlipAction(formData: FormData) {
+  const session = await requireRoles(["Admin"]);
+  const refId = String(formData.get("ref_id") ?? "").trim();
+  const company = String(formData.get("company") ?? "").trim();
+  const department = String(formData.get("department") ?? "").trim();
+  const employeeName = String(formData.get("employee_name") ?? "").trim();
+  const requestType = String(formData.get("request_type") ?? "").trim();
+  const dateRequested = String(formData.get("date_requested") ?? "").trim();
+  const dateOfIncident = String(formData.get("date_of_incident") ?? "").trim();
+  const timeIn = String(formData.get("time_in") ?? "").trim();
+  const timeOut = String(formData.get("time_out") ?? "").trim();
+  const verificationNote = String(formData.get("verification_note") ?? "").trim();
+  const otHours = readOtHoursFromFormData(formData, "ot_hours", "ot_minutes");
+  const fileAsOtOffset = formData.get("file_as_ot_offset") === "on";
+  let reason = String(formData.get("reason") ?? "").trim();
+
+  if (!refId) {
+    adminRedirect({ tab: "slips", error: "Invalid request reference." });
+  }
+
+  if (!company || !department || !employeeName || !requestType || !dateOfIncident || !reason) {
+    adminRedirect({
+      tab: "slips",
+      edit_ref: refId,
+      error: "Company, department, employee, request type, incident date, and reason are required.",
+    });
+  }
+
+  if (!(REQUEST_TYPES as readonly string[]).includes(requestType)) {
+    adminRedirect({ tab: "slips", edit_ref: refId, error: "Invalid request type." });
+  }
+
+  if (!otHours.valid) {
+    adminRedirect({
+      tab: "slips",
+      edit_ref: refId,
+      error: otHours.error ?? "Invalid OT hours.",
+    });
+  }
+
+  const validEmployee = await verifyEmployeePlacement(company, department, employeeName);
+  if (!validEmployee) {
+    adminRedirect({
+      tab: "slips",
+      edit_ref: refId,
+      error: "Selected employee does not match the chosen company and department.",
+    });
+  }
+
+  if (fileAsOtOffset && !reason.startsWith("[OT offset credit]")) {
+    reason = `[OT offset credit] ${reason}`;
+  }
+
+  try {
+    const updated = await adminUpdateRequest(
+      refId,
+      {
+        company,
+        department,
+        employeeName,
+        requestType,
+        dateRequested,
+        dateOfIncident,
+        timeIn: timeIn || null,
+        timeOut: timeOut || null,
+        otHrs: otHours.storedValue || null,
+        reason,
+        verificationNote: verificationNote || null,
+      },
+      session.fullName,
+    );
+
+    if (!updated) {
+      adminRedirect({ tab: "slips", error: "Request not found or could not be updated." });
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/employee");
+    revalidatePath("/manager");
+    revalidatePath("/verification");
+    revalidatePath("/hr");
+    revalidatePath("/api/export/csv");
+    revalidatePath("/api/export/ot-summary");
+
+    adminRedirect({ tab: "slips", success: `Request ${refId} updated successfully.` });
+  } catch (error) {
+    if (isNextNavigationError(error)) throw error;
+    adminRedirect({
+      tab: "slips",
+      edit_ref: refId,
+      error: `Unable to update request. ${String(error)}`,
+    });
+  }
+}
+
 export async function deleteAdminUserAction(formData: FormData) {
   await requireRoles(["Admin"]);
   const id = Number(formData.get("id") ?? 0);
@@ -306,7 +415,7 @@ export async function saveCredentialsAction(formData: FormData) {
   const fullName = String(formData.get("full_name") ?? "").trim();
   const role = String(formData.get("role") ?? "").trim();
   const company = String(formData.get("company") ?? "").trim() || null;
-  const department = String(formData.get("department") ?? "").trim() || null;
+  const department = normalizeManagerDepartment(String(formData.get("department") ?? "").trim() || null);
   const hrScope = String(formData.get("hr_scope") ?? "").trim() || null;
   const isActive = formData.get("is_active") === "on";
 
@@ -314,8 +423,8 @@ export async function saveCredentialsAction(formData: FormData) {
     adminRedirect({ tab: "credentials", error: "Name, username, and role are required." });
   }
 
-  if (role === "Manager" && (!company || !department)) {
-    adminRedirect({ tab: "credentials", error: "Company and department are required for managers." });
+  if (role === "Manager" && !company) {
+    adminRedirect({ tab: "credentials", error: "Company is required for managers." });
   }
 
   if (role === "Verifier" && !company) {
@@ -415,15 +524,15 @@ export async function saveCredentialsAction(formData: FormData) {
 
 async function savePortalUserAction(
   formData: FormData,
-  role: "Manager" | "HR" | "Verifier",
-  tab: "managers" | "hr" | "verifiers",
+  role: "Manager" | "HR" | "Verifier" | "Payroll Officer",
+  tab: "managers" | "hr" | "verifiers" | "payroll",
 ) {
   const id = Number(formData.get("id") ?? 0);
   const fullName = String(formData.get("full_name") ?? "").trim();
   const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const company = String(formData.get("company") ?? "").trim() || null;
-  const department = String(formData.get("department") ?? "").trim() || null;
+  const department = normalizeManagerDepartment(String(formData.get("department") ?? "").trim() || null);
   const hrScope = String(formData.get("hr_scope") ?? "").trim() || null;
   const isActive = formData.get("is_active") === "on";
 
@@ -431,8 +540,8 @@ async function savePortalUserAction(
     adminRedirect({ tab, error: "Name and username are required." });
   }
 
-  if (role === "Manager" && (!company || !department)) {
-    adminRedirect({ tab, error: "Company and department are required for managers." });
+  if (role === "Manager" && !company) {
+    adminRedirect({ tab, error: "Company is required for managers." });
   }
 
   if (role === "Verifier" && !company) {

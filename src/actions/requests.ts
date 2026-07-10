@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { isNextNavigationError } from "@/lib/action-auth";
 import { getSession } from "@/lib/auth";
 import { ROLE_ROUTES, type Role } from "@/lib/constants";
+import { readOtHoursFromFormData } from "@/lib/ot-hours";
 import { addRequest, updateRequestStatus } from "@/lib/requests";
 import { verifyEmployeePlacement } from "@/lib/roster";
 
@@ -24,7 +25,7 @@ export async function submitRequestAction(formData: FormData) {
   const dateOfIncident = String(formData.get("date_of_incident") ?? "");
   const timeIn = String(formData.get("time_in") ?? "").trim();
   const timeOut = String(formData.get("time_out") ?? "").trim();
-  const otHrs = String(formData.get("ot_hrs") ?? "").trim();
+  const otHours = readOtHoursFromFormData(formData, "ot_hours", "ot_minutes");
   const fileAsOtOffset = formData.get("file_as_ot_offset") === "on";
   let reason = String(formData.get("reason") ?? "").trim();
 
@@ -39,6 +40,10 @@ export async function submitRequestAction(formData: FormData) {
   const validEmployee = await verifyEmployeePlacement(company, department, employeeName);
   if (!validEmployee) {
     redirect("/employee?error=Selected employee does not match the chosen company and department.");
+  }
+
+  if (!otHours.valid) {
+    redirect(`/employee?error=${encodeURIComponent(otHours.error ?? "Invalid hours to claim.")}`);
   }
 
   if (fileAsOtOffset) {
@@ -56,7 +61,7 @@ export async function submitRequestAction(formData: FormData) {
       reason,
       timeIn: timeIn || null,
       timeOut: timeOut || null,
-      otHrs: otHrs || null,
+      otHrs: otHours.storedValue || null,
     });
     revalidateRolePaths();
     redirect(`/employee?success=Request ${refId} submitted successfully and is pending verification and manager review.`);
@@ -95,8 +100,8 @@ export async function updateStatusAction(formData: FormData) {
         }
       : undefined;
 
-  if (session.role === "Manager" && (!session.company || !session.department)) {
-    redirect("/manager?error=Your manager account has no company or department assigned.");
+  if (session.role === "Manager" && !session.company) {
+    redirect("/manager?error=Your manager account has no company assigned.");
   }
 
   try {

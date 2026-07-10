@@ -12,7 +12,7 @@ type PortalUserPanelProps = {
   companies: string[];
   saveAction: (formData: FormData) => Promise<void>;
   deleteAction?: (formData: FormData) => Promise<void>;
-  role: "Manager" | "HR" | "Verifier";
+  role: "Manager" | "HR" | "Verifier" | "Payroll Officer";
   editId?: number;
   showAdd?: boolean;
   basePath: "/hr" | "/admin";
@@ -40,20 +40,30 @@ export function PortalUserPanel({
       ? "Manager accounts"
       : role === "Verifier"
         ? "Verifier accounts"
-        : "HR accounts";
+        : role === "Payroll Officer"
+          ? "Payroll officer accounts"
+          : "HR accounts";
   const addLabel =
     role === "Manager"
       ? "+ Add manager"
       : role === "Verifier"
         ? "+ Add verifier"
-        : "+ Add HR account";
+        : role === "Payroll Officer"
+          ? "+ Add payroll officer"
+          : "+ Add HR account";
   const detailHeader =
-    role === "Manager" || role === "Verifier" ? "Company · Department" : "HR scope";
+    role === "Manager" || role === "Verifier"
+      ? "Company · Department"
+      : role === "Payroll Officer"
+        ? "Access"
+        : "HR scope";
 
   const adminHeaders =
     role === "Manager" || role === "Verifier"
       ? ["Name", "Username", "Password", "Company · Department", "Actions"]
-      : ["Name", "Username", "Password", "HR scope", "Actions"];
+      : role === "Payroll Officer"
+        ? ["Name", "Username", "Password", "Access", "Actions"]
+        : ["Name", "Username", "Password", "HR scope", "Actions"];
 
   const hrHeaders = ["Name", "Username", detailHeader, "Status", "Actions"];
   const headers = isAdmin ? adminHeaders : hrHeaders;
@@ -121,7 +131,9 @@ export function PortalUserPanel({
                             ? `${user.company} · ${user.department}`
                             : `${user.company} · All departments`
                           : user.department || "—"
-                        : user.hrScope || "—"}
+                        : role === "Payroll Officer"
+                          ? "Confi processing · R&F checked"
+                          : user.hrScope || "—"}
                     </td>
                     {!isAdmin && (
                       <td className="px-4 py-3">

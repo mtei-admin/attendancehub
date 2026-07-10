@@ -1,5 +1,23 @@
-export const ROLES = ["Employee", "Manager", "Verifier", "HR", "Admin"] as const;
+export const ROLES = ["Employee", "Manager", "Verifier", "HR", "Payroll Officer", "Admin"] as const;
 export type Role = (typeof ROLES)[number];
+
+export const ALL_DEPARTMENTS_VALUE = "__ALL_DEPARTMENTS__";
+export const ALL_DEPARTMENTS_LABEL = "All Departments";
+
+export function normalizeManagerDepartment(department: string | null | undefined): string | null {
+  if (!department || department === ALL_DEPARTMENTS_VALUE) {
+    return null;
+  }
+  return department;
+}
+
+export function managerDepartmentFieldDefault(
+  department: string | null | undefined,
+  isEditing: boolean,
+): string {
+  if (!isEditing) return "";
+  return department ?? ALL_DEPARTMENTS_VALUE;
+}
 
 export const HR_SCOPES = ["R&F only", "Confi only"] as const;
 export type HrScope = (typeof HR_SCOPES)[number];
@@ -72,10 +90,18 @@ export const ROLE_ROUTES: Record<Role, string> = {
   Manager: "/manager",
   Verifier: "/verification",
   HR: "/hr",
+  "Payroll Officer": "/hr",
   Admin: "/admin",
 };
 
-export const PORTAL_SLUGS = ["employee", "verification", "manager", "hr", "admin"] as const;
+export const PORTAL_SLUGS = [
+  "employee",
+  "verification",
+  "manager",
+  "hr",
+  "payroll",
+  "admin",
+] as const;
 export type PortalSlug = (typeof PORTAL_SLUGS)[number];
 
 export function isPortalSlug(value: string): value is PortalSlug {
@@ -113,6 +139,13 @@ export const PORTAL_CONFIG: Record<
     description: "Process approved records for payroll",
     icon: "📊",
     accent: "border-emerald-200 bg-emerald-50 text-emerald-600",
+  },
+  payroll: {
+    title: "Payroll Officer portal",
+    subtitle: "Sign in for Confi HR processing and R&F checked records.",
+    description: "Confi processing and R&F checked export",
+    icon: "💼",
+    accent: "border-sky-200 bg-sky-50 text-sky-600",
   },
   admin: {
     title: "IT / Admin portal",

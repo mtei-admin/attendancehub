@@ -12,7 +12,7 @@ export default async function AdminPortalLayout({
   if (!session) redirect("/");
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen overflow-y-auto bg-slate-50">
       <PortalHeader title="IT / Admin portal" userName={session.fullName} />
       {children}
     </div>

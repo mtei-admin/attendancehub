@@ -2,8 +2,10 @@ import Link from "next/link";
 
 import type { ManagerCutoffRange } from "@/lib/manager-grouping";
 
+import type { ManagerTab } from "./manager-tabs";
+
 type ManagerCutoffFilterProps = {
-  activeTab: "pending" | "history";
+  activeTab: Exclude<ManagerTab, "file">;
   range: ManagerCutoffRange;
 };
 

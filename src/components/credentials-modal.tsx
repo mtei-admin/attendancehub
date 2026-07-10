@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { saveCredentialsAction } from "@/actions/admin";
-import { HR_SCOPES, ROLES } from "@/lib/constants";
+import { HR_SCOPES, ROLES, managerDepartmentFieldDefault } from "@/lib/constants";
 import type { Department } from "@/lib/schema";
 import type { User } from "@/lib/schema";
 
@@ -97,7 +97,8 @@ export function CredentialsModal({
             departments={departments}
             companies={companies}
             defaultCompany={editing?.company ?? ""}
-            defaultDepartmentName={editing?.department ?? ""}
+            defaultDepartmentName={managerDepartmentFieldDefault(editing?.department, isEditing)}
+            allowAllDepartments
           />
         )}
 

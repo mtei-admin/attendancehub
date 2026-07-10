@@ -24,3 +24,7 @@ export async function requireRoles(allowedRoles: Role[]) {
 
   return session;
 }
+
+export async function requireHrPortalAccess() {
+  return requireRoles(["HR", "Payroll Officer"]);
+}

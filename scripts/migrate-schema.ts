@@ -82,6 +82,10 @@ const ATTENDANCE_VERIFICATION_ALTER = [
   `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS last_edited_on timestamptz`,
 ];
 
+const ATTENDANCE_SUBMITTED_BY_ALTER = [
+  `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS submitted_by text`,
+];
+
 const CREATE_OT_MANUAL_OVERRIDES_TABLE = `
 CREATE TABLE IF NOT EXISTS ot_manual_overrides (
   id serial PRIMARY KEY,
@@ -349,6 +353,11 @@ async function main() {
   console.log("OK: ot_manual_overrides unique index ready");
 
   for (const statement of RECORD_REQUEST_LOGS_ALTER) {
+    await sql(statement);
+    console.log(`OK: ${statement}`);
+  }
+
+  for (const statement of ATTENDANCE_SUBMITTED_BY_ALTER) {
     await sql(statement);
     console.log(`OK: ${statement}`);
   }

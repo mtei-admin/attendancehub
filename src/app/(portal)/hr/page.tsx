@@ -19,6 +19,11 @@ import { listCompanies } from "@/lib/companies";
 import { listCutoffPeriods, parseCutoffPeriodId } from "@/lib/cutoff";
 import { listDepartments } from "@/lib/departments";
 import {
+  canAccessHrPortal,
+  filterRequestsForHrPortal,
+  resolveOtSummaryHrScope,
+} from "@/lib/hr-portal-access";
+import {
   allowedPayrollGroups,
   getPayrollCutoffRule,
   listOtEligibleTypes,
@@ -34,7 +39,6 @@ import {
 import {
   buildEmployeeTypeLookup,
   buildEmployeesByCompanyDepartment,
-  filterRequestsByHrScope,
   listEmployees,
 } from "@/lib/roster";
 import { listUsersByRole } from "@/lib/users";
@@ -86,10 +90,9 @@ export default async function HrPage({ searchParams }: HrPageProps) {
   const editId = params.edit ? Number(params.edit) : undefined;
 
   const session = await getSession();
-  if (!session) redirect("/");
+  if (!session || !canAccessHrPortal(session.role)) redirect("/");
 
-  const hrScope = session.role === "HR" ? session.hrScope : null;
-  const payrollGroups = allowedPayrollGroups(hrScope);
+  const payrollGroups = allowedPayrollGroups(session.role, session.hrScope);
 
   const [
     pendingRaw,
@@ -124,16 +127,29 @@ export default async function HrPage({ searchParams }: HrPageProps) {
 
   const employeeTypeLookup = buildEmployeeTypeLookup(roster);
   const employeesByCompanyDepartment = buildEmployeesByCompanyDepartment(roster);
-  const pendingRequests = filterRequestsByHrScope(pendingRaw, employeeTypeLookup, hrScope);
-  const checkedRequests = filterRequestsByHrScope(checkedRaw, employeeTypeLookup, hrScope);
-  const allRequests = filterRequestsByHrScope(allRaw, employeeTypeLookup, hrScope);
+  const pendingRequests = filterRequestsForHrPortal(
+    pendingRaw,
+    employeeTypeLookup,
+    session,
+    "pending",
+  );
+  const checkedRequests = filterRequestsForHrPortal(
+    checkedRaw,
+    employeeTypeLookup,
+    session,
+    "checked",
+  );
+  const allRequests = filterRequestsForHrPortal(allRaw, employeeTypeLookup, session, "all");
 
   const otPayrollGroup =
     params.ot_group && payrollGroups.includes(params.ot_group)
       ? params.ot_group
       : payrollGroups[0] ?? "Rank & File";
   const otUseCustomRange = params.ot_custom === "1";
-  const otExportBasis = parseExportBasis(params.ot_basis);
+  const otExportBasis =
+    session.role === "Payroll Officer" && otPayrollGroup === "Rank & File"
+      ? "checked"
+      : parseExportBasis(params.ot_basis);
   const otPeriodId = params.ot_period?.trim() ?? "";
   const otStartDate = params.ot_start?.trim() ?? "";
   const otEndDate = params.ot_end?.trim() ?? "";
@@ -167,7 +183,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
           department: params.ot_department?.trim() || undefined,
           employeeName: params.ot_employee?.trim() || undefined,
           employeeTypeLookup,
-          hrScope,
+          hrScope: resolveOtSummaryHrScope(session, otPayrollGroup),
         })
       : null;
 
@@ -311,6 +327,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
             saveCutoffRulesAction={savePayrollCutoffRulesAction}
             saveOtEligibleTypesAction={saveOtEligibleTypesAction}
             eligibleTypes={eligibleTypes}
+            restrictRfToCheckedBasis={session.role === "Payroll Officer"}
           />
         )}
 

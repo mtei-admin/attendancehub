@@ -2,6 +2,11 @@ import { NextRequest } from "next/server";
 
 import { getSession } from "@/lib/auth";
 import { parseCutoffPeriodId } from "@/lib/cutoff";
+import {
+  canAccessHrPortal,
+  canUseOtExportBasis,
+  resolveOtSummaryHrScope,
+} from "@/lib/hr-portal-access";
 import { allowedPayrollGroups, getPayrollCutoffRule } from "@/lib/ot-settings";
 import { buildOtSummaryReport, otSummaryToCsv, type OtExportBasis } from "@/lib/ot-summary";
 import { buildEmployeeTypeLookup, listEmployees } from "@/lib/roster";
@@ -12,7 +17,7 @@ function parseBasis(value: string | null): OtExportBasis {
 
 export async function GET(request: NextRequest) {
   const session = await getSession();
-  if (!session || session.role !== "HR") {
+  if (!session || !canAccessHrPortal(session.role)) {
     return new Response("Unauthorized", { status: 401 });
   }
 
@@ -23,9 +28,13 @@ export async function GET(request: NextRequest) {
   const department = params.get("department")?.trim() || undefined;
   const employeeName = params.get("employee")?.trim() || undefined;
 
-  const allowedGroups = allowedPayrollGroups(session.hrScope);
+  const allowedGroups = allowedPayrollGroups(session.role, session.hrScope);
   if (!payrollGroup || !allowedGroups.includes(payrollGroup)) {
     return new Response("Invalid payroll group.", { status: 400 });
+  }
+
+  if (!canUseOtExportBasis(session, payrollGroup, exportBasis)) {
+    return new Response("R&F OT summary export must use HR-checked basis.", { status: 400 });
   }
 
   let startDate = params.get("start")?.trim() ?? "";
@@ -62,7 +71,7 @@ export async function GET(request: NextRequest) {
     department,
     employeeName,
     employeeTypeLookup,
-    hrScope: session.hrScope,
+    hrScope: resolveOtSummaryHrScope(session, payrollGroup),
   });
 
   const generatedAt = new Date().toISOString();

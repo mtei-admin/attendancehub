@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 
 import type { Department } from "@/lib/schema";
+import { ALL_DEPARTMENTS_LABEL, ALL_DEPARTMENTS_VALUE } from "@/lib/constants";
 
 import { FormField, inputClassName } from "./form-field";
 
@@ -15,6 +16,7 @@ type CompanyDepartmentFieldsProps = {
   departmentMode?: "name" | "id";
   requireCompany?: boolean;
   requireDepartment?: boolean;
+  allowAllDepartments?: boolean;
 };
 
 export function CompanyDepartmentFields({
@@ -26,6 +28,7 @@ export function CompanyDepartmentFields({
   departmentMode = "name",
   requireCompany = true,
   requireDepartment = true,
+  allowAllDepartments = false,
 }: CompanyDepartmentFieldsProps) {
   const activeDepartments = departments.filter((row) => row.isActive);
   const [company, setCompany] = useState(defaultCompany);
@@ -75,6 +78,9 @@ export function CompanyDepartmentFields({
                   : "— All departments —"
                 : "Select company first"}
             </option>
+            {allowAllDepartments && company && (
+              <option value={ALL_DEPARTMENTS_VALUE}>{ALL_DEPARTMENTS_LABEL}</option>
+            )}
             {filteredDepartments.map((department) => (
               <option key={department.id} value={department.id}>
                 {department.name}
@@ -96,6 +102,9 @@ export function CompanyDepartmentFields({
                   : "— All departments —"
                 : "Select company first"}
             </option>
+            {allowAllDepartments && company && (
+              <option value={ALL_DEPARTMENTS_VALUE}>{ALL_DEPARTMENTS_LABEL}</option>
+            )}
             {filteredDepartments.map((department) => (
               <option key={department.id} value={department.name}>
                 {department.name}

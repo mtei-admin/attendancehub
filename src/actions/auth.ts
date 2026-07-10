@@ -5,13 +5,15 @@ import { redirect } from "next/navigation";
 import { createSession, destroySession, verifyCredentials } from "@/lib/auth";
 import { isNextNavigationError } from "@/lib/action-auth";
 import { isPortalSlug, type PortalSlug, type Role } from "@/lib/constants";
+import { HR_PORTAL_ROLES } from "@/lib/hr-portal-access";
 import { isRole, routeForRole } from "@/lib/role";
 
-const PORTAL_EXPECTED_ROLE: Partial<Record<PortalSlug, Role>> = {
-  manager: "Manager",
-  verification: "Verifier",
-  hr: "HR",
-  admin: "Admin",
+const PORTAL_ALLOWED_ROLES: Partial<Record<PortalSlug, Role[]>> = {
+  manager: ["Manager"],
+  verification: ["Verifier"],
+  hr: HR_PORTAL_ROLES,
+  payroll: ["Payroll Officer"],
+  admin: ["Admin"],
 };
 
 export async function loginAction(formData: FormData) {
@@ -48,8 +50,8 @@ export async function loginAction(formData: FormData) {
       );
     }
 
-    const expectedRole = PORTAL_EXPECTED_ROLE[portal];
-    if (expectedRole && user.role !== expectedRole) {
+    const allowedRoles = PORTAL_ALLOWED_ROLES[portal];
+    if (allowedRoles && !allowedRoles.includes(user.role)) {
       redirect(
         `${loginPath}?error=${encodeURIComponent("This account cannot sign in to this portal.")}`,
       );

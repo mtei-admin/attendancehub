@@ -1,4 +1,7 @@
-import { getApprovedRequests, toDisplayRow } from "@/lib/requests";
+import { getSession } from "@/lib/auth";
+import { canAccessHrPortal, filterRequestsForHrPortal } from "@/lib/hr-portal-access";
+import { getAllApprovedRequests, toDisplayRow } from "@/lib/requests";
+import { buildEmployeeTypeLookup, listEmployees } from "@/lib/roster";
 
 function toCsv(rows: ReturnType<typeof toDisplayRow>[]): string {
   if (rows.length === 0) {
@@ -22,8 +25,15 @@ function toCsv(rows: ReturnType<typeof toDisplayRow>[]): string {
 }
 
 export async function GET() {
-  const approved = await getApprovedRequests();
-  const csv = toCsv(approved.map(toDisplayRow));
+  const session = await getSession();
+  if (!session || !canAccessHrPortal(session.role)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const [approved, roster] = await Promise.all([getAllApprovedRequests(), listEmployees(true)]);
+  const employeeTypeLookup = buildEmployeeTypeLookup(roster);
+  const scoped = filterRequestsForHrPortal(approved, employeeTypeLookup, session, "all");
+  const csv = toCsv(scoped.map(toDisplayRow));
 
   return new Response(csv, {
     headers: {

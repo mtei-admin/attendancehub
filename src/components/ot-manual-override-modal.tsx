@@ -3,6 +3,7 @@
 import { saveOtManualOverrideAction } from "@/actions/hr";
 import { FormField, inputClassName } from "./form-field";
 import { FormModal } from "./form-modal";
+import { OtHoursFields } from "./ot-hours-fields";
 
 type OtManualOverrideModalProps = {
   open: boolean;
@@ -52,18 +53,12 @@ export function OtManualOverrideModal({
         <input type="hidden" name="ot_department" value={contextFields.department} />
         <input type="hidden" name="ot_employee" value={employeeName} />
 
-        <FormField label="Number of hours">
-          <input
-            type="number"
-            name="hours"
-            required
-            min="0.01"
-            step="0.01"
-            placeholder="e.g. 8"
-            className={inputClassName}
-            autoFocus
-          />
-        </FormField>
+        <OtHoursFields
+          label="Hours to add"
+          hoursName="override_hours"
+          minutesName="override_minutes"
+          required
+        />
 
         <FormField label="Remarks / notes">
           <textarea

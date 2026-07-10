@@ -77,6 +77,47 @@ export async function addRequest(input: {
   return refId;
 }
 
+export async function addManagerOwnRequest(input: {
+  company: string;
+  department: string;
+  employeeName: string;
+  managerName: string;
+  requestType: string;
+  dateRequested: string;
+  dateOfIncident: string;
+  reason: string;
+  timeIn?: string | null;
+  timeOut?: string | null;
+  otHrs?: string | null;
+}): Promise<string> {
+  const db = getDb();
+  const refId = await generateRefId();
+  const otValue = input.otHrs || null;
+  const now = new Date();
+
+  await db.insert(attendanceRequests).values({
+    refId,
+    submittedAt: now,
+    submittedBy: input.managerName,
+    company: input.company,
+    department: input.department,
+    employeeName: input.employeeName,
+    requestType: input.requestType,
+    dateRequested: input.dateRequested,
+    dateOfIncident: input.dateOfIncident,
+    timeIn: input.timeIn || null,
+    timeOut: input.timeOut || null,
+    otHrs: otValue,
+    requestedOtHrs: otValue,
+    reason: input.reason,
+    status: "Approved",
+    approvedBy: input.managerName,
+    approvedOn: now,
+  });
+
+  return refId;
+}
+
 export async function getAllRequests(): Promise<AttendanceRequest[]> {
   const db = getDb();
   return db
@@ -412,6 +453,56 @@ export async function updateEmployeePendingRequest(
   return result.length > 0;
 }
 
+export type AdminRequestInput = {
+  company: string;
+  department: string;
+  employeeName: string;
+  requestType: string;
+  dateRequested: string;
+  dateOfIncident: string;
+  timeIn?: string | null;
+  timeOut?: string | null;
+  otHrs?: string | null;
+  reason: string;
+  verificationNote?: string | null;
+};
+
+export async function adminUpdateRequest(
+  refId: string,
+  input: AdminRequestInput,
+  editedBy: string,
+): Promise<boolean> {
+  const db = getDb();
+  const existing = await getRequestByRefId(refId);
+  if (!existing) return false;
+
+  const otValue = input.otHrs || null;
+  const isPending = existing.status === "Pending";
+
+  const result = await db
+    .update(attendanceRequests)
+    .set({
+      company: input.company,
+      department: input.department,
+      employeeName: input.employeeName,
+      requestType: input.requestType,
+      dateRequested: input.dateRequested || null,
+      dateOfIncident: input.dateOfIncident,
+      timeIn: input.timeIn || null,
+      timeOut: input.timeOut || null,
+      otHrs: otValue,
+      ...(isPending ? { requestedOtHrs: otValue } : {}),
+      reason: input.reason,
+      verificationNote: input.verificationNote?.trim() || null,
+      lastEditedBy: editedBy,
+      lastEditedOn: new Date(),
+    })
+    .where(eq(attendanceRequests.refId, refId))
+    .returning({ id: attendanceRequests.id });
+
+  return result.length > 0;
+}
+
 export function toDisplayRow(request: AttendanceRequest) {
   return {
     ref_id: request.refId,
@@ -433,5 +524,6 @@ export function toDisplayRow(request: AttendanceRequest) {
     verification_note: request.verificationNote ?? "",
     approved_by: request.approvedBy ?? "",
     approved_on: request.approvedOn?.toISOString() ?? "",
+    submitted_by: request.submittedBy ?? "",
   };
 }

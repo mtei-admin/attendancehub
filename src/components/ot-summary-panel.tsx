@@ -33,6 +33,7 @@ type OtSummaryPanelProps = {
   saveCutoffRulesAction: (formData: FormData) => Promise<void>;
   saveOtEligibleTypesAction: (formData: FormData) => Promise<void>;
   eligibleTypes: { requestType: string; isActive: boolean }[];
+  restrictRfToCheckedBasis?: boolean;
 };
 
 function buildExportUrl(filters: OtSummaryPanelProps["filters"]): string {
@@ -66,6 +67,7 @@ export function OtSummaryPanel({
   saveCutoffRulesAction,
   saveOtEligibleTypesAction,
   eligibleTypes,
+  restrictRfToCheckedBasis = false,
 }: OtSummaryPanelProps) {
   const [company, setCompany] = useState(filters.company);
   const [department, setDepartment] = useState(filters.department);
@@ -96,6 +98,8 @@ export function OtSummaryPanel({
       filters.employeeName &&
       canExport,
   );
+
+  const lockRfBasis = restrictRfToCheckedBasis && filters.payrollGroup === "Rank & File";
 
   return (
     <div className="space-y-6">
@@ -138,10 +142,10 @@ export function OtSummaryPanel({
             <FormField label="Export basis">
               <select
                 name="ot_basis"
-                defaultValue={filters.exportBasis}
+                defaultValue={lockRfBasis ? "checked" : filters.exportBasis}
                 className={inputClassName}
               >
-                <option value="approved">Manager-approved</option>
+                {!lockRfBasis && <option value="approved">Manager-approved</option>}
                 <option value="checked">HR-checked (official)</option>
               </select>
             </FormField>

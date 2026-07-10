@@ -81,6 +81,7 @@ export const attendanceRequests = pgTable("attendance_requests", {
   id: serial("id").primaryKey(),
   refId: text("ref_id").notNull().unique(),
   submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull(),
+  submittedBy: text("submitted_by"),
   company: text("company"),
   department: text("department"),
   employeeName: text("employee_name").notNull(),

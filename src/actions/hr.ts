@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { requireRoles, isNextNavigationError } from "@/lib/action-auth";
-import { EMPLOYEE_TYPES, needsCheckHoursOnHrCheck } from "@/lib/constants";
+import { requireHrPortalAccess, isNextNavigationError } from "@/lib/action-auth";
+import { canHrCheckRequest } from "@/lib/hr-portal-access";
+import { EMPLOYEE_TYPES, needsCheckHoursOnHrCheck, normalizeManagerDepartment } from "@/lib/constants";
 import { isValidEmail, normalizeEmail } from "@/lib/email";
 import { createCompany, isActiveCompany, updateCompany } from "@/lib/companies";
 import {
@@ -15,6 +16,7 @@ import {
 import { parseOptionalBiometricNo } from "@/lib/biometric";
 import { createEmployee, getEmployeeByPlacement, updateEmployee, isBiometricNoTaken } from "@/lib/roster";
 import { archiveRequest, getRequestByRefId, hrRejectApprovedRequest, unarchiveRequest } from "@/lib/requests";
+import { readOtHoursFromFormData, formatOtHoursLabel } from "@/lib/ot-hours";
 import { parseOtHours } from "@/lib/ot-summary";
 import { createUser, getUserById, getUserByUsername, findPortalRoleConflict, updateUser } from "@/lib/users";
 import { listDepartments } from "@/lib/departments";
@@ -54,9 +56,13 @@ function hrRedirect(
 }
 
 export async function checkRequestAction(formData: FormData) {
-  const session = await requireRoles(["HR"]);
+  const session = await requireHrPortalAccess();
   const refId = String(formData.get("ref_id") ?? "").trim();
-  const approvedOtHrs = String(formData.get("approved_ot_hrs") ?? "").trim();
+  const approvedOtHours = readOtHoursFromFormData(
+    formData,
+    "approved_ot_hours",
+    "approved_ot_minutes",
+  );
 
   if (!refId) {
     hrRedirect({ tab: "pending", error: "Invalid request reference." });
@@ -73,28 +79,34 @@ export async function checkRequestAction(formData: FormData) {
     request.employeeName,
   );
 
+  if (!canHrCheckRequest(session, employee?.employeeType)) {
+    hrRedirect({
+      tab: "pending",
+      error: "You can only check Confi slips from this account.",
+    });
+  }
+
   const requiresHours =
     employee?.employeeType === "Confi" && needsCheckHoursOnHrCheck(request.requestType);
 
   let checkedOtHrs: string | null = null;
 
   if (requiresHours) {
-    if (!approvedOtHrs) {
+    if (approvedOtHours.empty) {
       hrRedirect({
         tab: "pending",
         error: "Number of hours approved is required before checking this request.",
       });
     }
 
-    const { hours, valid } = parseOtHours(approvedOtHrs);
-    if (!valid || hours <= 0) {
+    if (!approvedOtHours.valid || approvedOtHours.totalHours <= 0) {
       hrRedirect({
         tab: "pending",
-        error: "Enter a valid number of approved hours greater than zero.",
+        error: approvedOtHours.error ?? "Enter a valid number of approved hours greater than zero.",
       });
     }
 
-    checkedOtHrs = approvedOtHrs;
+    checkedOtHrs = approvedOtHours.storedValue;
   }
 
   const archived = await archiveRequest(refId, session.fullName, checkedOtHrs);
@@ -107,14 +119,14 @@ export async function checkRequestAction(formData: FormData) {
   }
 
   const successMessage = checkedOtHrs
-    ? `Request ${refId} marked as checked with ${checkedOtHrs} approved hour(s).`
+    ? `Request ${refId} marked as checked with ${formatOtHoursLabel(parseOtHours(checkedOtHrs).hours)} approved.`
     : `Request ${refId} marked as checked.`;
 
   hrRedirect({ tab: "pending", success: successMessage });
 }
 
 export async function hrRejectRequestAction(formData: FormData) {
-  const session = await requireRoles(["HR"]);
+  const session = await requireHrPortalAccess();
   const refId = String(formData.get("ref_id") ?? "").trim();
   const rejectionReason = String(formData.get("rejection_reason") ?? "").trim();
 
@@ -124,6 +136,24 @@ export async function hrRejectRequestAction(formData: FormData) {
 
   if (!rejectionReason) {
     hrRedirect({ tab: "pending", error: "A rejection reason is required." });
+  }
+
+  const request = await getRequestByRefId(refId);
+  if (!request) {
+    hrRedirect({ tab: "pending", error: "Request not found." });
+  }
+
+  const employee = await getEmployeeByPlacement(
+    request.company ?? "",
+    request.department ?? "",
+    request.employeeName,
+  );
+
+  if (!canHrCheckRequest(session, employee?.employeeType)) {
+    hrRedirect({
+      tab: "pending",
+      error: "You can only reject Confi slips from this account.",
+    });
   }
 
   const rejected = await hrRejectApprovedRequest(refId, session.fullName, rejectionReason);
@@ -140,7 +170,7 @@ export async function hrRejectRequestAction(formData: FormData) {
 }
 
 export async function archiveRequestAction(formData: FormData) {
-  const session = await requireRoles(["HR"]);
+  const session = await requireHrPortalAccess();
   const refId = String(formData.get("ref_id") ?? "").trim();
 
   if (!refId) {
@@ -159,7 +189,7 @@ export async function archiveRequestAction(formData: FormData) {
 }
 
 export async function unarchiveRequestAction(formData: FormData) {
-  await requireRoles(["HR"]);
+  await requireHrPortalAccess();
   const refId = String(formData.get("ref_id") ?? "").trim();
 
   if (!refId) {
@@ -178,7 +208,7 @@ export async function unarchiveRequestAction(formData: FormData) {
 }
 
 export async function saveEmployeeRosterAction(formData: FormData) {
-  await requireRoles(["HR"]);
+  await requireHrPortalAccess();
   const id = Number(formData.get("id") ?? 0);
   const fullName = String(formData.get("full_name") ?? "").trim();
   const departmentId = Number(formData.get("department_id") ?? 0);
@@ -257,17 +287,17 @@ export async function saveEmployeeRosterAction(formData: FormData) {
 }
 
 export async function saveManagerAction(formData: FormData) {
-  await requireRoles(["HR"]);
+  await requireHrPortalAccess();
   const id = Number(formData.get("id") ?? 0);
   const fullName = String(formData.get("full_name") ?? "").trim();
   const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const company = String(formData.get("company") ?? "").trim();
-  const department = String(formData.get("department") ?? "").trim();
+  const department = normalizeManagerDepartment(String(formData.get("department") ?? "").trim()) ?? "";
   const isActive = formData.get("is_active") === "on";
 
-  if (!fullName || !username || !company || !department) {
-    hrRedirect({ tab: "managers", error: "Name, username, company, and department are required." });
+  if (!fullName || !username || !company) {
+    hrRedirect({ tab: "managers", error: "Name, username, and company are required." });
   }
 
   if (!(await isActiveCompany(company))) {
@@ -305,7 +335,7 @@ export async function saveManagerAction(formData: FormData) {
         fullName,
         username,
         company,
-        department,
+        department: department || null,
         isActive,
         ...(password ? { password } : {}),
       });
@@ -331,7 +361,7 @@ export async function saveManagerAction(formData: FormData) {
       fullName,
       role: "Manager",
       company,
-      department,
+      department: department || null,
     });
 
     revalidatePath("/hr");
@@ -348,7 +378,7 @@ export async function saveManagerAction(formData: FormData) {
 }
 
 export async function saveVerifierAction(formData: FormData) {
-  await requireRoles(["HR"]);
+  await requireHrPortalAccess();
   const id = Number(formData.get("id") ?? 0);
   const fullName = String(formData.get("full_name") ?? "").trim();
   const username = String(formData.get("username") ?? "").trim();
@@ -439,7 +469,7 @@ export async function saveVerifierAction(formData: FormData) {
 }
 
 export async function savePayrollCutoffRulesAction(formData: FormData) {
-  await requireRoles(["HR"]);
+  await requireHrPortalAccess();
   const employeeType = String(formData.get("employee_type") ?? "").trim();
   const cutoffDay1 = Number(formData.get("cutoff_day_1"));
   const cutoffDay2 = Number(formData.get("cutoff_day_2"));
@@ -468,7 +498,7 @@ export async function savePayrollCutoffRulesAction(formData: FormData) {
 }
 
 export async function saveOtEligibleTypesAction(formData: FormData) {
-  await requireRoles(["HR"]);
+  await requireHrPortalAccess();
   const activeTypes = formData.getAll("eligible_types").map((value) => String(value));
 
   await saveOtEligibleTypes(activeTypes);
@@ -499,7 +529,7 @@ function buildOtSummaryRedirectParams(formData: FormData): Record<string, string
 }
 
 export async function saveOtManualOverrideAction(formData: FormData) {
-  const session = await requireRoles(["HR"]);
+  const session = await requireHrPortalAccess();
   const redirectParams = buildOtSummaryRedirectParams(formData);
 
   const payrollGroup = String(formData.get("ot_group") ?? "").trim();
@@ -507,7 +537,9 @@ export async function saveOtManualOverrideAction(formData: FormData) {
   const company = String(formData.get("ot_company") ?? "").trim();
   const department = String(formData.get("ot_department") ?? "").trim();
   const employeeName = String(formData.get("ot_employee") ?? "").trim();
-  const hoursRaw = String(formData.get("hours") ?? "").trim();
+  const overrideHours = readOtHoursFromFormData(formData, "override_hours", "override_minutes", {
+    required: true,
+  });
   const note = String(formData.get("note") ?? "").trim();
   const useCustomRange = String(formData.get("ot_custom") ?? "") === "1";
 
@@ -547,9 +579,11 @@ export async function saveOtManualOverrideAction(formData: FormData) {
     hrRedirect({ ...redirectParams, error: "A valid cutoff period is required." });
   }
 
-  const hours = Number.parseFloat(hoursRaw);
-  if (!Number.isFinite(hours) || hours <= 0) {
-    hrRedirect({ ...redirectParams, error: "Enter a valid number of hours greater than zero." });
+  if (!overrideHours.valid || overrideHours.totalHours <= 0) {
+    hrRedirect({
+      ...redirectParams,
+      error: overrideHours.error ?? "Enter a valid number of hours greater than zero.",
+    });
   }
 
   if (!note) {
@@ -582,7 +616,7 @@ export async function saveOtManualOverrideAction(formData: FormData) {
       payrollGroup: "Confi",
       periodStart,
       periodEnd,
-      hoursToAdd: hours,
+      hoursToAdd: overrideHours.totalHours,
       note,
       savedBy: session.fullName,
     });
@@ -591,7 +625,7 @@ export async function saveOtManualOverrideAction(formData: FormData) {
     revalidatePath("/api/export/ot-summary");
     hrRedirect({
       ...redirectParams,
-      success: `Added ${hours.toFixed(2)} manual OT hour(s) for ${employeeName}.`,
+      success: `Added ${formatOtHoursLabel(overrideHours.totalHours)} manual OT for ${employeeName}.`,
     });
   } catch (error) {
     if (isNextNavigationError(error)) throw error;
@@ -603,7 +637,7 @@ export async function saveOtManualOverrideAction(formData: FormData) {
 }
 
 export async function saveHrCompanyAction(formData: FormData) {
-  await requireRoles(["HR"]);
+  await requireHrPortalAccess();
   const id = Number(formData.get("id") ?? 0);
   const name = String(formData.get("name") ?? "").trim();
   const isActive = formData.get("is_active") === "on";

@@ -1,10 +1,12 @@
 "use client";
 
 import { checkRequestAction } from "@/actions/hr";
+import { splitStoredOtHours, formatOtHoursLabel } from "@/lib/ot-hours";
+import { parseOtHours } from "@/lib/ot-summary";
 import type { AttendanceRequest } from "@/lib/schema";
 
-import { FormField, inputClassName } from "./form-field";
 import { FormModal } from "./form-modal";
+import { OtHoursFields } from "./ot-hours-fields";
 
 type HrCheckHoursModalProps = {
   open: boolean;
@@ -12,11 +14,18 @@ type HrCheckHoursModalProps = {
   request: AttendanceRequest;
 };
 
+function formatStoredOtHours(value: string | null | undefined): string {
+  const parsed = parseOtHours(value ?? null);
+  if (!parsed.valid || parsed.hours <= 0) return "—";
+  return formatOtHoursLabel(parsed.hours);
+}
+
 export function HrCheckHoursModal({ open, onClose, request }: HrCheckHoursModalProps) {
   if (!open) return null;
 
   const hoursRequested = request.requestedOtHrs ?? request.otHrs ?? "";
   const hoursApprovedDefault = request.otHrs ?? request.requestedOtHrs ?? "";
+  const approvedDefaults = splitStoredOtHours(hoursApprovedDefault);
 
   return (
     <FormModal
@@ -45,13 +54,13 @@ export function HrCheckHoursModal({ open, onClose, request }: HrCheckHoursModalP
         </div>
         <div className="flex justify-between gap-4">
           <dt className="text-slate-500">Hours requested</dt>
-          <dd className="font-medium text-slate-900">{hoursRequested || "—"}</dd>
+          <dd className="font-medium text-slate-900">{formatStoredOtHours(hoursRequested)}</dd>
         </div>
         {request.approvedBy && (
           <div className="flex justify-between gap-4">
             <dt className="text-slate-500">Manager approved</dt>
             <dd className="font-medium text-slate-900">
-              {request.otHrs || "—"} by {request.approvedBy}
+              {formatStoredOtHours(request.otHrs)} by {request.approvedBy}
             </dd>
           </div>
         )}
@@ -60,17 +69,14 @@ export function HrCheckHoursModal({ open, onClose, request }: HrCheckHoursModalP
       <form action={checkRequestAction} className="mt-5 space-y-4">
         <input type="hidden" name="ref_id" value={request.refId} />
 
-        <FormField label="Number of hours approved">
-          <input
-            type="text"
-            name="approved_ot_hrs"
-            required
-            defaultValue={hoursApprovedDefault}
-            placeholder="e.g. 2"
-            className={inputClassName}
-            autoFocus
-          />
-        </FormField>
+        <OtHoursFields
+          label="Number of hours approved"
+          hoursName="approved_ot_hours"
+          minutesName="approved_ot_minutes"
+          defaultHours={approvedDefaults.hours}
+          defaultMinutes={approvedDefaults.minutes}
+          required
+        />
 
         <div className="flex flex-wrap justify-end gap-3 border-t border-slate-100 pt-4">
           <button

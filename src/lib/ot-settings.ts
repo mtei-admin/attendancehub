@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 
-import { EMPLOYEE_TYPES, REQUEST_TYPES } from "./constants";
+import { EMPLOYEE_TYPES, REQUEST_TYPES, type Role } from "./constants";
 import { getDb } from "./db";
 import { otEligibleRequestTypes, payrollCutoffRules, type PayrollCutoffRule } from "./schema";
 
@@ -90,7 +90,11 @@ export function validateCutoffDays(cutoffDay1: number, cutoffDay2: number): stri
   return null;
 }
 
-export function allowedPayrollGroups(hrScope: string | null): string[] {
+export function allowedPayrollGroups(role: Role, hrScope: string | null): string[] {
+  if (role === "Payroll Officer") {
+    return ["Rank & File", "Confi"];
+  }
+
   if (hrScope === "R&F only") return ["Rank & File"];
   if (hrScope === "Confi only") return ["Confi"];
   return [...EMPLOYEE_TYPES];

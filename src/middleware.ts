@@ -62,6 +62,12 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/employee", request.url));
   }
 
+  if (pathname === "/login/payroll" || pathname.startsWith("/login/payroll/")) {
+    const loginUrl = new URL("/login/hr", request.url);
+    loginUrl.search = request.nextUrl.search;
+    return NextResponse.redirect(loginUrl);
+  }
+
   if (pathname.startsWith("/employee")) {
     return NextResponse.next();
   }
@@ -82,6 +88,17 @@ export function middleware(request: NextRequest) {
 
   if (!canAccess(session.role, pathname)) {
     return NextResponse.redirect(new URL(routeForRole(session.role), request.url));
+  }
+
+  if (pathname.startsWith("/admin") && request.nextUrl.searchParams.get("tab") === "payroll") {
+    const adminUrl = new URL("/admin", request.url);
+    adminUrl.searchParams.set("tab", "hr");
+    for (const [key, value] of request.nextUrl.searchParams.entries()) {
+      if (key !== "tab") {
+        adminUrl.searchParams.set(key, value);
+      }
+    }
+    return NextResponse.redirect(adminUrl);
   }
 
   return NextResponse.next();

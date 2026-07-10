@@ -99,7 +99,6 @@ export const PORTAL_SLUGS = [
   "verification",
   "manager",
   "hr",
-  "payroll",
   "admin",
 ] as const;
 export type PortalSlug = (typeof PORTAL_SLUGS)[number];
@@ -135,17 +134,10 @@ export const PORTAL_CONFIG: Record<
   },
   hr: {
     title: "HR portal",
-    subtitle: "Sign in to process approved records for payroll.",
-    description: "Process approved records for payroll",
+    subtitle: "Sign in for HR processing and payroll officer access.",
+    description: "Process records, OT summary, and payroll export",
     icon: "📊",
     accent: "border-emerald-200 bg-emerald-50 text-emerald-600",
-  },
-  payroll: {
-    title: "Payroll Officer portal",
-    subtitle: "Sign in for Confi HR processing and R&F checked records.",
-    description: "Confi processing and R&F checked export",
-    icon: "💼",
-    accent: "border-sky-200 bg-sky-50 text-sky-600",
   },
   admin: {
     title: "IT / Admin portal",

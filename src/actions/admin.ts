@@ -187,7 +187,7 @@ export async function saveAdminHrAction(formData: FormData) {
 
 export async function saveAdminPayrollOfficerAction(formData: FormData) {
   await requireRoles(["Admin"]);
-  await savePortalUserAction(formData, "Payroll Officer", "payroll");
+  await savePortalUserAction(formData, "Payroll Officer", "hr");
 }
 
 export async function saveAdminSlipAction(formData: FormData) {
@@ -525,7 +525,7 @@ export async function saveCredentialsAction(formData: FormData) {
 async function savePortalUserAction(
   formData: FormData,
   role: "Manager" | "HR" | "Verifier" | "Payroll Officer",
-  tab: "managers" | "hr" | "verifiers" | "payroll",
+  tab: "managers" | "hr" | "verifiers",
 ) {
   const id = Number(formData.get("id") ?? 0);
   const fullName = String(formData.get("full_name") ?? "").trim();

@@ -7,7 +7,6 @@ export type AdminTab =
   | "managers"
   | "verifiers"
   | "hr"
-  | "payroll"
   | "companies"
   | "departments"
   | "credentials"
@@ -18,8 +17,7 @@ type AdminTabsProps = {
   employeeCount: number;
   managerCount: number;
   verifierCount: number;
-  hrCount: number;
-  payrollCount: number;
+  hrAccountCount: number;
   slipCount: number;
   companyCount: number;
   departmentCount: number;
@@ -30,8 +28,7 @@ export function AdminTabs({
   employeeCount,
   managerCount,
   verifierCount,
-  hrCount,
-  payrollCount,
+  hrAccountCount,
   slipCount,
   companyCount,
   departmentCount,
@@ -69,14 +66,8 @@ export function AdminTabs({
     },
     {
       id: "hr",
-      label: "HR accounts",
-      count: hrCount,
-      countClass: "bg-slate-100 text-slate-500",
-    },
-    {
-      id: "payroll",
-      label: "Payroll officers",
-      count: payrollCount,
+      label: "HR & payroll",
+      count: hrAccountCount,
       countClass: "bg-slate-100 text-slate-500",
     },
     {

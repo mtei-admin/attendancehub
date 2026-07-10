@@ -12,7 +12,6 @@ const PORTAL_ALLOWED_ROLES: Partial<Record<PortalSlug, Role[]>> = {
   manager: ["Manager"],
   verification: ["Verifier"],
   hr: HR_PORTAL_ROLES,
-  payroll: ["Payroll Officer"],
   admin: ["Admin"],
 };
 

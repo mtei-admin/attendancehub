@@ -12,6 +12,11 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
   const { portal } = await params;
   const query = await searchParams;
 
+  if (portal === "payroll") {
+    const queryString = query.error ? `?error=${encodeURIComponent(query.error)}` : "";
+    redirect(`/login/hr${queryString}`);
+  }
+
   if (!isPortalSlug(portal)) {
     notFound();
   }

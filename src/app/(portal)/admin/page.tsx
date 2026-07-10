@@ -18,6 +18,7 @@ import { CompanyPanel } from "@/components/company-panel";
 import { CredentialsPanel } from "@/components/credentials-panel";
 import { DepartmentPanel } from "@/components/department-panel";
 import { FlashMessage } from "@/components/flash-message";
+import { HrAccountsPanel } from "@/components/hr-accounts-panel";
 import { PortalUserPanel } from "@/components/portal-user-panel";
 import { RosterPanel } from "@/components/roster-panel";
 import { RecordRequestLogsPanel } from "@/components/record-request-logs-panel";
@@ -63,12 +64,15 @@ function resolveDashboardView(view?: string): AdminDashboardView | undefined {
 }
 
 function resolveTab(tab?: string): AdminTab {
+  if (tab === "payroll") {
+    return "hr";
+  }
+
   if (
     tab === "employees" ||
     tab === "managers" ||
     tab === "verifiers" ||
     tab === "hr" ||
-    tab === "payroll" ||
     tab === "slips" ||
     tab === "companies" ||
     tab === "departments" ||
@@ -129,8 +133,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
         employeeCount={activeEmployees.length}
         managerCount={managers.length}
         verifierCount={verifiers.length}
-        hrCount={hrUsers.length}
-        payrollCount={payrollOfficers.length}
+        hrAccountCount={hrUsers.length + payrollOfficers.length}
         slipCount={allRequests.length}
         companyCount={activeCompanies.length}
         departmentCount={activeDepartments.length}
@@ -227,32 +230,22 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
         )}
 
         {activeTab === "hr" && (
-          <PortalUserPanel
-            users={hrUsers}
+          <HrAccountsPanel
+            hrUsers={hrUsers}
+            payrollOfficers={payrollOfficers}
             departments={departments}
             companies={companyNames}
-            saveAction={saveAdminHrAction}
+            saveHrAction={saveAdminHrAction}
+            savePayrollAction={saveAdminPayrollOfficerAction}
             deleteAction={deleteAdminUserAction}
-            role="HR"
+            addRole={
+              params.add === "hr"
+                ? "HR"
+                : params.add === "payroll"
+                  ? "Payroll Officer"
+                  : undefined
+            }
             editId={editId}
-            showAdd={showAdd}
-            basePath="/admin"
-            tab="hr"
-          />
-        )}
-
-        {activeTab === "payroll" && (
-          <PortalUserPanel
-            users={payrollOfficers}
-            departments={departments}
-            companies={companyNames}
-            saveAction={saveAdminPayrollOfficerAction}
-            deleteAction={deleteAdminUserAction}
-            role="Payroll Officer"
-            editId={editId}
-            showAdd={showAdd}
-            basePath="/admin"
-            tab="payroll"
           />
         )}
 

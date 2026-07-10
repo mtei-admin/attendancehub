@@ -103,5 +103,5 @@ export async function addOtManualOverrideHours(input: {
 export function parseStoredOtOverrideHours(value: string | null): number {
   if (!value?.trim()) return 0;
   const parsed = Number.parseFloat(value.trim());
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+  return Number.isFinite(parsed) ? parsed : 0;
 }

@@ -99,6 +99,21 @@ export function OtSummaryPanel({
       canExport,
   );
 
+  const slipHoursTotal = useMemo(() => {
+    if (!report || !filters.employeeName) return 0;
+    return report.details
+      .filter((row) => !row.isManualOverride && row.employeeName === filters.employeeName)
+      .reduce((sum, row) => sum + row.otHrs, 0);
+  }, [report, filters.employeeName]);
+
+  const existingOverrideHours = useMemo(() => {
+    if (!report || !filters.employeeName) return 0;
+    const overrideRow = report.details.find(
+      (row) => row.isManualOverride && row.employeeName === filters.employeeName,
+    );
+    return overrideRow?.otHrs ?? 0;
+  }, [report, filters.employeeName]);
+
   const lockRfBasis = restrictRfToCheckedBasis && filters.payrollGroup === "Rank & File";
 
   return (
@@ -290,7 +305,7 @@ export function OtSummaryPanel({
               onClick={() => setOverrideOpen(true)}
               title={
                 canManualOverride
-                  ? "Add manual OT hours for the selected Confi employee"
+                  ? "Add or deduct manual OT hours for the selected Confi employee"
                   : "Select Confi, HR-checked, company, department, employee, and period"
               }
               className="rounded-lg border border-violet-200 bg-violet-50 px-4 py-2 text-sm font-semibold text-violet-700 transition hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-50"
@@ -305,6 +320,8 @@ export function OtSummaryPanel({
         open={overrideOpen}
         onClose={() => setOverrideOpen(false)}
         employeeName={filters.employeeName}
+        slipHoursTotal={slipHoursTotal}
+        existingOverrideHours={existingOverrideHours}
         contextFields={{
           payrollGroup: filters.payrollGroup,
           exportBasis: filters.exportBasis,

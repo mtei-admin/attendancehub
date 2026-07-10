@@ -219,7 +219,7 @@ export async function buildOtSummaryReport(params: BuildOtSummaryParams): Promis
 
     const manualRows = overrides.flatMap((override) => {
       const hours = parseStoredOtOverrideHours(override.hours);
-      if (hours <= 0) return [];
+      if (hours === 0) return [];
 
       return [
         {
@@ -228,7 +228,7 @@ export async function buildOtSummaryReport(params: BuildOtSummaryParams): Promis
           department: override.department,
           employeeName: override.employeeName,
           employeeType: "Confi",
-          requestType: "Manual override",
+          requestType: hours > 0 ? "Manual override (Add)" : "Manual adjustment (Deduct)",
           dateOfIncident: params.endDate,
           otHrs: hours,
           otHrsRaw: override.hours,

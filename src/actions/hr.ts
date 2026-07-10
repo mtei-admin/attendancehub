@@ -784,6 +784,8 @@ export async function saveOtManualOverrideAction(formData: FormData) {
     required: true,
   });
   const note = String(formData.get("note") ?? "").trim();
+  const overrideType = String(formData.get("override_type") ?? "add").trim();
+  const isDeduct = overrideType === "deduct";
   const useCustomRange = String(formData.get("ot_custom") ?? "") === "1";
 
   let periodStart = String(formData.get("ot_start") ?? "").trim();
@@ -825,9 +827,15 @@ export async function saveOtManualOverrideAction(formData: FormData) {
   if (!overrideHours.valid || overrideHours.totalHours <= 0) {
     hrRedirect({
       ...redirectParams,
-      error: overrideHours.error ?? "Enter a valid number of hours greater than zero.",
+      error: overrideHours.error ?? "Enter a valid amount greater than zero.",
     });
   }
+
+  if (overrideType !== "add" && overrideType !== "deduct") {
+    hrRedirect({ ...redirectParams, error: "Invalid override type." });
+  }
+
+  const signedHours = isDeduct ? -overrideHours.totalHours : overrideHours.totalHours;
 
   if (!note) {
     hrRedirect({ ...redirectParams, error: "Remarks / notes are required." });
@@ -859,7 +867,7 @@ export async function saveOtManualOverrideAction(formData: FormData) {
       payrollGroup: "Confi",
       periodStart,
       periodEnd,
-      hoursToAdd: overrideHours.totalHours,
+      hoursToAdd: signedHours,
       note,
       savedBy: session.fullName,
     });
@@ -868,7 +876,9 @@ export async function saveOtManualOverrideAction(formData: FormData) {
     revalidatePath("/api/export/ot-summary");
     hrRedirect({
       ...redirectParams,
-      success: `Added ${formatOtHoursLabel(overrideHours.totalHours)} manual OT for ${employeeName}.`,
+      success: isDeduct
+        ? `Deducted ${formatOtHoursLabel(overrideHours.totalHours)} manual OT for ${employeeName}.`
+        : `Added ${formatOtHoursLabel(overrideHours.totalHours)} manual OT for ${employeeName}.`,
     });
   } catch (error) {
     if (isNextNavigationError(error)) throw error;

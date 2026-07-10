@@ -1,5 +1,6 @@
 import { HrCheckAction } from "@/components/hr-check-action";
 import { groupAttendanceRequestsByPlacement } from "@/lib/admin-stats";
+import { HrRecordsGroupedList } from "@/components/hr-records-grouped-list";
 import type { AttendanceRequest } from "@/lib/schema";
 import { requestEmployeeKey } from "@/lib/roster";
 
@@ -20,6 +21,7 @@ type HrRecordsListProps = {
   emptyMessage?: string;
   readOnly?: boolean;
   grouped?: boolean;
+  collapseStorageKey?: string;
   editableRefIds?: ReadonlySet<string>;
   getEditHref?: (refId: string) => string;
 };
@@ -56,7 +58,7 @@ function CheckedStatus({
   );
 }
 
-function HrRecordRow({
+export function HrRecordRow({
   request,
   employeeType,
   mode,
@@ -156,7 +158,7 @@ function HrRecordRow({
   );
 }
 
-const GROUPED_HEADERS = ["Type", "Date", "Time in / Time out", "Approved by", "Action", "Remarks"];
+export const GROUPED_HEADERS = ["Type", "Date", "Time in / Time out", "Approved by", "Action", "Remarks"];
 const FLAT_HEADERS = ["Employee", ...GROUPED_HEADERS];
 
 export function HrRecordsList({
@@ -166,6 +168,7 @@ export function HrRecordsList({
   emptyMessage = "No records found.",
   readOnly = false,
   grouped = false,
+  collapseStorageKey,
   editableRefIds,
   getEditHref,
 }: HrRecordsListProps) {
@@ -179,88 +182,19 @@ export function HrRecordsList({
 
   if (grouped) {
     const groupedRequests = groupAttendanceRequestsByPlacement(requests);
+    const storageKey =
+      collapseStorageKey ?? `hr:grouped:${mode}:${readOnly ? "readonly" : "edit"}`;
 
     return (
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="divide-y divide-slate-100">
-          {groupedRequests.map((companyGroup) => (
-            <div key={companyGroup.company}>
-              <div className="sticky top-0 z-10 border-b border-slate-200 bg-slate-100 px-5 py-3">
-                <h3 className="text-sm font-semibold text-slate-900">{companyGroup.company}</h3>
-              </div>
-
-              {companyGroup.departments.map((departmentGroup) => (
-                <div key={`${companyGroup.company}-${departmentGroup.department}`}>
-                  <div className="border-b border-slate-100 bg-slate-50 px-5 py-2.5 pl-8">
-                    <h4 className="text-sm font-medium text-slate-700">{departmentGroup.department}</h4>
-                  </div>
-
-                  {departmentGroup.employees.map((employeeGroup) => {
-                    const employeeType =
-                      employeeTypeLookup[requestEmployeeKey(employeeGroup.requests[0]!)];
-                    const typeLabel = getEmployeeTypeLabel(employeeType);
-
-                    return (
-                      <div
-                        key={`${companyGroup.company}-${departmentGroup.department}-${employeeGroup.employeeName}`}
-                        className="border-b border-slate-50"
-                      >
-                        <div className="flex flex-wrap items-center gap-2 bg-white px-5 py-3 pl-10">
-                          <h5 className="text-sm font-semibold text-slate-900">
-                            {employeeGroup.employeeName}
-                          </h5>
-                          {typeLabel && (
-                            <span
-                              className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${getEmployeeTypeBadgeClass(employeeType)}`}
-                            >
-                              {typeLabel}
-                            </span>
-                          )}
-                          <span className="text-xs text-slate-500">
-                            {employeeGroup.requests.length} slip
-                            {employeeGroup.requests.length === 1 ? "" : "s"}
-                          </span>
-                        </div>
-
-                        <div className="overflow-x-auto">
-                          <table className="min-w-full text-sm">
-                            <thead className="border-b border-slate-100 bg-slate-50/80">
-                              <tr>
-                                {GROUPED_HEADERS.map((header) => (
-                                  <th
-                                    key={header}
-                                    className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400"
-                                  >
-                                    {header}
-                                  </th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-50">
-                              {employeeGroup.requests.map((request) => (
-                                <HrRecordRow
-                                  key={request.id}
-                                  request={request}
-                                  employeeType={employeeType}
-                                  mode={mode}
-                                  readOnly={readOnly}
-                                  showEmployeeMeta={false}
-                                  canEdit={editableRefIds?.has(request.refId) ?? false}
-                                  editHref={getEditHref?.(request.refId)}
-                                />
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
+      <HrRecordsGroupedList
+        groupedRequests={groupedRequests}
+        employeeTypeLookup={employeeTypeLookup}
+        mode={mode}
+        readOnly={readOnly}
+        collapseStorageKey={storageKey}
+        editableRefIds={editableRefIds}
+        getEditHref={getEditHref}
+      />
     );
   }
 

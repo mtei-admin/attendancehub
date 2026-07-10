@@ -1,8 +1,21 @@
+"use client";
+
+import { useMemo } from "react";
+
 import { updateStatusAction } from "@/actions/requests";
 import { needsCheckHoursOnHrCheck } from "@/lib/constants";
+import {
+  buildSectionId,
+  shouldAutoExpandEmployeeSection,
+} from "@/lib/collapse-groups";
 import type { AttendanceRequest } from "@/lib/schema";
 import type { ManagerGroupedRequests } from "@/lib/manager-grouping";
 
+import {
+  CollapseGroupProvider,
+  CollapseGroupToolbar,
+  CollapsibleSection,
+} from "./collapsible-group";
 import { inputClassName } from "./form-field";
 import {
   formatManagerSubmittedDate,
@@ -14,13 +27,43 @@ type ManagerGroupedListProps = {
   grouped: ManagerGroupedRequests;
   mode: "pending" | "history";
   emptyMessage: string;
+  collapseStorageKey: string;
 };
 
 function needsApproveHrs(requestType: string): boolean {
   return needsCheckHoursOnHrCheck(requestType);
 }
 
-export function ManagerGroupedList({ grouped, mode, emptyMessage }: ManagerGroupedListProps) {
+function collectManagerSectionIds(grouped: ManagerGroupedRequests): string[] {
+  const ids: string[] = [];
+
+  for (const section of grouped.sections) {
+    const sectionId = buildSectionId("pg", section.payrollGroup);
+    ids.push(sectionId);
+
+    for (const cutoffGroup of section.cutoffGroups) {
+      const cutoffId = buildSectionId(sectionId, "cutoff", cutoffGroup.periodId);
+      if (section.cutoffGroups.length > 1) {
+        ids.push(cutoffId);
+      }
+
+      for (const employeeGroup of cutoffGroup.employees) {
+        ids.push(buildSectionId(cutoffId, "emp", employeeGroup.employeeName));
+      }
+    }
+  }
+
+  return ids;
+}
+
+export function ManagerGroupedList({
+  grouped,
+  mode,
+  emptyMessage,
+  collapseStorageKey,
+}: ManagerGroupedListProps) {
+  const allSectionIds = useMemo(() => collectManagerSectionIds(grouped), [grouped]);
+
   if (grouped.totalShown === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
@@ -31,77 +74,137 @@ export function ManagerGroupedList({ grouped, mode, emptyMessage }: ManagerGroup
   }
 
   return (
-    <div className="space-y-8 py-6">
-      {grouped.sections.map((section) => (
-        <section
-          key={section.payrollGroup}
-          className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
-        >
-          <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900">{section.payrollGroup}</h2>
-                <p className="mt-1 text-sm text-slate-500">{section.periodSubtitle}</p>
-              </div>
-              <span className="rounded-full bg-slate-200/80 px-3 py-1 text-xs font-semibold text-slate-600">
-                {section.requestCount} slip{section.requestCount === 1 ? "" : "s"}
-              </span>
-            </div>
-          </div>
+    <CollapseGroupProvider storageKey={collapseStorageKey} allSectionIds={allSectionIds}>
+      <div className="space-y-4 py-6">
+        <CollapseGroupToolbar />
+        <div className="space-y-8">
+          {grouped.sections.map((section) => {
+            const sectionId = buildSectionId("pg", section.payrollGroup);
+            const sectionDescendants = allSectionIds.filter(
+              (id) => id.startsWith(`${sectionId}/`) && id !== sectionId,
+            );
+            const sectionAutoExpandChildIds = section.cutoffGroups.flatMap((cutoffGroup) => {
+              const cutoffId = buildSectionId(sectionId, "cutoff", cutoffGroup.periodId);
+              return cutoffGroup.employees
+                .filter((employeeGroup) =>
+                  shouldAutoExpandEmployeeSection(employeeGroup.requests.length),
+                )
+                .map((employeeGroup) =>
+                  buildSectionId(cutoffId, "emp", employeeGroup.employeeName),
+                );
+            });
 
-          <div className="divide-y divide-slate-100">
-            {section.cutoffGroups.map((cutoffGroup) => (
-              <div key={cutoffGroup.periodId}>
-                {section.cutoffGroups.length > 1 && (
-                  <div className="border-b border-slate-100 bg-slate-50/70 px-5 py-3">
-                    <p className="text-sm font-medium text-slate-700">{cutoffGroup.periodLabel}</p>
-                    <p className="text-xs text-slate-500">
-                      {cutoffGroup.requestCount} slip{cutoffGroup.requestCount === 1 ? "" : "s"}
-                    </p>
-                  </div>
-                )}
+            return (
+              <CollapsibleSection
+                key={section.payrollGroup}
+                id={sectionId}
+                level="section"
+                title={section.payrollGroup}
+                subtitle={section.periodSubtitle}
+                badge={
+                  <span className="rounded-full bg-slate-200/80 px-3 py-1 text-xs font-semibold text-slate-600">
+                    {section.requestCount} slip{section.requestCount === 1 ? "" : "s"}
+                  </span>
+                }
+                descendantIds={sectionDescendants}
+                autoExpandChildIds={sectionAutoExpandChildIds}
+              >
+                <div className="divide-y divide-slate-100">
+                  {section.cutoffGroups.map((cutoffGroup) => {
+                    const cutoffId = buildSectionId(sectionId, "cutoff", cutoffGroup.periodId);
+                    const showCutoffHeader = section.cutoffGroups.length > 1;
+                    const cutoffDescendants = allSectionIds.filter(
+                      (id) => id.startsWith(`${cutoffId}/`) && id !== cutoffId,
+                    );
+                    const autoExpandChildIds = cutoffGroup.employees
+                      .filter((employeeGroup) =>
+                        shouldAutoExpandEmployeeSection(employeeGroup.requests.length),
+                      )
+                      .map((employeeGroup) =>
+                        buildSectionId(cutoffId, "emp", employeeGroup.employeeName),
+                      );
 
-                {cutoffGroup.employees.map((employeeGroup) => (
-                  <div key={`${cutoffGroup.periodId}-${employeeGroup.employeeName}`}>
-                    <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-white px-5 py-3">
-                      <h3 className="font-semibold text-slate-900">{employeeGroup.employeeName}</h3>
-                      <span className="text-xs font-medium text-slate-500">
-                        {employeeGroup.requests.length} slip
-                        {employeeGroup.requests.length === 1 ? "" : "s"}
-                      </span>
-                    </div>
+                    const employeeSections = cutoffGroup.employees.map((employeeGroup) => {
+                      const employeeId = buildSectionId(
+                        cutoffId,
+                        "emp",
+                        employeeGroup.employeeName,
+                      );
 
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full text-sm">
-                        <thead className="border-b border-slate-100 bg-slate-50/50">
-                          <tr>
-                            {["Type", "Date", "Time in", "Time out", "Action", "Remarks"].map(
-                              (header) => (
-                                <th
-                                  key={header}
-                                  className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400"
-                                >
-                                  {header}
-                                </th>
-                              ),
-                            )}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {employeeGroup.requests.map((request) => (
-                            <RequestRow key={request.id} request={request} mode={mode} />
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        </section>
-      ))}
-    </div>
+                      return (
+                        <CollapsibleSection
+                          key={`${cutoffGroup.periodId}-${employeeGroup.employeeName}`}
+                          id={employeeId}
+                          level="employee"
+                          title={employeeGroup.employeeName}
+                          badge={
+                            <span className="text-xs font-medium text-slate-500">
+                              {employeeGroup.requests.length} slip
+                              {employeeGroup.requests.length === 1 ? "" : "s"}
+                            </span>
+                          }
+                        >
+                          <div className="overflow-x-auto">
+                            <table className="min-w-full text-sm">
+                              <thead className="border-b border-slate-100 bg-slate-50/50">
+                                <tr>
+                                  {["Type", "Date", "Time in", "Time out", "Action", "Remarks"].map(
+                                    (header) => (
+                                      <th
+                                        key={header}
+                                        className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400"
+                                      >
+                                        {header}
+                                      </th>
+                                    ),
+                                  )}
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {employeeGroup.requests.map((request) => (
+                                  <RequestRow key={request.id} request={request} mode={mode} />
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </CollapsibleSection>
+                      );
+                    });
+
+                    if (!showCutoffHeader) {
+                      return (
+                        <div key={cutoffGroup.periodId}>
+                          {employeeSections}
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <CollapsibleSection
+                        key={cutoffGroup.periodId}
+                        id={cutoffId}
+                        level="cutoff"
+                        title={cutoffGroup.periodLabel}
+                        badge={
+                          <span className="text-xs text-slate-500">
+                            {cutoffGroup.requestCount} slip
+                            {cutoffGroup.requestCount === 1 ? "" : "s"}
+                          </span>
+                        }
+                        descendantIds={cutoffDescendants}
+                        autoExpandChildIds={autoExpandChildIds}
+                      >
+                        {employeeSections}
+                      </CollapsibleSection>
+                    );
+                  })}
+                </div>
+              </CollapsibleSection>
+            );
+          })}
+        </div>
+      </div>
+    </CollapseGroupProvider>
   );
 }
 

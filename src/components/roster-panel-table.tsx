@@ -4,8 +4,14 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { formatBiometricNo } from "@/lib/biometric";
+import { buildSectionId } from "@/lib/collapse-groups";
 import { groupEmployeesByPlacement, type EmployeeWithDepartment } from "@/lib/roster";
 
+import {
+  CollapseGroupProvider,
+  CollapseGroupToolbar,
+  CollapsibleSection,
+} from "./collapsible-group";
 import { inputClassName } from "./form-field";
 import {
   getEmployeeTypeBadgeClass,
@@ -17,6 +23,7 @@ type RosterPanelTableProps = {
   employees: EmployeeWithDepartment[];
   rosterHref: string;
   deleteAction?: (formData: FormData) => Promise<void>;
+  collapseStorageKey?: string;
 };
 
 function matchesSearch(employee: EmployeeWithDepartment, query: string): boolean {
@@ -89,6 +96,7 @@ export function RosterPanelTable({
   employees,
   rosterHref,
   deleteAction,
+  collapseStorageKey = "roster:employees",
 }: RosterPanelTableProps) {
   const [search, setSearch] = useState("");
 
@@ -101,6 +109,18 @@ export function RosterPanelTable({
     () => groupEmployeesByPlacement(filteredEmployees),
     [filteredEmployees],
   );
+
+  const allSectionIds = useMemo(() => {
+    const ids: string[] = [];
+    for (const companyGroup of groupedEmployees) {
+      const companyId = buildSectionId("company", companyGroup.company);
+      ids.push(companyId);
+      for (const departmentGroup of companyGroup.departments) {
+        ids.push(buildSectionId(companyId, "dept", departmentGroup.department));
+      }
+    }
+    return ids;
+  }, [groupedEmployees]);
 
   const showingCount = filteredEmployees.length;
   const totalCount = employees.length;
@@ -131,50 +151,77 @@ export function RosterPanelTable({
           {search.trim() ? "No employees match your search." : "No employees in the roster yet."}
         </div>
       ) : (
-        <div className="divide-y divide-slate-100">
-          {groupedEmployees.map((companyGroup) => (
-            <div key={companyGroup.company}>
-              <div className="sticky top-0 z-10 border-b border-slate-200 bg-slate-100 px-5 py-3">
-                <h3 className="text-sm font-semibold text-slate-900">{companyGroup.company}</h3>
-              </div>
+        <CollapseGroupProvider storageKey={collapseStorageKey} allSectionIds={allSectionIds}>
+          <CollapseGroupToolbar />
+          <div className="divide-y divide-slate-100">
+            {groupedEmployees.map((companyGroup) => {
+              const companyId = buildSectionId("company", companyGroup.company);
+              const companyDescendants = allSectionIds.filter(
+                (id) => id.startsWith(`${companyId}/`) && id !== companyId,
+              );
 
-              {companyGroup.departments.map((departmentGroup) => (
-                <div key={`${companyGroup.company}-${departmentGroup.department}`}>
-                  <div className="border-b border-slate-100 bg-slate-50 px-5 py-2.5 pl-8">
-                    <h4 className="text-sm font-medium text-slate-700">{departmentGroup.department}</h4>
-                  </div>
+              return (
+                <CollapsibleSection
+                  key={companyGroup.company}
+                  id={companyId}
+                  level="company"
+                  title={companyGroup.company}
+                  descendantIds={companyDescendants}
+                >
+                  {companyGroup.departments.map((departmentGroup) => {
+                    const departmentId = buildSectionId(
+                      companyId,
+                      "dept",
+                      departmentGroup.department,
+                    );
 
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full text-sm">
-                      <thead className="border-b border-slate-100 bg-slate-50/80">
-                        <tr>
-                          {ROSTER_HEADERS.map((header) => (
-                            <th
-                              key={header}
-                              className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400"
-                            >
-                              {header}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-50">
-                        {departmentGroup.employees.map((employee) => (
-                          <RosterEmployeeRow
-                            key={employee.id}
-                            employee={employee}
-                            rosterHref={rosterHref}
-                            deleteAction={deleteAction}
-                          />
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
+                    return (
+                      <CollapsibleSection
+                        key={`${companyGroup.company}-${departmentGroup.department}`}
+                        id={departmentId}
+                        level="department"
+                        title={departmentGroup.department}
+                        badge={
+                          <span className="text-xs text-slate-500">
+                            {departmentGroup.employees.length} employee
+                            {departmentGroup.employees.length === 1 ? "" : "s"}
+                          </span>
+                        }
+                      >
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full text-sm">
+                            <thead className="border-b border-slate-100 bg-slate-50/80">
+                              <tr>
+                                {ROSTER_HEADERS.map((header) => (
+                                  <th
+                                    key={header}
+                                    className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400"
+                                  >
+                                    {header}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                              {departmentGroup.employees.map((employee) => (
+                                <RosterEmployeeRow
+                                  key={employee.id}
+                                  employee={employee}
+                                  rosterHref={rosterHref}
+                                  deleteAction={deleteAction}
+                                />
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </CollapsibleSection>
+                    );
+                  })}
+                </CollapsibleSection>
+              );
+            })}
+          </div>
+        </CollapseGroupProvider>
       )}
     </>
   );

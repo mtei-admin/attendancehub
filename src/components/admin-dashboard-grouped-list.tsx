@@ -1,5 +1,17 @@
-import Link from "next/link";
+"use client";
 
+import Link from "next/link";
+import { useMemo } from "react";
+
+import {
+  CollapseGroupProvider,
+  CollapseGroupToolbar,
+  CollapsibleSection,
+} from "@/components/collapsible-group";
+import {
+  buildSectionId,
+  shouldAutoExpandEmployeeSection,
+} from "@/lib/collapse-groups";
 import type {
   AdminDashboardView,
   GroupedCompanyRoster,
@@ -29,6 +41,41 @@ function workflowBadgeClass(label: string): string {
   return "bg-cyan-100 text-cyan-700";
 }
 
+function collectSlipSectionIds(groupedSlips: GroupedCompanySlips[]): string[] {
+  const ids: string[] = [];
+
+  for (const companyGroup of groupedSlips) {
+    const companyId = buildSectionId("company", companyGroup.company);
+    ids.push(companyId);
+
+    for (const departmentGroup of companyGroup.departments) {
+      const departmentId = buildSectionId(companyId, "dept", departmentGroup.department);
+      ids.push(departmentId);
+
+      for (const employeeGroup of departmentGroup.employees) {
+        ids.push(buildSectionId(departmentId, "emp", employeeGroup.employeeName));
+      }
+    }
+  }
+
+  return ids;
+}
+
+function collectEmployeeSectionIds(groupedEmployees: GroupedCompanyRoster[]): string[] {
+  const ids: string[] = [];
+
+  for (const companyGroup of groupedEmployees) {
+    const companyId = buildSectionId("company", companyGroup.company);
+    ids.push(companyId);
+
+    for (const departmentGroup of companyGroup.departments) {
+      ids.push(buildSectionId(companyId, "dept", departmentGroup.department));
+    }
+  }
+
+  return ids;
+}
+
 export function AdminDashboardGroupedList({
   view,
   groupedSlips,
@@ -36,6 +83,7 @@ export function AdminDashboardGroupedList({
   totalCount,
 }: AdminDashboardGroupedListProps) {
   const title = VIEW_TITLES[view];
+  const storageKey = `admin:dashboard:${view}`;
 
   return (
     <section className="space-y-4">
@@ -57,9 +105,12 @@ export function AdminDashboardGroupedList({
 
       <div className="max-h-[min(70vh,800px)] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-sm">
         {view === "employees" ? (
-          <EmployeeGroupedList groupedEmployees={groupedEmployees} />
+          <EmployeeGroupedList
+            groupedEmployees={groupedEmployees}
+            collapseStorageKey={storageKey}
+          />
         ) : (
-          <SlipGroupedList groupedSlips={groupedSlips} />
+          <SlipGroupedList groupedSlips={groupedSlips} collapseStorageKey={storageKey} />
         )}
       </div>
     </section>
@@ -68,129 +119,221 @@ export function AdminDashboardGroupedList({
 
 function EmployeeGroupedList({
   groupedEmployees,
+  collapseStorageKey,
 }: {
   groupedEmployees: GroupedCompanyRoster[];
+  collapseStorageKey: string;
 }) {
+  const allSectionIds = useMemo(
+    () => collectEmployeeSectionIds(groupedEmployees),
+    [groupedEmployees],
+  );
+
   if (groupedEmployees.length === 0) {
     return <EmptyState message="No active employees found." />;
   }
 
   return (
-    <div className="divide-y divide-slate-100">
-      {groupedEmployees.map((companyGroup) => (
-        <div key={companyGroup.company}>
-          <div className="sticky top-0 z-10 border-b border-slate-200 bg-slate-100 px-4 py-2">
-            <h3 className="text-sm font-semibold text-slate-900">{companyGroup.company}</h3>
-          </div>
-          {companyGroup.departments.map((departmentGroup) => (
-            <div key={`${companyGroup.company}-${departmentGroup.department}`}>
-              <div className="border-b border-slate-100 bg-slate-50 px-4 py-2 pl-6">
-                <h4 className="text-sm font-medium text-slate-700">{departmentGroup.department}</h4>
-              </div>
-              <ul className="divide-y divide-slate-50">
-                {departmentGroup.employees.map((employee) => (
-                  <li
-                    key={`${companyGroup.company}-${departmentGroup.department}-${employee.employeeName}`}
-                    className="flex items-center justify-between gap-4 px-4 py-3 pl-10"
+    <CollapseGroupProvider storageKey={collapseStorageKey} allSectionIds={allSectionIds}>
+      <CollapseGroupToolbar />
+      <div className="divide-y divide-slate-100">
+        {groupedEmployees.map((companyGroup) => {
+          const companyId = buildSectionId("company", companyGroup.company);
+          const companyDescendants = allSectionIds.filter(
+            (id) => id.startsWith(`${companyId}/`) && id !== companyId,
+          );
+
+          return (
+            <CollapsibleSection
+              key={companyGroup.company}
+              id={companyId}
+              level="company"
+              title={companyGroup.company}
+              descendantIds={companyDescendants}
+            >
+              {companyGroup.departments.map((departmentGroup) => {
+                const departmentId = buildSectionId(
+                  companyId,
+                  "dept",
+                  departmentGroup.department,
+                );
+
+                return (
+                  <CollapsibleSection
+                    key={`${companyGroup.company}-${departmentGroup.department}`}
+                    id={departmentId}
+                    level="department"
+                    title={departmentGroup.department}
+                    badge={
+                      <span className="text-xs text-slate-500">
+                        {departmentGroup.employees.length} employee
+                        {departmentGroup.employees.length === 1 ? "" : "s"}
+                      </span>
+                    }
                   >
-                    <span className="font-medium text-slate-900">{employee.employeeName}</span>
-                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
-                      {employee.employeeType}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
+                    <ul className="divide-y divide-slate-50">
+                      {departmentGroup.employees.map((employee) => (
+                        <li
+                          key={`${companyGroup.company}-${departmentGroup.department}-${employee.employeeName}`}
+                          className="flex items-center justify-between gap-4 px-4 py-3 pl-10"
+                        >
+                          <span className="font-medium text-slate-900">{employee.employeeName}</span>
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                            {employee.employeeType}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CollapsibleSection>
+                );
+              })}
+            </CollapsibleSection>
+          );
+        })}
+      </div>
+    </CollapseGroupProvider>
   );
 }
 
-function SlipGroupedList({ groupedSlips }: { groupedSlips: GroupedCompanySlips[] }) {
+function SlipGroupedList({
+  groupedSlips,
+  collapseStorageKey,
+}: {
+  groupedSlips: GroupedCompanySlips[];
+  collapseStorageKey: string;
+}) {
+  const allSectionIds = useMemo(() => collectSlipSectionIds(groupedSlips), [groupedSlips]);
+
   if (groupedSlips.length === 0) {
     return <EmptyState message="No slips match this view." />;
   }
 
   return (
-    <div className="divide-y divide-slate-100">
-      {groupedSlips.map((companyGroup) => (
-        <div key={companyGroup.company}>
-          <div className="sticky top-0 z-10 border-b border-slate-200 bg-slate-100 px-4 py-2">
-            <h3 className="text-sm font-semibold text-slate-900">{companyGroup.company}</h3>
-          </div>
-          {companyGroup.departments.map((departmentGroup) => (
-            <div key={`${companyGroup.company}-${departmentGroup.department}`}>
-              <div className="border-b border-slate-100 bg-slate-50 px-4 py-2 pl-6">
-                <h4 className="text-sm font-medium text-slate-700">{departmentGroup.department}</h4>
-              </div>
-              {departmentGroup.employees.map((employeeGroup) => (
-                <div
-                  key={`${companyGroup.company}-${departmentGroup.department}-${employeeGroup.employeeName}`}
-                  className="border-b border-slate-50"
-                >
-                  <div className="bg-white px-4 py-2 pl-10">
-                    <p className="text-sm font-semibold text-slate-900">
-                      {employeeGroup.employeeName}
-                      <span className="ml-2 text-xs font-normal text-slate-500">
-                        ({employeeGroup.slips.length} slip
-                        {employeeGroup.slips.length === 1 ? "" : "s"})
-                      </span>
-                    </p>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full text-sm">
-                      <thead className="bg-slate-50/80">
-                        <tr>
-                          {["Ref", "Type", "Incident", "Workflow", "Submitted", ""].map(
-                            (header) => (
-                              <th
-                                key={header || "actions"}
-                                className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400"
-                              >
-                                {header}
-                              </th>
-                            ),
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-50">
-                        {employeeGroup.slips.map((slip) => (
-                          <tr key={slip.refId} className="hover:bg-slate-50/60">
-                            <td className="px-4 py-2.5 pl-10 font-medium text-slate-900">
-                              {slip.refId}
-                            </td>
-                            <td className="px-4 py-2.5 text-slate-700">{slip.requestType}</td>
-                            <td className="px-4 py-2.5 text-slate-700">{slip.dateOfIncident}</td>
-                            <td className="px-4 py-2.5">
-                              <span
-                                className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${workflowBadgeClass(slip.workflowLabel)}`}
-                              >
-                                {slip.workflowLabel}
+    <CollapseGroupProvider storageKey={collapseStorageKey} allSectionIds={allSectionIds}>
+      <CollapseGroupToolbar />
+      <div className="divide-y divide-slate-100">
+        {groupedSlips.map((companyGroup) => {
+          const companyId = buildSectionId("company", companyGroup.company);
+          const companyDescendants = allSectionIds.filter(
+            (id) => id.startsWith(`${companyId}/`) && id !== companyId,
+          );
+
+          return (
+            <CollapsibleSection
+              key={companyGroup.company}
+              id={companyId}
+              level="company"
+              title={companyGroup.company}
+              descendantIds={companyDescendants}
+            >
+              {companyGroup.departments.map((departmentGroup) => {
+                const departmentId = buildSectionId(
+                  companyId,
+                  "dept",
+                  departmentGroup.department,
+                );
+                const departmentDescendants = allSectionIds.filter(
+                  (id) => id.startsWith(`${departmentId}/`) && id !== departmentId,
+                );
+                const autoExpandChildIds = departmentGroup.employees
+                  .filter((employeeGroup) =>
+                    shouldAutoExpandEmployeeSection(employeeGroup.slips.length),
+                  )
+                  .map((employeeGroup) =>
+                    buildSectionId(departmentId, "emp", employeeGroup.employeeName),
+                  );
+
+                return (
+                  <CollapsibleSection
+                    key={`${companyGroup.company}-${departmentGroup.department}`}
+                    id={departmentId}
+                    level="department"
+                    title={departmentGroup.department}
+                    descendantIds={departmentDescendants}
+                    autoExpandChildIds={autoExpandChildIds}
+                  >
+                    {departmentGroup.employees.map((employeeGroup) => {
+                      const employeeId = buildSectionId(
+                        departmentId,
+                        "emp",
+                        employeeGroup.employeeName,
+                      );
+
+                      return (
+                        <CollapsibleSection
+                          key={`${companyGroup.company}-${departmentGroup.department}-${employeeGroup.employeeName}`}
+                          id={employeeId}
+                          level="employee"
+                          title={
+                            <>
+                              {employeeGroup.employeeName}
+                              <span className="ml-2 text-xs font-normal text-slate-500">
+                                ({employeeGroup.slips.length} slip
+                                {employeeGroup.slips.length === 1 ? "" : "s"})
                               </span>
-                            </td>
-                            <td className="px-4 py-2.5 text-slate-600">{slip.submittedLabel}</td>
-                            <td className="px-4 py-2.5">
-                              <Link
-                                href={`/admin?tab=slips&edit_ref=${encodeURIComponent(slip.refId)}`}
-                                className="rounded-lg border border-brand-200 px-2.5 py-1 text-xs font-medium text-brand-600 transition hover:bg-brand-50"
-                              >
-                                Edit
-                              </Link>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
+                            </>
+                          }
+                        >
+                          <div className="overflow-x-auto">
+                            <table className="min-w-full text-sm">
+                              <thead className="bg-slate-50/80">
+                                <tr>
+                                  {["Ref", "Type", "Incident", "Workflow", "Submitted", ""].map(
+                                    (header) => (
+                                      <th
+                                        key={header || "actions"}
+                                        className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400"
+                                      >
+                                        {header}
+                                      </th>
+                                    ),
+                                  )}
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-50">
+                                {employeeGroup.slips.map((slip) => (
+                                  <tr key={slip.refId} className="hover:bg-slate-50/60">
+                                    <td className="px-4 py-2.5 pl-10 font-medium text-slate-900">
+                                      {slip.refId}
+                                    </td>
+                                    <td className="px-4 py-2.5 text-slate-700">{slip.requestType}</td>
+                                    <td className="px-4 py-2.5 text-slate-700">
+                                      {slip.dateOfIncident}
+                                    </td>
+                                    <td className="px-4 py-2.5">
+                                      <span
+                                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${workflowBadgeClass(slip.workflowLabel)}`}
+                                      >
+                                        {slip.workflowLabel}
+                                      </span>
+                                    </td>
+                                    <td className="px-4 py-2.5 text-slate-600">
+                                      {slip.submittedLabel}
+                                    </td>
+                                    <td className="px-4 py-2.5">
+                                      <Link
+                                        href={`/admin?tab=slips&edit_ref=${encodeURIComponent(slip.refId)}`}
+                                        className="rounded-lg border border-brand-200 px-2.5 py-1 text-xs font-medium text-brand-600 transition hover:bg-brand-50"
+                                      >
+                                        Edit
+                                      </Link>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </CollapsibleSection>
+                      );
+                    })}
+                  </CollapsibleSection>
+                );
+              })}
+            </CollapsibleSection>
+          );
+        })}
+      </div>
+    </CollapseGroupProvider>
   );
 }
 

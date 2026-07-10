@@ -92,6 +92,7 @@ export function PayrollRfPanel({
         mode="checked"
         readOnly
         grouped
+        collapseStorageKey={`hr:po:rf:checked:${selectedPeriodId}`}
         emptyMessage="No HR-checked R&F records for this cutoff, or this cutoff was already confirmed."
       />
 

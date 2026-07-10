@@ -148,12 +148,14 @@ export default async function ManagerPage({ searchParams }: ManagerPageProps) {
               grouped={groupedPending}
               mode="pending"
               emptyMessage={emptyPendingMessage}
+              collapseStorageKey="manager:pending"
             />
           ) : (
             <ManagerGroupedList
               grouped={groupedHistory}
               mode="history"
               emptyMessage={emptyHistoryMessage}
+              collapseStorageKey="manager:history"
             />
           )}
         </div>

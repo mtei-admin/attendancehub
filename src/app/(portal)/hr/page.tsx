@@ -353,6 +353,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
               employeeTypeLookup={employeeTypeLookup}
               mode="pending"
               grouped
+              collapseStorageKey="hr:po:confi:pending"
               editableRefIds={editablePendingRefIds}
               getEditHref={getHrEditHref}
               emptyMessage="No pending Confi records to review."
@@ -367,6 +368,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
               employeeTypeLookup={employeeTypeLookup}
               mode="checked"
               grouped
+              collapseStorageKey="hr:po:confi:checked"
               editableRefIds={editableCheckedRefIds}
               getEditHref={getHrEditHref}
               emptyMessage="No checked Confi records yet."
@@ -391,6 +393,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
               employeeTypeLookup={employeeTypeLookup}
               mode="all"
               grouped
+              collapseStorageKey="hr:po:confi:all"
               emptyMessage="No Confi records to display."
             />
           </section>
@@ -403,6 +406,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
               employeeTypeLookup={employeeTypeLookup}
               mode="pending"
               grouped={session.hrScope === "Confi only" || session.hrScope === "R&F only"}
+              collapseStorageKey={`hr:${session.hrScope ?? "all"}:pending`}
               editableRefIds={editablePendingRefIds}
               getEditHref={getHrEditHref}
               emptyMessage="No pending records to review."
@@ -417,6 +421,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
               employeeTypeLookup={employeeTypeLookup}
               mode="checked"
               grouped={session.hrScope === "Confi only" || session.hrScope === "R&F only"}
+              collapseStorageKey={`hr:${session.hrScope ?? "all"}:checked`}
               editableRefIds={editableCheckedRefIds}
               getEditHref={getHrEditHref}
               emptyMessage="No checked records yet."

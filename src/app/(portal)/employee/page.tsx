@@ -9,6 +9,7 @@ import { parseViewedAt } from "@/lib/records-view-session";
 import { getActiveOtEligibleTypes } from "@/lib/ot-settings";
 import {
   buildEmployeeEmailLookup,
+  buildEmployeeTypeLookup,
   buildEmployeesByCompanyDepartment,
   getEmployeeByPlacement,
   listEmployees,
@@ -96,6 +97,7 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
   ]);
 
   const employeesByCompanyDepartment = buildEmployeesByCompanyDepartment(roster);
+  const employeeTypeLookup = buildEmployeeTypeLookup(roster);
   const employeeEmails = buildEmployeeEmailLookup(roster);
 
   return (
@@ -109,6 +111,7 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
           <EmployeeForm
             companies={companies}
             employeesByCompanyDepartment={employeesByCompanyDepartment}
+            employeeTypeLookup={employeeTypeLookup}
           />
         ) : (
           <MyRecordsSection

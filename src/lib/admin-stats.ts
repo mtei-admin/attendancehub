@@ -47,6 +47,21 @@ export type GroupedCompanySlips = {
   departments: GroupedDepartmentSlips[];
 };
 
+export type GroupedEmployeeRequests = {
+  employeeName: string;
+  requests: AttendanceRequest[];
+};
+
+export type GroupedDepartmentRequests = {
+  department: string;
+  employees: GroupedEmployeeRequests[];
+};
+
+export type GroupedCompanyRequests = {
+  company: string;
+  departments: GroupedDepartmentRequests[];
+};
+
 export type GroupedEmployeeRoster = {
   employeeName: string;
   employeeType: string;
@@ -150,6 +165,44 @@ export function groupRequestsByPlacement(
                   workflowLabel: slipWorkflowLabel(slip),
                   submittedLabel: formatSubmittedDate(slip.submittedAt),
                 })),
+            })),
+        })),
+    }));
+}
+
+export function groupAttendanceRequestsByPlacement(
+  requests: AttendanceRequest[],
+): GroupedCompanyRequests[] {
+  const companyMap = new Map<string, Map<string, Map<string, AttendanceRequest[]>>>();
+
+  for (const request of requests) {
+    const company = request.company?.trim() || "Unassigned";
+    const department = request.department?.trim() || "Unassigned";
+    const employeeName = request.employeeName;
+
+    if (!companyMap.has(company)) companyMap.set(company, new Map());
+    const departmentMap = companyMap.get(company)!;
+    if (!departmentMap.has(department)) departmentMap.set(department, new Map());
+    const employeeMap = departmentMap.get(department)!;
+    if (!employeeMap.has(employeeName)) employeeMap.set(employeeName, []);
+    employeeMap.get(employeeName)!.push(request);
+  }
+
+  return Array.from(companyMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([company, departmentMap]) => ({
+      company,
+      departments: Array.from(departmentMap.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([department, employeeMap]) => ({
+          department,
+          employees: Array.from(employeeMap.entries())
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([employeeName, employeeRequests]) => ({
+              employeeName,
+              requests: employeeRequests.sort(
+                (a, b) => (b.submittedAt?.getTime() ?? 0) - (a.submittedAt?.getTime() ?? 0),
+              ),
             })),
         })),
     }));

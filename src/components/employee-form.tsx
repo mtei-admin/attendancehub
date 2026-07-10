@@ -1,10 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { submitRequestAction } from "@/actions/requests";
-import { REQUEST_TYPES } from "@/lib/constants";
+import {
+  employeePortalRequestTypes,
+  showEmployeePortalTimeFields,
+  showOtOffsetCreditCheckbox,
+} from "@/lib/employee-portal";
 import type { EmployeesByCompanyDepartment } from "@/lib/roster";
+import { employeeLookupKey } from "@/lib/roster";
 
 import { FormField, inputClassName } from "./form-field";
 import { OtHoursFields } from "./ot-hours-fields";
@@ -12,15 +17,21 @@ import { OtHoursFields } from "./ot-hours-fields";
 type EmployeeFormProps = {
   companies: string[];
   employeesByCompanyDepartment: EmployeesByCompanyDepartment;
+  employeeTypeLookup: Record<string, string>;
 };
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function EmployeeForm({ companies, employeesByCompanyDepartment }: EmployeeFormProps) {
+export function EmployeeForm({
+  companies,
+  employeesByCompanyDepartment,
+  employeeTypeLookup,
+}: EmployeeFormProps) {
   const [company, setCompany] = useState("");
   const [department, setDepartment] = useState("");
+  const [employeeName, setEmployeeName] = useState("");
   const [requestType, setRequestType] = useState("");
 
   const departments = useMemo(() => {
@@ -33,11 +44,26 @@ export function EmployeeForm({ companies, employeesByCompanyDepartment }: Employ
     return employeesByCompanyDepartment[company]?.[department] ?? [];
   }, [company, department, employeesByCompanyDepartment]);
 
-  const isSimpleLayout =
-    requestType === "Absent/Leave" || requestType === "OT Offset";
+  const employeeType = useMemo(() => {
+    if (!company || !department || !employeeName) return null;
+    return employeeTypeLookup[employeeLookupKey(company, department, employeeName)] ?? null;
+  }, [company, department, employeeName, employeeTypeLookup]);
+
+  const availableRequestTypes = useMemo(
+    () => employeePortalRequestTypes(employeeType),
+    [employeeType],
+  );
+
+  useEffect(() => {
+    if (requestType && !availableRequestTypes.includes(requestType)) {
+      setRequestType("");
+    }
+  }, [availableRequestTypes, requestType]);
+
+  const showTimeFields = showEmployeePortalTimeFields(requestType);
   const isOtOrHolidayWork =
     requestType === "Overtime" || requestType === "Holiday/Rest Day Work";
-  const showTimeFields = !isSimpleLayout;
+  const showOtOffsetCheckbox = showOtOffsetCreditCheckbox(employeeType, requestType);
 
   return (
     <form
@@ -53,6 +79,7 @@ export function EmployeeForm({ companies, employeesByCompanyDepartment }: Employ
             onChange={(event) => {
               setCompany(event.target.value);
               setDepartment("");
+              setEmployeeName("");
             }}
             className={inputClassName}
           >
@@ -71,7 +98,10 @@ export function EmployeeForm({ companies, employeesByCompanyDepartment }: Employ
             required
             value={department}
             disabled={!company}
-            onChange={(event) => setDepartment(event.target.value)}
+            onChange={(event) => {
+              setDepartment(event.target.value);
+              setEmployeeName("");
+            }}
             className={`${inputClassName} disabled:cursor-not-allowed disabled:opacity-60`}
           >
             <option value="">
@@ -99,7 +129,9 @@ export function EmployeeForm({ companies, employeesByCompanyDepartment }: Employ
           <select
             name="employee_name"
             required
+            value={employeeName}
             disabled={!department}
+            onChange={(event) => setEmployeeName(event.target.value)}
             className={`${inputClassName} disabled:cursor-not-allowed disabled:opacity-60`}
           >
             <option value="">
@@ -118,11 +150,11 @@ export function EmployeeForm({ companies, employeesByCompanyDepartment }: Employ
             name="request_type"
             required
             value={requestType}
-            onChange={(e) => setRequestType(e.target.value)}
+            onChange={(event) => setRequestType(event.target.value)}
             className={inputClassName}
           >
             <option value="">— Select type —</option>
-            {REQUEST_TYPES.map((type) => (
+            {availableRequestTypes.map((type) => (
               <option key={type} value={type}>
                 {type}
               </option>
@@ -140,37 +172,37 @@ export function EmployeeForm({ companies, employeesByCompanyDepartment }: Employ
           />
         </FormField>
 
-        {!showTimeFields ? null : (
+        {showTimeFields && (
           <>
-            <FormField label="Actual time in">
+            <FormField label="From">
               <input type="time" name="time_in" className={inputClassName} />
             </FormField>
 
-            <FormField label="Actual time out">
+            <FormField label="To">
               <input type="time" name="time_out" className={inputClassName} />
             </FormField>
           </>
         )}
 
-        {isOtOrHolidayWork && (
-          <>
-            <div className="md:col-span-2">
-              <label className="flex items-center gap-3 rounded-lg border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  name="file_as_ot_offset"
-                  className="rounded border-slate-300 text-brand-600"
-                />
-                File as OT offset credit for future use
-              </label>
-            </div>
+        {showOtOffsetCheckbox && (
+          <div className="md:col-span-2">
+            <label className="flex items-center gap-3 rounded-lg border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                name="file_as_ot_offset"
+                className="rounded border-slate-300 text-brand-600"
+              />
+              File as OT offset credit for future use
+            </label>
+          </div>
+        )}
 
-            <OtHoursFields
-              hoursName="ot_hours"
-              minutesName="ot_minutes"
-              className="md:col-span-2"
-            />
-          </>
+        {isOtOrHolidayWork && (
+          <OtHoursFields
+            hoursName="ot_hours"
+            minutesName="ot_minutes"
+            className="md:col-span-2"
+          />
         )}
 
         <FormField label="Reason / remarks" className="md:col-span-2">

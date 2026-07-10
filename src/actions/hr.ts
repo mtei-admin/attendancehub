@@ -110,8 +110,7 @@ export async function checkRequestAction(formData: FormData) {
     });
   }
 
-  const requiresHours =
-    employee?.employeeType === "Confi" && needsCheckHoursOnHrCheck(request.requestType);
+  const requiresHours = needsCheckHoursOnHrCheck(request.requestType);
 
   let checkedOtHrs: string | null = null;
 

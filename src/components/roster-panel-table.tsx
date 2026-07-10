@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { formatBiometricNo } from "@/lib/biometric";
-import type { EmployeeWithDepartment } from "@/lib/roster";
+import { groupEmployeesByPlacement, type EmployeeWithDepartment } from "@/lib/roster";
 
 import { inputClassName } from "./form-field";
 import {
@@ -37,6 +37,54 @@ function matchesSearch(employee: EmployeeWithDepartment, query: string): boolean
   return false;
 }
 
+function RosterEmployeeRow({
+  employee,
+  rosterHref,
+  deleteAction,
+}: {
+  employee: EmployeeWithDepartment;
+  rosterHref: string;
+  deleteAction?: (formData: FormData) => Promise<void>;
+}) {
+  return (
+    <tr className="hover:bg-slate-50/60">
+      <td className="px-4 py-3 font-semibold text-slate-900">{employee.fullName}</td>
+      <td className="px-4 py-3 text-slate-700">
+        {employee.biometricNo ?? <span className="text-slate-400">—</span>}
+      </td>
+      <td className="px-4 py-3 text-slate-700">
+        {employee.email ?? <span className="text-slate-400">Not set</span>}
+      </td>
+      <td className="px-4 py-3">
+        <span
+          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getEmployeeTypeBadgeClass(employee.employeeType)}`}
+        >
+          {getEmployeeTypeLabel(employee.employeeType) || employee.employeeType}
+        </span>
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-2">
+          <Link
+            href={`${rosterHref}&edit=${employee.id}`}
+            className="rounded-lg border border-brand-200 px-3 py-1.5 text-sm font-medium text-brand-600 transition hover:bg-brand-50"
+          >
+            Edit
+          </Link>
+          {deleteAction && (
+            <RosterDeleteButton
+              employeeId={employee.id}
+              employeeName={employee.fullName}
+              deleteAction={deleteAction}
+            />
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+const ROSTER_HEADERS = ["Name", "Biometric #", "Email", "Payroll group", "Actions"];
+
 export function RosterPanelTable({
   employees,
   rosterHref,
@@ -47,6 +95,11 @@ export function RosterPanelTable({
   const filteredEmployees = useMemo(
     () => employees.filter((employee) => matchesSearch(employee, search)),
     [employees, search],
+  );
+
+  const groupedEmployees = useMemo(
+    () => groupEmployeesByPlacement(filteredEmployees),
+    [filteredEmployees],
   );
 
   const showingCount = filteredEmployees.length;
@@ -73,74 +126,56 @@ export function RosterPanelTable({
         )}
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50">
-            <tr>
-              {["Name", "Biometric #", "Company · Department", "Email", "Payroll group", "Actions"].map(
-                (header) => (
-                  <th
-                    key={header}
-                    className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400"
-                  >
-                    {header}
-                  </th>
-                ),
-              )}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {filteredEmployees.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
-                  {search.trim()
-                    ? "No employees match your search."
-                    : "No employees in the roster yet."}
-                </td>
-              </tr>
-            ) : (
-              filteredEmployees.map((employee) => (
-                <tr key={employee.id} className="hover:bg-slate-50/60">
-                  <td className="px-4 py-3 font-semibold text-slate-900">{employee.fullName}</td>
-                  <td className="px-4 py-3 text-slate-700">
-                    {employee.biometricNo ?? <span className="text-slate-400">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-slate-700">
-                    {employee.companyName} · {employee.departmentName}
-                  </td>
-                  <td className="px-4 py-3 text-slate-700">
-                    {employee.email ?? <span className="text-slate-400">Not set</span>}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getEmployeeTypeBadgeClass(employee.employeeType)}`}
-                    >
-                      {getEmployeeTypeLabel(employee.employeeType) || employee.employeeType}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <Link
-                        href={`${rosterHref}&edit=${employee.id}`}
-                        className="rounded-lg border border-brand-200 px-3 py-1.5 text-sm font-medium text-brand-600 transition hover:bg-brand-50"
-                      >
-                        Edit
-                      </Link>
-                      {deleteAction && (
-                        <RosterDeleteButton
-                          employeeId={employee.id}
-                          employeeName={employee.fullName}
-                          deleteAction={deleteAction}
-                        />
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      {filteredEmployees.length === 0 ? (
+        <div className="px-4 py-8 text-center text-sm text-slate-500">
+          {search.trim() ? "No employees match your search." : "No employees in the roster yet."}
+        </div>
+      ) : (
+        <div className="divide-y divide-slate-100">
+          {groupedEmployees.map((companyGroup) => (
+            <div key={companyGroup.company}>
+              <div className="sticky top-0 z-10 border-b border-slate-200 bg-slate-100 px-5 py-3">
+                <h3 className="text-sm font-semibold text-slate-900">{companyGroup.company}</h3>
+              </div>
+
+              {companyGroup.departments.map((departmentGroup) => (
+                <div key={`${companyGroup.company}-${departmentGroup.department}`}>
+                  <div className="border-b border-slate-100 bg-slate-50 px-5 py-2.5 pl-8">
+                    <h4 className="text-sm font-medium text-slate-700">{departmentGroup.department}</h4>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead className="border-b border-slate-100 bg-slate-50/80">
+                        <tr>
+                          {ROSTER_HEADERS.map((header) => (
+                            <th
+                              key={header}
+                              className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400"
+                            >
+                              {header}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {departmentGroup.employees.map((employee) => (
+                          <RosterEmployeeRow
+                            key={employee.id}
+                            employee={employee}
+                            rosterHref={rosterHref}
+                            deleteAction={deleteAction}
+                          />
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
     </>
   );
 }

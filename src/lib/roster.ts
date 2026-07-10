@@ -73,6 +73,44 @@ export function buildEmployeesByCompanyDepartment(
   return grouped;
 }
 
+export type GroupedRosterDepartment = {
+  department: string;
+  employees: EmployeeWithDepartment[];
+};
+
+export type GroupedRosterCompany = {
+  company: string;
+  departments: GroupedRosterDepartment[];
+};
+
+export function groupEmployeesByPlacement(
+  employees: EmployeeWithDepartment[],
+): GroupedRosterCompany[] {
+  const companyMap = new Map<string, Map<string, EmployeeWithDepartment[]>>();
+
+  for (const employee of employees) {
+    const company = employee.companyName.trim() || "Unassigned";
+    const department = employee.departmentName.trim() || "Unassigned";
+
+    if (!companyMap.has(company)) companyMap.set(company, new Map());
+    const departmentMap = companyMap.get(company)!;
+    if (!departmentMap.has(department)) departmentMap.set(department, []);
+    departmentMap.get(department)!.push(employee);
+  }
+
+  return Array.from(companyMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([company, departmentMap]) => ({
+      company,
+      departments: Array.from(departmentMap.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([department, roster]) => ({
+          department,
+          employees: roster.sort((a, b) => a.fullName.localeCompare(b.fullName)),
+        })),
+    }));
+}
+
 export async function getEmployeesByCompanyDepartment(): Promise<EmployeesByCompanyDepartment> {
   return buildEmployeesByCompanyDepartment(await listEmployees(true));
 }

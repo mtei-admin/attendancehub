@@ -91,6 +91,7 @@ export function PayrollRfPanel({
         employeeTypeLookup={employeeTypeLookup}
         mode="checked"
         readOnly
+        grouped
         emptyMessage="No HR-checked R&F records for this cutoff, or this cutoff was already confirmed."
       />
 

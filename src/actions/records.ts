@@ -5,6 +5,10 @@ import { redirect } from "next/navigation";
 
 import { isNextNavigationError } from "@/lib/action-auth";
 import { REQUEST_TYPES, STATUSES } from "@/lib/constants";
+import {
+  employeePortalRequestTypes,
+  validateEmployeePortalOtFeatures,
+} from "@/lib/employee-portal";
 import { maskEmail, normalizeEmail, isValidEmail } from "@/lib/email";
 import { isSmtpConfigured, sendMail } from "@/lib/mail";
 import {
@@ -300,10 +304,6 @@ export async function updateEmployeeRecordAction(formData: FormData) {
     });
   }
 
-  if (fileAsOtOffset && !reason.startsWith("[OT offset credit]")) {
-    reason = `[OT offset credit] ${reason}`;
-  }
-
   const employee = await getEmployeeByPlacement(
     parsed.company,
     parsed.department,
@@ -311,6 +311,27 @@ export async function updateEmployeeRecordAction(formData: FormData) {
   );
   if (!employee) {
     recordsRedirect({ filters: parsed, error: "Employee not found on roster." });
+  }
+
+  const allowedRequestTypes = employeePortalRequestTypes(employee.employeeType);
+  if (!allowedRequestTypes.includes(requestType)) {
+    recordsRedirect({
+      filters: parsed,
+      error: "This request type is not available for the selected employee.",
+    });
+  }
+
+  const otFeatureError = validateEmployeePortalOtFeatures(
+    employee.employeeType,
+    requestType,
+    fileAsOtOffset,
+  );
+  if (otFeatureError) {
+    recordsRedirect({ filters: parsed, error: otFeatureError });
+  }
+
+  if (fileAsOtOffset && !reason.startsWith("[OT offset credit]")) {
+    reason = `[OT offset credit] ${reason}`;
   }
 
   try {

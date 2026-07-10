@@ -168,6 +168,7 @@ export function EmployeeRecordsList({
         request={editingRequest ?? null}
         filters={filters}
         cancelHref={`/employee?${buildViewHref(filters, viewedAt)}`}
+        employeeType={employeeType}
       />
     </section>
   );

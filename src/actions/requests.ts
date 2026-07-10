@@ -7,8 +7,12 @@ import { isNextNavigationError } from "@/lib/action-auth";
 import { getSession } from "@/lib/auth";
 import { ROLE_ROUTES, type Role } from "@/lib/constants";
 import { readOtHoursFromFormData } from "@/lib/ot-hours";
+import {
+  employeePortalRequestTypes,
+  validateEmployeePortalOtFeatures,
+} from "@/lib/employee-portal";
 import { addRequest, updateRequestStatus } from "@/lib/requests";
-import { verifyEmployeePlacement } from "@/lib/roster";
+import { getEmployeeByPlacement, verifyEmployeePlacement } from "@/lib/roster";
 
 function revalidateRolePaths() {
   for (const path of Object.values(ROLE_ROUTES)) {
@@ -40,6 +44,25 @@ export async function submitRequestAction(formData: FormData) {
   const validEmployee = await verifyEmployeePlacement(company, department, employeeName);
   if (!validEmployee) {
     redirect("/employee?error=Selected employee does not match the chosen company and department.");
+  }
+
+  const employee = await getEmployeeByPlacement(company, department, employeeName);
+  if (!employee) {
+    redirect("/employee?error=Employee not found on roster.");
+  }
+
+  const allowedRequestTypes = employeePortalRequestTypes(employee.employeeType);
+  if (!allowedRequestTypes.includes(requestType)) {
+    redirect("/employee?error=This request type is not available for the selected employee.");
+  }
+
+  const otFeatureError = validateEmployeePortalOtFeatures(
+    employee.employeeType,
+    requestType,
+    fileAsOtOffset,
+  );
+  if (otFeatureError) {
+    redirect(`/employee?error=${encodeURIComponent(otFeatureError)}`);
   }
 
   if (!otHours.valid) {

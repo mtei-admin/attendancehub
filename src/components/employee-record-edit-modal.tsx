@@ -1,9 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { updateEmployeeRecordAction } from "@/actions/records";
-import { REQUEST_TYPES } from "@/lib/constants";
+import {
+  employeePortalRequestTypes,
+  showEmployeePortalTimeFields,
+  showOtOffsetCreditCheckbox,
+} from "@/lib/employee-portal";
 import type { RecordRequestFilters } from "@/lib/record-requests";
 import type { AttendanceRequest } from "@/lib/schema";
 
@@ -15,6 +19,7 @@ type EmployeeRecordEditModalProps = {
   request: AttendanceRequest | null;
   filters: RecordRequestFilters;
   cancelHref: string;
+  employeeType?: string;
 };
 
 export function EmployeeRecordEditModal({
@@ -22,6 +27,7 @@ export function EmployeeRecordEditModal({
   request,
   filters,
   cancelHref,
+  employeeType,
 }: EmployeeRecordEditModalProps) {
   if (!open || !request) return null;
 
@@ -45,6 +51,7 @@ export function EmployeeRecordEditModal({
         reasonWithoutPrefix={reasonWithoutPrefix}
         isOtOffsetDefault={isOtOffset}
         cancelHref={cancelHref}
+        employeeType={employeeType}
       />
     </FormModal>
   );
@@ -56,20 +63,32 @@ function EmployeeRecordEditForm({
   reasonWithoutPrefix,
   isOtOffsetDefault,
   cancelHref,
+  employeeType,
 }: {
   request: AttendanceRequest;
   filters: RecordRequestFilters;
   reasonWithoutPrefix: string;
   isOtOffsetDefault: boolean;
   cancelHref: string;
+  employeeType?: string;
 }) {
   const [requestType, setRequestType] = useState(request.requestType);
 
-  const isSimpleLayout =
-    requestType === "Absent/Leave" || requestType === "OT Offset";
+  const availableRequestTypes = useMemo(
+    () => employeePortalRequestTypes(employeeType),
+    [employeeType],
+  );
+
+  useEffect(() => {
+    if (requestType && !availableRequestTypes.includes(requestType)) {
+      setRequestType(availableRequestTypes[0] ?? "");
+    }
+  }, [availableRequestTypes, requestType]);
+
+  const showTimeFields = showEmployeePortalTimeFields(requestType);
   const isOtOrHolidayWork =
     requestType === "Overtime" || requestType === "Holiday/Rest Day Work";
-  const showTimeFields = !isSimpleLayout;
+  const showOtOffsetCheckbox = showOtOffsetCreditCheckbox(employeeType, requestType);
 
   return (
     <form action={updateEmployeeRecordAction} className="mt-5 space-y-4">
@@ -98,7 +117,7 @@ function EmployeeRecordEditForm({
             onChange={(event) => setRequestType(event.target.value)}
             className={inputClassName}
           >
-            {REQUEST_TYPES.map((type) => (
+            {availableRequestTypes.map((type) => (
               <option key={type} value={type}>
                 {type}
               </option>
@@ -127,7 +146,7 @@ function EmployeeRecordEditForm({
 
         {showTimeFields && (
           <>
-            <FormField label="Actual time in">
+            <FormField label="From">
               <input
                 type="time"
                 name="time_in"
@@ -136,7 +155,7 @@ function EmployeeRecordEditForm({
               />
             </FormField>
 
-            <FormField label="Actual time out">
+            <FormField label="To">
               <input
                 type="time"
                 name="time_out"
@@ -147,30 +166,30 @@ function EmployeeRecordEditForm({
           </>
         )}
 
-        {isOtOrHolidayWork && (
-          <>
-            <div className="md:col-span-2">
-              <label className="flex items-center gap-3 rounded-lg border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  name="file_as_ot_offset"
-                  defaultChecked={isOtOffsetDefault}
-                  className="rounded border-slate-300 text-brand-600"
-                />
-                File as OT offset credit for future use
-              </label>
-            </div>
-
-            <FormField label="Hours to claim" className="md:col-span-2">
+        {showOtOffsetCheckbox && (
+          <div className="md:col-span-2">
+            <label className="flex items-center gap-3 rounded-lg border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-slate-700">
               <input
-                type="text"
-                name="ot_hrs"
-                defaultValue={request.otHrs ?? ""}
-                placeholder="e.g. 2"
-                className={inputClassName}
+                type="checkbox"
+                name="file_as_ot_offset"
+                defaultChecked={isOtOffsetDefault}
+                className="rounded border-slate-300 text-brand-600"
               />
-            </FormField>
-          </>
+              File as OT offset credit for future use
+            </label>
+          </div>
+        )}
+
+        {isOtOrHolidayWork && (
+          <FormField label="Hours to claim" className="md:col-span-2">
+            <input
+              type="text"
+              name="ot_hrs"
+              defaultValue={request.otHrs ?? ""}
+              placeholder="e.g. 2"
+              className={inputClassName}
+            />
+          </FormField>
         )}
 
         <FormField label="Reason / remarks" className="md:col-span-2">

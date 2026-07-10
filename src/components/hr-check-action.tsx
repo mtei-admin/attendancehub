@@ -11,13 +11,11 @@ import { RejectRequestButton } from "./reject-request-button";
 
 type HrCheckActionProps = {
   request: AttendanceRequest;
-  employeeType?: string;
 };
 
-export function HrCheckAction({ request, employeeType }: HrCheckActionProps) {
+export function HrCheckAction({ request }: HrCheckActionProps) {
   const [modalOpen, setModalOpen] = useState(false);
-  const requiresHoursDialog =
-    employeeType === "Confi" && needsCheckHoursOnHrCheck(request.requestType);
+  const requiresHoursDialog = needsCheckHoursOnHrCheck(request.requestType);
 
   return (
     <div className="flex flex-col items-start gap-2">

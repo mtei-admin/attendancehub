@@ -36,7 +36,7 @@ export function HrCheckHoursModal({ open, onClose, request }: HrCheckHoursModalP
       size="md"
     >
       <p className="mt-2 text-sm text-slate-500">
-        Confirm the number of hours approved before marking this Confi request as HR-checked.
+        Confirm the number of hours approved before marking this request as HR-checked.
       </p>
 
       <dl className="mt-4 grid gap-2 rounded-lg border border-slate-100 bg-slate-50 px-4 py-3 text-sm">

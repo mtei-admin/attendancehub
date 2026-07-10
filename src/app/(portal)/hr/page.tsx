@@ -267,6 +267,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
               requests={confiPendingRequests}
               employeeTypeLookup={employeeTypeLookup}
               mode="pending"
+              grouped
               emptyMessage="No pending Confi records to review."
             />
           </section>
@@ -278,6 +279,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
               requests={confiCheckedRequests}
               employeeTypeLookup={employeeTypeLookup}
               mode="checked"
+              grouped
               emptyMessage="No checked Confi records yet."
             />
           </section>
@@ -299,6 +301,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
               requests={confiAllRequests}
               employeeTypeLookup={employeeTypeLookup}
               mode="all"
+              grouped
               emptyMessage="No Confi records to display."
             />
           </section>

@@ -4,18 +4,23 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireHrPortalAccess, isNextNavigationError } from "@/lib/action-auth";
-import { EMPLOYEE_TYPES, needsCheckHoursOnHrCheck, normalizeManagerDepartment } from "@/lib/constants";
+import { EMPLOYEE_TYPES, needsCheckHoursOnHrCheck, normalizeManagerDepartment, REQUEST_TYPES } from "@/lib/constants";
 import { parseCutoffPeriodId } from "@/lib/cutoff";
 import { createCompany, isActiveCompany, updateCompany } from "@/lib/companies";
 import { listDepartments } from "@/lib/departments";
 import { isValidEmail, normalizeEmail } from "@/lib/email";
 import {
   canHrCheckRequest,
+  canHrEditRequest,
   filterPayrollOfficerRfRequests,
   isDirectHrConfiOwnSlip,
   payrollOfficerCheckedTab,
   payrollOfficerPendingTab,
 } from "@/lib/hr-portal-access";
+import {
+  employeePortalRequestTypes,
+  validateEmployeePortalOtFeatures,
+} from "@/lib/employee-portal";
 import { parseOptionalBiometricNo } from "@/lib/biometric";
 import {
   getPayrollCutoffRule,
@@ -24,6 +29,7 @@ import {
   validateCutoffDays,
 } from "@/lib/ot-settings";
 import {
+  adminUpdateRequest,
   archiveRequest,
   confirmPayrollPeriodRequests,
   getArchivedRequests,
@@ -59,6 +65,7 @@ function hrRedirect(
     ot_company?: string;
     ot_department?: string;
     ot_employee?: string;
+    edit_ref?: string;
   } = {},
 ): never {
   const search = new URLSearchParams();
@@ -67,6 +74,7 @@ function hrRedirect(
   if (params.error) search.set("error", params.error);
   if (params.settings) search.set("settings", "1");
   if (params.period) search.set("period", params.period);
+  if (params.edit_ref) search.set("edit_ref", params.edit_ref);
   if (params.ot_group) search.set("ot_group", params.ot_group);
   if (params.ot_basis) search.set("ot_basis", params.ot_basis);
   if (params.ot_period) search.set("ot_period", params.ot_period);
@@ -261,6 +269,145 @@ export async function hrReturnRequestAction(formData: FormData) {
   }
 
   hrRedirect({ tab: pendingTab, success: `Request ${refId} returned to manager.` });
+}
+
+export async function saveHrSlipAction(formData: FormData) {
+  const session = await requireHrPortalAccess();
+  const returnTab = String(formData.get("return_tab") ?? "").trim() || payrollOfficerPendingTab(session);
+  const returnPeriod = String(formData.get("return_period") ?? "").trim();
+  const refId = String(formData.get("ref_id") ?? "").trim();
+  const requestType = String(formData.get("request_type") ?? "").trim();
+  const dateRequested = String(formData.get("date_requested") ?? "").trim();
+  const dateOfIncident = String(formData.get("date_of_incident") ?? "").trim();
+  const timeIn = String(formData.get("time_in") ?? "").trim();
+  const timeOut = String(formData.get("time_out") ?? "").trim();
+  const otHours = readOtHoursFromFormData(formData, "ot_hours", "ot_minutes");
+  const fileAsOtOffset = formData.get("file_as_ot_offset") === "on";
+  let reason = String(formData.get("reason") ?? "").trim();
+
+  const redirectParams = {
+    tab: returnTab,
+    ...(returnPeriod ? { period: returnPeriod } : {}),
+    ...(refId ? { edit_ref: refId } : {}),
+  };
+
+  if (!refId) {
+    hrRedirect({ ...redirectParams, error: "Invalid request reference." });
+  }
+
+  const request = await getRequestByRefId(refId);
+  if (!request) {
+    hrRedirect({ tab: returnTab, period: returnPeriod || undefined, error: "Request not found." });
+  }
+
+  const roster = await listEmployees(true);
+  const employeeTypeLookup = buildEmployeeTypeLookup(roster);
+
+  if (!canHrEditRequest(request, session, employeeTypeLookup)) {
+    hrRedirect({
+      tab: returnTab,
+      period: returnPeriod || undefined,
+      error: "This record cannot be edited.",
+    });
+  }
+
+  const employee = await getEmployeeByPlacement(
+    request.company ?? "",
+    request.department ?? "",
+    request.employeeName,
+  );
+  if (!employee) {
+    hrRedirect({
+      ...redirectParams,
+      error: "Employee not found on roster.",
+    });
+  }
+
+  if (!requestType || !dateOfIncident || !reason) {
+    hrRedirect({
+      ...redirectParams,
+      error: "Request type, incident date, and reason are required.",
+    });
+  }
+
+  if (!(REQUEST_TYPES as readonly string[]).includes(requestType)) {
+    hrRedirect({ ...redirectParams, error: "Invalid request type." });
+  }
+
+  const allowedRequestTypes = employeePortalRequestTypes(employee.employeeType);
+  if (!allowedRequestTypes.includes(requestType)) {
+    hrRedirect({
+      ...redirectParams,
+      error: "This request type is not available for this employee.",
+    });
+  }
+
+  const otFeatureError = validateEmployeePortalOtFeatures(
+    employee.employeeType,
+    requestType,
+    fileAsOtOffset,
+  );
+  if (otFeatureError) {
+    hrRedirect({ ...redirectParams, error: otFeatureError });
+  }
+
+  if (!otHours.valid) {
+    hrRedirect({
+      ...redirectParams,
+      error: otHours.error ?? "Invalid OT hours.",
+    });
+  }
+
+  if (fileAsOtOffset && !reason.startsWith("[OT offset credit]")) {
+    reason = `[OT offset credit] ${reason}`;
+  }
+
+  try {
+    const updated = await adminUpdateRequest(
+      refId,
+      {
+        company: request.company ?? "",
+        department: request.department ?? "",
+        employeeName: request.employeeName,
+        requestType,
+        dateRequested,
+        dateOfIncident,
+        timeIn: timeIn || null,
+        timeOut: timeOut || null,
+        otHrs: otHours.storedValue || null,
+        reason,
+        verificationNote: request.verificationNote,
+      },
+      session.fullName,
+    );
+
+    if (!updated) {
+      hrRedirect({
+        tab: returnTab,
+        period: returnPeriod || undefined,
+        error: "Request could not be updated.",
+      });
+    }
+
+    revalidatePath("/hr");
+    revalidatePath("/employee");
+    revalidatePath("/manager");
+    revalidatePath("/verification");
+    revalidatePath("/api/export/csv");
+    revalidatePath("/api/export/ot-summary");
+
+    hrRedirect({
+      tab: returnTab,
+      period: returnPeriod || undefined,
+      success: `Request ${refId} updated successfully.`,
+    });
+  } catch (error) {
+    if (isNextNavigationError(error)) throw error;
+    hrRedirect({
+      ...redirectParams,
+      error: `Unable to update request. ${String(error)}`,
+    });
+  }
 }
 
 export async function archiveRequestAction(formData: FormData) {

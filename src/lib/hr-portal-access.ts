@@ -181,6 +181,18 @@ export function canHrCheckRequest(session: SessionUser, employeeType?: string): 
   return false;
 }
 
+export function canHrEditRequest(
+  request: AttendanceRequest,
+  session: SessionUser,
+  employeeTypeLookup: Record<string, string>,
+): boolean {
+  if (request.status !== "Approved") return false;
+  if (request.payrollConfirmedPeriodId) return false;
+
+  const employeeType = resolveEmployeeTypeForHr(request, employeeTypeLookup);
+  return canHrCheckRequest(session, employeeType);
+}
+
 export function resolveOtSummaryHrScope(
   session: SessionUser,
   payrollGroup: string,

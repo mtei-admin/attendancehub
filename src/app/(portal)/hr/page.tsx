@@ -9,6 +9,7 @@ import {
 import { FlashMessage } from "@/components/flash-message";
 import { CompanyPanel } from "@/components/company-panel";
 import { HrRecordsList } from "@/components/hr-records-list";
+import { HrSlipEditModal } from "@/components/hr-slip-edit-modal";
 import { PayrollOfficerTabs } from "@/components/payroll-officer-tabs";
 import { PayrollRfPanel } from "@/components/payroll-rf-panel";
 import { OtSummaryPanel } from "@/components/ot-summary-panel";
@@ -22,6 +23,7 @@ import { getCurrentCutoffPeriod, listCutoffPeriods, parseCutoffPeriodId } from "
 import { listDepartments } from "@/lib/departments";
 import {
   canAccessHrPortal,
+  canHrEditRequest,
   filterPayrollOfficerConfiRequests,
   filterPayrollOfficerRfRequests,
   filterRequestsForHrPortal,
@@ -30,6 +32,8 @@ import {
   resolveOtSummaryHrScope,
   resolvePayrollOfficerTab,
 } from "@/lib/hr-portal-access";
+import type { AttendanceRequest } from "@/lib/schema";
+import { requestEmployeeKey } from "@/lib/roster";
 import {
   allowedPayrollGroups,
   getPayrollCutoffRule,
@@ -69,8 +73,28 @@ type HrPageProps = {
     ot_company?: string;
     ot_department?: string;
     ot_employee?: string;
+    edit_ref?: string;
   }>;
 };
+
+function buildHrTabHref(tab: string, period?: string, editRef?: string): string {
+  const search = new URLSearchParams({ tab });
+  if (period) search.set("period", period);
+  if (editRef) search.set("edit_ref", editRef);
+  return `/hr?${search.toString()}`;
+}
+
+function buildEditableRefIds(
+  requests: AttendanceRequest[],
+  session: NonNullable<Awaited<ReturnType<typeof getSession>>>,
+  employeeTypeLookup: Record<string, string>,
+): Set<string> {
+  return new Set(
+    requests
+      .filter((request) => canHrEditRequest(request, session, employeeTypeLookup))
+      .map((request) => request.refId),
+  );
+}
 
 function resolveTab(tab?: string): HrTab {
   if (
@@ -180,6 +204,56 @@ export default async function HrPage({ searchParams }: HrPageProps) {
 
   const confiView = isPayrollOfficer && payrollOfficerTab ? payrollOfficerConfiView(payrollOfficerTab) : null;
 
+  const hrListTab = isPayrollOfficer
+    ? confiView === "checked"
+      ? "confi-checked"
+      : confiView === "all"
+        ? "confi-all"
+        : confiView === "pending"
+          ? "confi-pending"
+          : payrollOfficerTab ?? "confi-pending"
+    : activeTab;
+
+  const editRefId = params.edit_ref?.trim() ?? "";
+  const hrPanelHref = buildHrTabHref(
+    typeof hrListTab === "string" ? hrListTab : "pending",
+    isPayrollOfficer && payrollOfficerTab === "rf" ? defaultRfPeriod : undefined,
+  );
+  const getHrEditHref = (refId: string) =>
+    buildHrTabHref(
+      typeof hrListTab === "string" ? hrListTab : "pending",
+      isPayrollOfficer && payrollOfficerTab === "rf" ? defaultRfPeriod : undefined,
+      refId,
+    );
+
+  const editablePendingRefIds = buildEditableRefIds(
+    isPayrollOfficer ? confiPendingRequests : pendingRequests,
+    session,
+    employeeTypeLookup,
+  );
+  const editableCheckedRefIds = buildEditableRefIds(
+    isPayrollOfficer ? confiCheckedRequests : checkedRequests,
+    session,
+    employeeTypeLookup,
+  );
+
+  const editCandidates: AttendanceRequest[] = [
+    ...pendingRequests,
+    ...checkedRequests,
+    ...confiPendingRequests,
+    ...confiCheckedRequests,
+  ];
+  const editingRequest = editRefId
+    ? editCandidates.find((request) => request.refId === editRefId)
+    : undefined;
+  const showHrEditModal = Boolean(
+    editingRequest &&
+      canHrEditRequest(editingRequest, session, employeeTypeLookup),
+  );
+  const editingEmployeeType = editingRequest
+    ? employeeTypeLookup[requestEmployeeKey(editingRequest)]
+    : undefined;
+
   const otPayrollGroup =
     params.ot_group && payrollGroups.includes(params.ot_group)
       ? params.ot_group
@@ -251,6 +325,17 @@ export default async function HrPage({ searchParams }: HrPageProps) {
       <div className="mx-auto max-w-6xl space-y-8 px-4 py-8 md:px-6">
         <FlashMessage success={params.success} error={params.error} />
 
+        <HrSlipEditModal
+          open={showHrEditModal}
+          cancelHref={hrPanelHref}
+          request={showHrEditModal ? editingRequest! : null}
+          employeeType={editingEmployeeType}
+          returnTab={typeof hrListTab === "string" ? hrListTab : "pending"}
+          returnPeriod={
+            isPayrollOfficer && payrollOfficerTab === "rf" ? defaultRfPeriod : undefined
+          }
+        />
+
         {isPayrollOfficer && payrollOfficerTab === "rf" && (
           <PayrollRfPanel
             requests={rfRequests}
@@ -268,6 +353,8 @@ export default async function HrPage({ searchParams }: HrPageProps) {
               employeeTypeLookup={employeeTypeLookup}
               mode="pending"
               grouped
+              editableRefIds={editablePendingRefIds}
+              getEditHref={getHrEditHref}
               emptyMessage="No pending Confi records to review."
             />
           </section>
@@ -280,6 +367,8 @@ export default async function HrPage({ searchParams }: HrPageProps) {
               employeeTypeLookup={employeeTypeLookup}
               mode="checked"
               grouped
+              editableRefIds={editableCheckedRefIds}
+              getEditHref={getHrEditHref}
               emptyMessage="No checked Confi records yet."
             />
           </section>
@@ -314,6 +403,8 @@ export default async function HrPage({ searchParams }: HrPageProps) {
               employeeTypeLookup={employeeTypeLookup}
               mode="pending"
               grouped={session.hrScope === "Confi only" || session.hrScope === "R&F only"}
+              editableRefIds={editablePendingRefIds}
+              getEditHref={getHrEditHref}
               emptyMessage="No pending records to review."
             />
           </section>
@@ -326,6 +417,8 @@ export default async function HrPage({ searchParams }: HrPageProps) {
               employeeTypeLookup={employeeTypeLookup}
               mode="checked"
               grouped={session.hrScope === "Confi only" || session.hrScope === "R&F only"}
+              editableRefIds={editableCheckedRefIds}
+              getEditHref={getHrEditHref}
               emptyMessage="No checked records yet."
             />
           </section>

@@ -20,6 +20,8 @@ type HrRecordsListProps = {
   emptyMessage?: string;
   readOnly?: boolean;
   grouped?: boolean;
+  editableRefIds?: ReadonlySet<string>;
+  getEditHref?: (refId: string) => string;
 };
 
 function formatRecordDate(date: Date | null): string {
@@ -60,12 +62,16 @@ function HrRecordRow({
   mode,
   readOnly,
   showEmployeeMeta = true,
+  canEdit = false,
+  editHref,
 }: {
   request: AttendanceRequest;
   employeeType?: string;
   mode: HrRecordsListProps["mode"];
   readOnly: boolean;
   showEmployeeMeta?: boolean;
+  canEdit?: boolean;
+  editHref?: string;
 }) {
   const typeLabel = getEmployeeTypeLabel(employeeType);
   const isChecked = request.archived;
@@ -110,29 +116,40 @@ function HrRecordRow({
         <p className="mt-1 text-xs text-slate-500">{formatRecordDate(request.approvedOn)}</p>
       </td>
       <td className="px-4 py-4">
-        {!readOnly && mode === "pending" && !isChecked && (
-          <HrCheckAction request={request} />
-        )}
+        <div className="space-y-2">
+          {!readOnly && mode === "pending" && !isChecked && (
+            <HrCheckAction request={request} />
+          )}
 
-        {!readOnly && mode === "all" && !isChecked && (
-          <span className="text-sm text-slate-400">Pending</span>
-        )}
+          {!readOnly && mode === "all" && !isChecked && (
+            <span className="text-sm text-slate-400">Pending</span>
+          )}
 
-        {(readOnly || mode === "checked" || (mode === "all" && isChecked)) && (
-          <div className="space-y-2">
-            <CheckedStatus archivedBy={request.archivedBy} archivedAt={request.archivedAt} />
-            {!readOnly &&
-              isChecked &&
-              !request.payrollConfirmedPeriodId &&
-              (mode === "checked" || mode === "all") && (
-                <RejectRequestButton
-                  refId={request.refId}
-                  action={hrReturnRequestAction}
-                  labels={HR_RETURN_BUTTON_LABELS}
-                />
-              )}
-          </div>
-        )}
+          {(readOnly || mode === "checked" || (mode === "all" && isChecked)) && (
+            <div className="space-y-2">
+              <CheckedStatus archivedBy={request.archivedBy} archivedAt={request.archivedAt} />
+              {!readOnly &&
+                isChecked &&
+                !request.payrollConfirmedPeriodId &&
+                (mode === "checked" || mode === "all") && (
+                  <RejectRequestButton
+                    refId={request.refId}
+                    action={hrReturnRequestAction}
+                    labels={HR_RETURN_BUTTON_LABELS}
+                  />
+                )}
+            </div>
+          )}
+
+          {canEdit && editHref && (
+            <a
+              href={editHref}
+              className="inline-block text-xs font-semibold text-brand-600 underline hover:text-brand-700"
+            >
+              Edit
+            </a>
+          )}
+        </div>
       </td>
       <td className="max-w-xs px-4 py-4 text-slate-600">{request.reason}</td>
     </tr>
@@ -149,6 +166,8 @@ export function HrRecordsList({
   emptyMessage = "No records found.",
   readOnly = false,
   grouped = false,
+  editableRefIds,
+  getEditHref,
 }: HrRecordsListProps) {
   if (requests.length === 0) {
     return (
@@ -226,6 +245,8 @@ export function HrRecordsList({
                                   mode={mode}
                                   readOnly={readOnly}
                                   showEmployeeMeta={false}
+                                  canEdit={editableRefIds?.has(request.refId) ?? false}
+                                  editHref={getEditHref?.(request.refId)}
                                 />
                               ))}
                             </tbody>
@@ -269,6 +290,8 @@ export function HrRecordsList({
                 employeeType={employeeType}
                 mode={mode}
                 readOnly={readOnly}
+                canEdit={editableRefIds?.has(request.refId) ?? false}
+                editHref={getEditHref?.(request.refId)}
               />
             );
           })}

@@ -32,8 +32,9 @@ export function ManagerSlipForm({ company, department, employeeName }: ManagerSl
         <div className="border-b border-slate-100 px-6 py-5 md:px-8">
           <h2 className="text-lg font-semibold text-slate-900">File a slip</h2>
           <p className="mt-1 text-sm text-slate-500">
-            File your own attendance slip. Verification and manager approval are skipped — the
-            request goes straight to <strong>HR Confi Pending</strong> for checking.
+            File <strong>your own</strong> attendance slip only. Verification and manager approval
+            are skipped — the request goes straight to <strong>HR Confi Pending</strong> for checking.
+            Slips filed for other employees follow the normal approval workflow.
           </p>
         </div>
 

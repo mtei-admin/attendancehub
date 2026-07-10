@@ -5,7 +5,10 @@ import { isDateInPeriod } from "./cutoff";
 import { requestEmployeeKey } from "./roster";
 
 export function isManagerSelfFiledRequest(request: AttendanceRequest): boolean {
-  return Boolean(request.submittedBy?.trim());
+  const submittedBy = request.submittedBy?.trim();
+  if (!submittedBy) return false;
+
+  return request.employeeName.trim().toLowerCase() === submittedBy.toLowerCase();
 }
 
 export function resolveEmployeeTypeForHr(

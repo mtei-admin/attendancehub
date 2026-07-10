@@ -94,14 +94,20 @@ export async function addManagerOwnRequest(input: {
   const refId = await generateRefId();
   const otValue = input.otHrs || null;
   const now = new Date();
+  const employeeName = input.employeeName.trim();
+  const managerName = input.managerName.trim();
+
+  if (employeeName.toLowerCase() !== managerName.toLowerCase()) {
+    throw new Error("Manager own-slip filing requires the employee name to match the manager.");
+  }
 
   await db.insert(attendanceRequests).values({
     refId,
     submittedAt: now,
-    submittedBy: input.managerName,
+    submittedBy: managerName,
     company: input.company,
     department: input.department,
-    employeeName: input.employeeName,
+    employeeName,
     requestType: input.requestType,
     dateRequested: input.dateRequested,
     dateOfIncident: input.dateOfIncident,
@@ -111,7 +117,7 @@ export async function addManagerOwnRequest(input: {
     requestedOtHrs: otValue,
     reason: input.reason,
     status: "Approved",
-    approvedBy: input.managerName,
+    approvedBy: managerName,
     approvedOn: now,
   });
 

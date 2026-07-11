@@ -24,6 +24,7 @@ import {
 import { parseOptionalBiometricNo } from "@/lib/biometric";
 import {
   getPayrollCutoffRule,
+  getActiveOtEligibleTypes,
   saveOtEligibleTypes,
   updatePayrollCutoffRule,
   validateCutoffDays,
@@ -37,6 +38,12 @@ import {
   hrReturnApprovedToManager,
   unarchiveRequest,
 } from "@/lib/requests";
+import {
+  computeAvailableOtOffsetBalance,
+  computeHoursFromTimeRange,
+  formatInsufficientOtOffsetBalanceMessage,
+  OT_OFFSET_REQUEST_TYPE,
+} from "@/lib/ot-offset-balance";
 import { readOtHoursFromFormData, formatOtHoursLabel } from "@/lib/ot-hours";
 import { parseOtHours } from "@/lib/ot-summary";
 import {
@@ -139,6 +146,39 @@ export async function checkRequestAction(formData: FormData) {
     }
 
     checkedOtHrs = approvedOtHours.storedValue;
+  } else if (request.requestType === OT_OFFSET_REQUEST_TYPE) {
+    const timeRange = computeHoursFromTimeRange(request.timeIn, request.timeOut, {
+      required: true,
+    });
+
+    if (!timeRange.valid || timeRange.totalHours <= 0) {
+      hrRedirect({
+        tab: pendingTab,
+        error: timeRange.error ?? "Valid From and To times are required before checking OT Offset.",
+      });
+    }
+
+    const otEligibleTypes = await getActiveOtEligibleTypes();
+    const availableBalance = await computeAvailableOtOffsetBalance(
+      {
+        company: request.company ?? "",
+        department: request.department ?? "",
+        employeeName: request.employeeName,
+      },
+      otEligibleTypes,
+    );
+
+    if (timeRange.totalHours > availableBalance) {
+      hrRedirect({
+        tab: pendingTab,
+        error: formatInsufficientOtOffsetBalanceMessage(
+          availableBalance,
+          timeRange.totalHours,
+        ),
+      });
+    }
+
+    checkedOtHrs = timeRange.storedValue;
   }
 
   const archived = await archiveRequest(refId, session.fullName, checkedOtHrs);

@@ -8,7 +8,16 @@ import { REQUEST_TYPES, STATUSES } from "@/lib/constants";
 import {
   employeePortalRequestTypes,
   validateEmployeePortalOtFeatures,
+  validateEmployeePortalTimeFields,
 } from "@/lib/employee-portal";
+import {
+  computeAvailableOtOffsetBalance,
+  computeHoursFromTimeRange,
+  formatInsufficientOtOffsetBalanceMessage,
+  OT_OFFSET_REQUEST_TYPE,
+} from "@/lib/ot-offset-balance";
+import { getActiveOtEligibleTypes } from "@/lib/ot-settings";
+import { readOtHoursFromFormData } from "@/lib/ot-hours";
 import { maskEmail, normalizeEmail, isValidEmail } from "@/lib/email";
 import { isSmtpConfigured, sendMail } from "@/lib/mail";
 import {
@@ -330,6 +339,53 @@ export async function updateEmployeeRecordAction(formData: FormData) {
     recordsRedirect({ filters: parsed, error: otFeatureError });
   }
 
+  const timeFieldError = validateEmployeePortalTimeFields(requestType, timeIn, timeOut);
+  if (timeFieldError) {
+    recordsRedirect({ filters: parsed, error: timeFieldError });
+  }
+
+  const timeRange = computeHoursFromTimeRange(timeIn, timeOut);
+  if (!timeRange.valid) {
+    recordsRedirect({
+      filters: parsed,
+      error: timeRange.error ?? "Invalid From/To times.",
+    });
+  }
+
+  const otHoursParsed = readOtHoursFromFormData(formData, "ot_hours", "ot_minutes");
+  let otStoredValue = otHrs || otHoursParsed.storedValue || null;
+
+  if (requestType === OT_OFFSET_REQUEST_TYPE) {
+    if (timeRange.empty || timeRange.totalHours <= 0) {
+      recordsRedirect({
+        filters: parsed,
+        error: "Enter valid From and To times for OT Offset.",
+      });
+    }
+
+    const otEligibleTypes = await getActiveOtEligibleTypes();
+    const availableBalance = await computeAvailableOtOffsetBalance(
+      {
+        company: parsed.company,
+        department: parsed.department,
+        employeeName: parsed.employeeName,
+      },
+      otEligibleTypes,
+    );
+
+    if (timeRange.totalHours > availableBalance) {
+      recordsRedirect({
+        filters: parsed,
+        error: formatInsufficientOtOffsetBalanceMessage(
+          availableBalance,
+          timeRange.totalHours,
+        ),
+      });
+    }
+
+    otStoredValue = timeRange.storedValue;
+  }
+
   if (fileAsOtOffset && !reason.startsWith("[OT offset credit]")) {
     reason = `[OT offset credit] ${reason}`;
   }
@@ -345,7 +401,7 @@ export async function updateEmployeeRecordAction(formData: FormData) {
       reason,
       timeIn: timeIn || null,
       timeOut: timeOut || null,
-      otHrs: otHrs || null,
+      otHrs: otStoredValue,
     });
 
     if (!updated) {

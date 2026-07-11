@@ -22,7 +22,7 @@ type MyRecordsSectionProps = {
   activeRecordView?: { filters: RecordRequestFilters; viewedAt: number };
   editRefId?: string;
   employeeType?: string;
-  otEligibleTypes: string[];
+  availableOtOffsetBalance?: number | null;
 };
 
 function defaultFromDate() {
@@ -89,7 +89,7 @@ export function MyRecordsSection({
   activeRecordView,
   editRefId,
   employeeType,
-  otEligibleTypes,
+  availableOtOffsetBalance,
 }: MyRecordsSectionProps) {
   const activeFilters = activeRecordView?.filters;
   const [company, setCompany] = useState(activeFilters?.company ?? "");
@@ -300,7 +300,7 @@ export function MyRecordsSection({
             editRefId={editRefId}
             exportUrl={buildExportUrl(activeRecordView.filters)}
             employeeType={employeeType}
-            otEligibleTypes={otEligibleTypes}
+            availableOtOffsetBalance={availableOtOffsetBalance}
           />
         </RecordsViewSession>
       )}

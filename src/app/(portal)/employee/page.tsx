@@ -6,6 +6,7 @@ import { listCompanyNames } from "@/lib/companies";
 import { isSmtpConfigured } from "@/lib/mail";
 import { queryEmployeeRecords, type RecordRequestFilters } from "@/lib/record-requests";
 import { parseViewedAt } from "@/lib/records-view-session";
+import { computeAvailableOtOffsetBalance } from "@/lib/ot-offset-balance";
 import { getActiveOtEligibleTypes } from "@/lib/ot-settings";
 import {
   buildEmployeeEmailLookup,
@@ -96,6 +97,18 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
       : Promise.resolve(null),
   ]);
 
+  const availableOtOffsetBalance =
+    selectedEmployee?.employeeType === "Confi" && activeRecordView
+      ? await computeAvailableOtOffsetBalance(
+          {
+            company: activeRecordView.filters.company,
+            department: activeRecordView.filters.department,
+            employeeName: activeRecordView.filters.employeeName,
+          },
+          otEligibleTypes,
+        )
+      : null;
+
   const employeesByCompanyDepartment = buildEmployeesByCompanyDepartment(roster);
   const employeeTypeLookup = buildEmployeeTypeLookup(roster);
   const employeeEmails = buildEmployeeEmailLookup(roster);
@@ -123,7 +136,7 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
             activeRecordView={activeRecordView}
             editRefId={params.edit?.trim()}
             employeeType={selectedEmployee?.employeeType}
-            otEligibleTypes={otEligibleTypes}
+            availableOtOffsetBalance={availableOtOffsetBalance}
           />
         )}
       </div>

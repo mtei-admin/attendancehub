@@ -15,7 +15,23 @@ export function employeePortalRequestTypes(employeeType?: string | null): readon
 }
 
 export function showEmployeePortalTimeFields(requestType: string): boolean {
-  return requestType !== "" && requestType !== "Absent/Leave";
+  return requestType !== "";
+}
+
+export function validateEmployeePortalTimeFields(
+  requestType: string,
+  timeIn: string,
+  timeOut: string,
+): string | null {
+  if (!showEmployeePortalTimeFields(requestType)) {
+    return null;
+  }
+
+  if (!timeIn.trim() || !timeOut.trim()) {
+    return "From and To times are required.";
+  }
+
+  return null;
 }
 
 export function showOtOffsetCreditCheckbox(

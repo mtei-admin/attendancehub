@@ -175,11 +175,11 @@ export function EmployeeForm({
         {showTimeFields && (
           <>
             <FormField label="From">
-              <input type="time" name="time_in" className={inputClassName} />
+              <input type="time" name="time_in" required className={inputClassName} />
             </FormField>
 
             <FormField label="To">
-              <input type="time" name="time_out" className={inputClassName} />
+              <input type="time" name="time_out" required className={inputClassName} />
             </FormField>
           </>
         )}

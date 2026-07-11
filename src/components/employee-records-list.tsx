@@ -1,12 +1,9 @@
 "use client";
 
-import {
-  canEmployeeEditRecord,
-  computeTotalOtHoursCredits,
-} from "@/lib/record-requests";
+import type { AttendanceRequest } from "@/lib/schema";
 import type { RecordRequestFilters } from "@/lib/record-requests";
 import { buildRecordsViewSearchParams } from "@/lib/records-view-session";
-import type { AttendanceRequest } from "@/lib/schema";
+import { canEmployeeEditRecord } from "@/lib/record-requests";
 
 import { EmployeeRecordEditModal } from "./employee-record-edit-modal";
 
@@ -17,7 +14,7 @@ type EmployeeRecordsListProps = {
   editRefId?: string;
   exportUrl: string;
   employeeType?: string;
-  otEligibleTypes: string[];
+  availableOtOffsetBalance?: number | null;
 };
 
 function formatSubmittedAt(value: Date | null): string {
@@ -41,16 +38,13 @@ export function EmployeeRecordsList({
   editRefId,
   exportUrl,
   employeeType,
-  otEligibleTypes,
+  availableOtOffsetBalance,
 }: EmployeeRecordsListProps) {
   const editingRequest = editRefId
     ? records.find((row) => row.refId === editRefId && canEmployeeEditRecord(row))
     : undefined;
 
   const isConfi = employeeType === "Confi";
-  const totalOtHoursCredits = isConfi
-    ? computeTotalOtHoursCredits(records, otEligibleTypes)
-    : null;
 
   return (
     <section className="space-y-4 border-t border-slate-100 pt-6">
@@ -70,16 +64,16 @@ export function EmployeeRecordsList({
         </a>
       </div>
 
-      {isConfi && totalOtHoursCredits !== null && (
+      {isConfi && availableOtOffsetBalance !== null && availableOtOffsetBalance !== undefined && (
         <div className="rounded-xl border border-brand-100 bg-brand-50/60 px-4 py-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">
-            Total OT Hours Credits
+            Available OT Offset Balance
           </p>
           <p className="mt-1 text-2xl font-semibold text-slate-900">
-            {totalOtHoursCredits.toFixed(2)}
+            {availableOtOffsetBalance.toFixed(2)}
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            Approved OT-eligible hours in this date range.
+            Lifetime balance from HR-checked OT credits minus HR-checked OT Offset usage.
           </p>
         </div>
       )}

@@ -11,6 +11,9 @@ type PayrollRfPanelProps = {
   selectedPeriodLabel: string;
 };
 
+const rfActionButtonClass =
+  "inline-flex w-52 items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold";
+
 export function PayrollRfPanel({
   requests,
   employeeTypeLookup,
@@ -55,11 +58,11 @@ export function PayrollRfPanel({
           <p className="text-xs text-slate-500">Showing: {selectedPeriodLabel}</p>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col gap-2">
           {requests.length > 0 && (
             <a
               href={exportHref}
-              className="rounded-lg border border-brand-200 px-4 py-2 text-sm font-semibold text-brand-600 hover:bg-brand-50"
+              className={`${rfActionButtonClass} border border-brand-200 text-brand-600 hover:bg-brand-50`}
             >
               Export CSV
             </a>
@@ -69,18 +72,18 @@ export function PayrollRfPanel({
               <input type="hidden" name="period_id" value={selectedPeriodId} />
               <button
                 type="submit"
-                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+                className={`${rfActionButtonClass} bg-brand-600 text-white hover:bg-brand-700`}
               >
-                Payroll confirm cutoff
+                Confirm
               </button>
             </form>
           ) : (
             <button
               type="button"
               disabled
-              className="cursor-not-allowed rounded-lg bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-500"
+              className={`${rfActionButtonClass} cursor-not-allowed bg-slate-200 text-slate-500`}
             >
-              Payroll confirm cutoff
+              Confirm
             </button>
           )}
         </div>

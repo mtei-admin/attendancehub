@@ -1,6 +1,5 @@
 import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 
-import { parseOtHours } from "./ot-summary";
 import { getDb } from "./db";
 import { attendanceRequests, recordRequestLogs, type AttendanceRequest } from "./schema";
 
@@ -30,22 +29,6 @@ export function canEmployeeEditRecord(request: AttendanceRequest): boolean {
   return (
     request.status === "Pending" && !request.verifiedOn && !request.archived
   );
-}
-
-export function computeTotalOtHoursCredits(
-  records: AttendanceRequest[],
-  otEligibleTypes: string[],
-): number {
-  const eligible = new Set(otEligibleTypes);
-
-  return records.reduce((sum, request) => {
-    if (request.status !== "Approved" || !eligible.has(request.requestType)) {
-      return sum;
-    }
-
-    const { hours, valid } = parseOtHours(request.otHrs);
-    return sum + (valid ? hours : 0);
-  }, 0);
 }
 
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;

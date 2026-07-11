@@ -8,8 +8,17 @@ import { getSession } from "@/lib/auth";
 import { ROLE_ROUTES, type Role } from "@/lib/constants";
 import { readOtHoursFromFormData } from "@/lib/ot-hours";
 import {
+  computeAvailableOtOffsetBalance,
+  computeHoursFromTimeRange,
+  formatInsufficientOtOffsetBalanceMessage,
+  OT_OFFSET_REQUEST_TYPE,
+} from "@/lib/ot-offset-balance";
+import { getActiveOtEligibleTypes } from "@/lib/ot-settings";
+import {
   employeePortalRequestTypes,
+  isConfiEmployee,
   validateEmployeePortalOtFeatures,
+  validateEmployeePortalTimeFields,
 } from "@/lib/employee-portal";
 import { addManagerOwnRequest, addRequest, updateRequestStatus } from "@/lib/requests";
 import { shouldDirectHrConfiOwnSlipOnSubmit } from "@/lib/direct-hr-confi-slips";
@@ -66,7 +75,43 @@ export async function submitRequestAction(formData: FormData) {
     redirect(`/employee?error=${encodeURIComponent(otFeatureError)}`);
   }
 
-  if (!otHours.valid) {
+  const timeFieldError = validateEmployeePortalTimeFields(requestType, timeIn, timeOut);
+  if (timeFieldError) {
+    redirect(`/employee?error=${encodeURIComponent(timeFieldError)}`);
+  }
+
+  const timeRange = computeHoursFromTimeRange(timeIn, timeOut);
+  if (!timeRange.valid) {
+    redirect(`/employee?error=${encodeURIComponent(timeRange.error ?? "Invalid From/To times.")}`);
+  }
+
+  let otStoredValue = otHours.storedValue || null;
+
+  if (requestType === OT_OFFSET_REQUEST_TYPE) {
+    if (!isConfiEmployee(employee.employeeType)) {
+      redirect("/employee?error=OT%20Offset%20is%20only%20available%20for%20Confi%20employees.");
+    }
+
+    if (timeRange.empty || timeRange.totalHours <= 0) {
+      redirect("/employee?error=Enter%20valid%20From%20and%20To%20times%20for%20OT%20Offset.");
+    }
+
+    const otEligibleTypes = await getActiveOtEligibleTypes();
+    const availableBalance = await computeAvailableOtOffsetBalance(
+      { company, department, employeeName },
+      otEligibleTypes,
+    );
+
+    if (timeRange.totalHours > availableBalance) {
+      redirect(
+        `/employee?error=${encodeURIComponent(
+          formatInsufficientOtOffsetBalanceMessage(availableBalance, timeRange.totalHours),
+        )}`,
+      );
+    }
+
+    otStoredValue = timeRange.storedValue;
+  } else if (!otHours.valid) {
     redirect(`/employee?error=${encodeURIComponent(otHours.error ?? "Invalid hours to claim.")}`);
   }
 
@@ -87,7 +132,7 @@ export async function submitRequestAction(formData: FormData) {
           reason,
           timeIn: timeIn || null,
           timeOut: timeOut || null,
-          otHrs: otHours.storedValue || null,
+          otHrs: otStoredValue,
         })
       : await addRequest({
           company,
@@ -99,7 +144,7 @@ export async function submitRequestAction(formData: FormData) {
           reason,
           timeIn: timeIn || null,
           timeOut: timeOut || null,
-          otHrs: otHours.storedValue || null,
+          otHrs: otStoredValue,
         });
     revalidateRolePaths();
     redirect(

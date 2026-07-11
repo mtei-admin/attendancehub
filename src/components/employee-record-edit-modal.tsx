@@ -151,6 +151,7 @@ function EmployeeRecordEditForm({
                 type="time"
                 name="time_in"
                 defaultValue={request.timeIn ?? ""}
+                required
                 className={inputClassName}
               />
             </FormField>
@@ -160,6 +161,7 @@ function EmployeeRecordEditForm({
                 type="time"
                 name="time_out"
                 defaultValue={request.timeOut ?? ""}
+                required
                 className={inputClassName}
               />
             </FormField>

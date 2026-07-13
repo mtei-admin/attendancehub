@@ -1,4 +1,4 @@
-import { and, eq, gte, lte } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { getDb } from "./db";
 import { otManualOverrides, type OtManualOverride } from "./schema";
@@ -11,6 +11,35 @@ export type OtOverrideScope = {
   department?: string;
   employeeName?: string;
 };
+
+export type OtOverrideLifetimeScope = {
+  payrollGroup: string;
+  company?: string;
+  department?: string;
+  employeeName?: string;
+};
+
+export async function listOtManualOverridesLifetime(
+  scope: OtOverrideLifetimeScope,
+): Promise<OtManualOverride[]> {
+  const db = getDb();
+  const conditions = [eq(otManualOverrides.payrollGroup, scope.payrollGroup)];
+
+  if (scope.company) {
+    conditions.push(eq(otManualOverrides.company, scope.company));
+  }
+  if (scope.department) {
+    conditions.push(eq(otManualOverrides.department, scope.department));
+  }
+  if (scope.employeeName) {
+    conditions.push(eq(otManualOverrides.employeeName, scope.employeeName));
+  }
+
+  return db
+    .select()
+    .from(otManualOverrides)
+    .where(and(...conditions));
+}
 
 export async function listOtManualOverrides(scope: OtOverrideScope): Promise<OtManualOverride[]> {
   const db = getDb();

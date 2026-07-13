@@ -40,7 +40,7 @@ import {
   listOtEligibleTypes,
   listPayrollCutoffRules,
 } from "@/lib/ot-settings";
-import { buildOtSummaryReport, type OtExportBasis } from "@/lib/ot-summary";
+import { buildOtSummaryReport, buildOtLifetimeHoursTotal, type OtExportBasis } from "@/lib/ot-summary";
 import { listRecordRequestLogs } from "@/lib/record-requests";
 import {
   getAllApprovedRequests,
@@ -300,6 +300,18 @@ export default async function HrPage({ searchParams }: HrPageProps) {
         })
       : null;
 
+  const otLifetimeHoursTotal =
+    activeTab === "ot-summary" && otHasPeriod
+      ? await buildOtLifetimeHoursTotal({
+          payrollGroup: otPayrollGroup,
+          company: params.ot_company?.trim() || undefined,
+          department: params.ot_department?.trim() || undefined,
+          employeeName: params.ot_employee?.trim() || undefined,
+          employeeTypeLookup,
+          hrScope: resolveOtSummaryHrScope(session, otPayrollGroup),
+        })
+      : null;
+
   return (
     <>
       {isPayrollOfficer && payrollOfficerTab ? (
@@ -523,6 +535,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
             companies={companyNames}
             employeesByCompanyDepartment={employeesByCompanyDepartment}
             report={otReport}
+            lifetimeHoursTotal={otLifetimeHoursTotal}
             filters={{
               payrollGroup: otPayrollGroup,
               periodId: otPeriodId,

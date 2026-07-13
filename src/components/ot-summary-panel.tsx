@@ -18,6 +18,7 @@ type OtSummaryPanelProps = {
   companies: string[];
   employeesByCompanyDepartment: EmployeesByCompanyDepartment;
   report: OtSummaryReport | null;
+  lifetimeHoursTotal: number | null;
   filters: {
     payrollGroup: string;
     periodId: string;
@@ -62,6 +63,7 @@ export function OtSummaryPanel({
   companies,
   employeesByCompanyDepartment,
   report,
+  lifetimeHoursTotal,
   filters,
   showSettings,
   saveCutoffRulesAction,
@@ -343,19 +345,33 @@ export function OtSummaryPanel({
             </div>
           )}
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Requests</p>
+              <p className="mt-1 text-xs text-slate-500">This period</p>
               <p className="mt-1 text-2xl font-semibold text-slate-900">{report.grandTotalRequests}</p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Total OT hours</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Period OT hours
+              </p>
+              <p className="mt-1 text-xs text-slate-500">Selected cutoff only</p>
               <p className="mt-1 text-2xl font-semibold text-slate-900">
                 {report.grandTotalHours.toFixed(2)}
               </p>
             </div>
+            <div className="rounded-xl border border-brand-200 bg-brand-50/40 p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
+                Lifetime OT hours
+              </p>
+              <p className="mt-1 text-xs text-brand-600/80">HR-checked · all periods</p>
+              <p className="mt-1 text-2xl font-semibold text-brand-900">
+                {lifetimeHoursTotal !== null ? lifetimeHoursTotal.toFixed(2) : "—"}
+              </p>
+            </div>
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Employees</p>
+              <p className="mt-1 text-xs text-slate-500">This period</p>
               <p className="mt-1 text-2xl font-semibold text-slate-900">{report.byEmployee.length}</p>
             </div>
           </div>
@@ -426,7 +442,7 @@ export function OtSummaryPanel({
                 <table className="min-w-full text-sm">
                   <thead className="border-b border-slate-200 bg-slate-50">
                     <tr>
-                      {["Employee", "Requests", "Total OT hours"].map((header) => (
+                      {["Employee", "Requests", "Period OT hours"].map((header) => (
                         <th
                           key={header}
                           className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400"

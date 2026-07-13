@@ -4,6 +4,11 @@ import type { AttendanceRequest } from "@/lib/schema";
 import { requestEmployeeKey } from "@/lib/roster";
 
 import { HrRecordRow } from "./hr-record-row";
+import {
+  HrBatchCheckProvider,
+  HrBatchCheckToolbar,
+  type SlipVisibility,
+} from "./hr-batch-check";
 
 type HrRecordsListProps = {
   requests: AttendanceRequest[];
@@ -15,6 +20,8 @@ type HrRecordsListProps = {
   collapseStorageKey?: string;
   editableRefIds?: ReadonlySet<string>;
   getEditHref?: (refId: string) => string;
+  enableBatchCheck?: boolean;
+  batchReturnTab?: string;
 };
 
 const FLAT_HEADERS = [
@@ -49,6 +56,8 @@ export function HrRecordsList({
   collapseStorageKey,
   editableRefIds,
   getEditHref,
+  enableBatchCheck = false,
+  batchReturnTab = "pending",
 }: HrRecordsListProps) {
   if (requests.length === 0) {
     return (
@@ -72,43 +81,69 @@ export function HrRecordsList({
         collapseStorageKey={storageKey}
         editableRefIds={Array.from(editableRefIds ?? [])}
         editHrefByRefId={buildEditHrefByRefId(requests, getEditHref)}
+        enableBatchCheck={enableBatchCheck}
+        batchReturnTab={batchReturnTab}
       />
     );
   }
 
-  return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-      <table className="min-w-full text-sm">
-        <thead className="border-b border-slate-200 bg-slate-50">
-          <tr>
-            {FLAT_HEADERS.map((header) => (
-              <th
-                key={header}
-                className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400"
-              >
-                {header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {requests.map((request) => {
-            const employeeType = employeeTypeLookup[requestEmployeeKey(request)];
+  const showBatchCheck = enableBatchCheck && mode === "pending" && !readOnly;
+  const slipVisibilities: SlipVisibility[] = requests.map((request) => ({
+    refId: request.refId,
+    companyId: "flat",
+    departmentId: "flat",
+    employeeId: "flat",
+  }));
 
-            return (
-              <HrRecordRow
-                key={request.id}
-                request={request}
-                employeeType={employeeType}
-                mode={mode}
-                readOnly={readOnly}
-                canEdit={editableRefIds?.has(request.refId) ?? false}
-                editHref={getEditHref?.(request.refId)}
-              />
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+  const tableContent = (
+    <table className="min-w-full text-sm">
+      <thead className="border-b border-slate-200 bg-slate-50">
+        <tr>
+          {showBatchCheck && <th className="w-10 px-3 py-3" />}
+          {FLAT_HEADERS.map((header) => (
+            <th
+              key={header}
+              className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400"
+            >
+              {header}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-slate-100">
+        {requests.map((request) => {
+          const employeeType = employeeTypeLookup[requestEmployeeKey(request)];
+
+          return (
+            <HrRecordRow
+              key={request.id}
+              request={request}
+              employeeType={employeeType}
+              mode={mode}
+              readOnly={readOnly}
+              canEdit={editableRefIds?.has(request.refId) ?? false}
+              editHref={getEditHref?.(request.refId)}
+            />
+          );
+        })}
+      </tbody>
+    </table>
+  );
+
+  if (!showBatchCheck) {
+    return (
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+        {tableContent}
+      </div>
+    );
+  }
+
+  return (
+    <HrBatchCheckProvider requests={requests} slipVisibilities={slipVisibilities} flatMode>
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <HrBatchCheckToolbar returnTab={batchReturnTab} />
+        <div className="overflow-x-auto">{tableContent}</div>
+      </div>
+    </HrBatchCheckProvider>
   );
 }

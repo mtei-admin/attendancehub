@@ -356,6 +356,8 @@ export default async function HrPage({ searchParams }: HrPageProps) {
               collapseStorageKey="hr:po:confi:pending"
               editableRefIds={editablePendingRefIds}
               getEditHref={getHrEditHref}
+              enableBatchCheck
+              batchReturnTab="confi-pending"
               emptyMessage="No pending Confi records to review."
             />
           </section>
@@ -409,6 +411,8 @@ export default async function HrPage({ searchParams }: HrPageProps) {
               collapseStorageKey={`hr:${session.hrScope ?? "all"}:pending`}
               editableRefIds={editablePendingRefIds}
               getEditHref={getHrEditHref}
+              enableBatchCheck
+              batchReturnTab={typeof hrListTab === "string" ? hrListTab : "pending"}
               emptyMessage="No pending records to review."
             />
           </section>

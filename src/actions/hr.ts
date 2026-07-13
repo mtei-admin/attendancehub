@@ -35,13 +35,20 @@ import {
   confirmPayrollPeriodRequests,
   getArchivedRequests,
   getRequestByRefId,
+  getRequestsByRefIds,
   hrReturnApprovedToManager,
   unarchiveRequest,
 } from "@/lib/requests";
 import {
+  buildBatchCheckErrorDetails,
+  buildBatchCheckSuccessMessage,
+  processHrBatchCheck,
+} from "@/lib/hr-batch-check";
+import {
   computeAvailableOtOffsetBalance,
   computeHoursFromTimeRange,
   formatInsufficientOtOffsetBalanceMessage,
+  listCheckedRequestsForPlacements,
   OT_OFFSET_REQUEST_TYPE,
 } from "@/lib/ot-offset-balance";
 import { readOtHoursFromFormData, formatOtHoursLabel } from "@/lib/ot-hours";
@@ -52,6 +59,7 @@ import {
   getEmployeeByPlacement,
   isBiometricNoTaken,
   listEmployees,
+  requestEmployeeKey,
   updateEmployee,
 } from "@/lib/roster";
 import { createUser, getUserById, getUserByUsername, findPortalRoleConflict, updateUser } from "@/lib/users";
@@ -195,6 +203,79 @@ export async function checkRequestAction(formData: FormData) {
     : `Request ${refId} marked as checked.`;
 
   hrRedirect({ tab: pendingTab, success: successMessage });
+}
+
+export async function batchCheckRequestsAction(formData: FormData) {
+  const session = await requireHrPortalAccess();
+  const returnTab = String(formData.get("return_tab") ?? "").trim() || payrollOfficerPendingTab(session);
+  const orderedRefIds = formData
+    .getAll("ref_ids")
+    .map((value) => String(value).trim())
+    .filter(Boolean);
+
+  if (orderedRefIds.length === 0) {
+    hrRedirect({ tab: returnTab, error: "Select at least one slip to check." });
+  }
+
+  const uniqueRefIds = Array.from(new Set(orderedRefIds));
+  const [requests, otEligibleTypes, roster] = await Promise.all([
+    getRequestsByRefIds(uniqueRefIds),
+    getActiveOtEligibleTypes(),
+    listEmployees(true),
+  ]);
+  const employeeTypeLookup = buildEmployeeTypeLookup(roster);
+
+  if (requests.length === 0) {
+    hrRedirect({ tab: returnTab, error: "No matching slips found for batch check." });
+  }
+
+  const approvedHoursByRefId: Record<string, ReturnType<typeof readOtHoursFromFormData>> = {};
+  for (const refId of uniqueRefIds) {
+    approvedHoursByRefId[refId] = readOtHoursFromFormData(
+      formData,
+      `approved_ot_hours_${refId}`,
+      `approved_ot_minutes_${refId}`,
+    );
+  }
+
+  const placements = requests.map((request) => ({
+    company: request.company ?? "",
+    department: request.department ?? "",
+    employeeName: request.employeeName,
+  }));
+  const existingCheckedRecords = await listCheckedRequestsForPlacements(placements);
+
+  const summary = await processHrBatchCheck({
+    session,
+    requests,
+    orderedRefIds,
+    approvedHoursByRefId,
+    otEligibleTypes,
+    existingCheckedRecords,
+    resolveEmployeeType: (request) =>
+      isDirectHrConfiOwnSlip(request)
+        ? "Confi"
+        : employeeTypeLookup[requestEmployeeKey(request)],
+    archivedBy: session.fullName,
+  });
+
+  revalidatePath("/hr");
+  revalidatePath("/api/export/csv");
+  revalidatePath("/employee");
+
+  const failureDetails = buildBatchCheckErrorDetails(summary);
+  if (summary.checked === 0) {
+    hrRedirect({
+      tab: returnTab,
+      error: failureDetails || "No slips were checked.",
+    });
+  }
+
+  hrRedirect({
+    tab: returnTab,
+    success: buildBatchCheckSuccessMessage(summary),
+    error: failureDetails || undefined,
+  });
 }
 
 export async function confirmPayrollCutoffAction(formData: FormData) {

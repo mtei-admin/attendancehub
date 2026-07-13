@@ -5,6 +5,7 @@ import type { AttendanceRequest } from "@/lib/schema";
 
 import { hrReturnRequestAction } from "@/actions/hr";
 import { HR_RETURN_BUTTON_LABELS, RejectRequestButton } from "./reject-request-button";
+import { HrBatchCheckRowSelect, useHrBatchCheckOptional } from "./hr-batch-check";
 
 import {
   formatManagerSubmittedDate,
@@ -52,9 +53,17 @@ export function HrRecordRow({
 }) {
   const typeLabel = getEmployeeTypeLabel(employeeType);
   const isChecked = request.archived;
+  const batchCheck = useHrBatchCheckOptional();
+  const showBatchSelect =
+    batchCheck && !readOnly && mode === "pending" && !isChecked;
 
   return (
     <tr className="align-top hover:bg-slate-50/60">
+      {showBatchSelect && (
+        <td className="w-10 px-3 py-4">
+          <HrBatchCheckRowSelect refId={request.refId} />
+        </td>
+      )}
       {showEmployeeMeta && (
         <td className="px-4 py-4">
           <div className="flex flex-wrap items-center gap-2">

@@ -25,7 +25,11 @@ type CollapseGroupContextValue = {
 
 const CollapseGroupContext = createContext<CollapseGroupContextValue | null>(null);
 
-function useCollapseGroup(): CollapseGroupContextValue {
+export function useCollapseGroupOptional(): CollapseGroupContextValue | null {
+  return useContext(CollapseGroupContext);
+}
+
+export function useCollapseGroup(): CollapseGroupContextValue {
   const context = useContext(CollapseGroupContext);
   if (!context) {
     throw new Error("CollapsibleSection must be used within CollapseGroupProvider");

@@ -170,6 +170,18 @@ export type EmployeePlacement = {
   employeeName: string;
 };
 
+export function employeePlacementKey(placement: EmployeePlacement): string {
+  return `${placement.company}|${placement.department}|${placement.employeeName}`;
+}
+
+export function resolveEmployeePlacement(request: AttendanceRequest): EmployeePlacement {
+  return {
+    company: request.company ?? "",
+    department: request.department ?? "",
+    employeeName: request.employeeName,
+  };
+}
+
 export async function listEmployeeCheckedRequests(
   placement: EmployeePlacement,
 ): Promise<AttendanceRequest[]> {
@@ -195,6 +207,24 @@ export async function computeAvailableOtOffsetBalance(
 ): Promise<number> {
   const records = await listEmployeeCheckedRequests(placement);
   return computeAvailableOtOffsetBalanceFromRecords(records, otEligibleTypes);
+}
+
+export async function listCheckedRequestsForPlacements(
+  placements: EmployeePlacement[],
+): Promise<AttendanceRequest[]> {
+  const uniquePlacements = new Map<string, EmployeePlacement>();
+
+  for (const placement of placements) {
+    uniquePlacements.set(employeePlacementKey(placement), placement);
+  }
+
+  const results = await Promise.all(
+    Array.from(uniquePlacements.values()).map((placement) =>
+      listEmployeeCheckedRequests(placement),
+    ),
+  );
+
+  return results.flat();
 }
 
 export function formatInsufficientOtOffsetBalanceMessage(

@@ -284,6 +284,18 @@ export async function getRequestByRefId(refId: string): Promise<AttendanceReques
   return request;
 }
 
+export async function getRequestsByRefIds(refIds: string[]): Promise<AttendanceRequest[]> {
+  if (refIds.length === 0) {
+    return [];
+  }
+
+  const db = getDb();
+  return db
+    .select()
+    .from(attendanceRequests)
+    .where(inArray(attendanceRequests.refId, refIds));
+}
+
 export async function getUnverifiedPendingRequests(
   scope?: RequestScope,
 ): Promise<AttendanceRequest[]> {

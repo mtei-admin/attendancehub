@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { updateEmployeeRecordAction } from "@/actions/records";
 import {
   employeePortalRequestTypes,
+  isOtOrHolidayWorkRequestType,
   showEmployeePortalTimeFields,
   showOtOffsetCreditCheckbox,
 } from "@/lib/employee-portal";
@@ -13,6 +14,8 @@ import type { AttendanceRequest } from "@/lib/schema";
 
 import { FormField, inputClassName } from "./form-field";
 import { FormModal } from "./form-modal";
+import { OtHoursFields } from "./ot-hours-fields";
+import { useOtHoursFromTimeRange } from "./use-ot-hours-from-time-range";
 
 type EmployeeRecordEditModalProps = {
   open: boolean;
@@ -73,6 +76,8 @@ function EmployeeRecordEditForm({
   employeeType?: string;
 }) {
   const [requestType, setRequestType] = useState(request.requestType);
+  const [timeIn, setTimeIn] = useState(request.timeIn ?? "");
+  const [timeOut, setTimeOut] = useState(request.timeOut ?? "");
 
   const availableRequestTypes = useMemo(
     () => employeePortalRequestTypes(employeeType),
@@ -86,9 +91,9 @@ function EmployeeRecordEditForm({
   }, [availableRequestTypes, requestType]);
 
   const showTimeFields = showEmployeePortalTimeFields(requestType);
-  const isOtOrHolidayWork =
-    requestType === "Overtime" || requestType === "Holiday/Rest Day Work";
+  const isOtOrHolidayWork = isOtOrHolidayWorkRequestType(requestType);
   const showOtOffsetCheckbox = showOtOffsetCreditCheckbox(employeeType, requestType);
+  const otHoursFromTime = useOtHoursFromTimeRange(timeIn, timeOut, isOtOrHolidayWork);
 
   return (
     <form action={updateEmployeeRecordAction} className="mt-5 space-y-4">
@@ -150,8 +155,9 @@ function EmployeeRecordEditForm({
               <input
                 type="time"
                 name="time_in"
-                defaultValue={request.timeIn ?? ""}
                 required
+                value={timeIn}
+                onChange={(event) => setTimeIn(event.target.value)}
                 className={inputClassName}
               />
             </FormField>
@@ -160,8 +166,9 @@ function EmployeeRecordEditForm({
               <input
                 type="time"
                 name="time_out"
-                defaultValue={request.timeOut ?? ""}
                 required
+                value={timeOut}
+                onChange={(event) => setTimeOut(event.target.value)}
                 className={inputClassName}
               />
             </FormField>
@@ -183,15 +190,20 @@ function EmployeeRecordEditForm({
         )}
 
         {isOtOrHolidayWork && (
-          <FormField label="Hours to claim" className="md:col-span-2">
-            <input
-              type="text"
-              name="ot_hrs"
-              defaultValue={request.otHrs ?? ""}
-              placeholder="e.g. 2"
-              className={inputClassName}
+          <>
+            <OtHoursFields
+              hoursName="ot_hours"
+              minutesName="ot_minutes"
+              hoursValue={otHoursFromTime.hours}
+              minutesValue={otHoursFromTime.minutes}
+              readOnly
+              required
+              className="md:col-span-2"
             />
-          </FormField>
+            {otHoursFromTime.error && (
+              <p className="md:col-span-2 text-sm text-red-600">{otHoursFromTime.error}</p>
+            )}
+          </>
         )}
 
         <FormField label="Reason / remarks" className="md:col-span-2">
@@ -208,7 +220,7 @@ function EmployeeRecordEditForm({
       <div className="flex flex-wrap justify-end gap-3 border-t border-slate-100 pt-4">
         <a
           href={cancelHref}
-          className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+          className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
         >
           Cancel
         </a>

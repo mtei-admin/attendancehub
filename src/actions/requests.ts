@@ -17,6 +17,7 @@ import { getActiveOtEligibleTypes } from "@/lib/ot-settings";
 import {
   employeePortalRequestTypes,
   isConfiEmployee,
+  isOtOrHolidayWorkRequestType,
   validateEmployeePortalOtFeatures,
   validateEmployeePortalTimeFields,
 } from "@/lib/employee-portal";
@@ -110,6 +111,13 @@ export async function submitRequestAction(formData: FormData) {
       );
     }
 
+    otStoredValue = timeRange.storedValue;
+  } else if (isOtOrHolidayWorkRequestType(requestType)) {
+    if (timeRange.empty || timeRange.totalHours <= 0) {
+      redirect(
+        "/employee?error=Enter%20valid%20From%20and%20To%20times%20to%20calculate%20hours%20to%20claim.",
+      );
+    }
     otStoredValue = timeRange.storedValue;
   } else if (!otHours.valid) {
     redirect(`/employee?error=${encodeURIComponent(otHours.error ?? "Invalid hours to claim.")}`);

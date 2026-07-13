@@ -7,6 +7,7 @@ import { isNextNavigationError } from "@/lib/action-auth";
 import { REQUEST_TYPES, STATUSES } from "@/lib/constants";
 import {
   employeePortalRequestTypes,
+  isOtOrHolidayWorkRequestType,
   validateEmployeePortalOtFeatures,
   validateEmployeePortalTimeFields,
 } from "@/lib/employee-portal";
@@ -17,7 +18,6 @@ import {
   OT_OFFSET_REQUEST_TYPE,
 } from "@/lib/ot-offset-balance";
 import { getActiveOtEligibleTypes } from "@/lib/ot-settings";
-import { readOtHoursFromFormData } from "@/lib/ot-hours";
 import { maskEmail, normalizeEmail, isValidEmail } from "@/lib/email";
 import { isSmtpConfigured, sendMail } from "@/lib/mail";
 import {
@@ -285,7 +285,6 @@ export async function updateEmployeeRecordAction(formData: FormData) {
   const dateOfIncident = String(formData.get("date_of_incident") ?? "").trim();
   const timeIn = String(formData.get("time_in") ?? "").trim();
   const timeOut = String(formData.get("time_out") ?? "").trim();
-  const otHrs = String(formData.get("ot_hrs") ?? "").trim();
   const fileAsOtOffset = formData.get("file_as_ot_offset") === "on";
   let reason = String(formData.get("reason") ?? "").trim();
 
@@ -352,8 +351,7 @@ export async function updateEmployeeRecordAction(formData: FormData) {
     });
   }
 
-  const otHoursParsed = readOtHoursFromFormData(formData, "ot_hours", "ot_minutes");
-  let otStoredValue = otHrs || otHoursParsed.storedValue || null;
+  let otStoredValue: string | null = null;
 
   if (requestType === OT_OFFSET_REQUEST_TYPE) {
     if (timeRange.empty || timeRange.totalHours <= 0) {
@@ -383,6 +381,14 @@ export async function updateEmployeeRecordAction(formData: FormData) {
       });
     }
 
+    otStoredValue = timeRange.storedValue;
+  } else if (isOtOrHolidayWorkRequestType(requestType)) {
+    if (timeRange.empty || timeRange.totalHours <= 0) {
+      recordsRedirect({
+        filters: parsed,
+        error: "Enter valid From and To times to calculate hours to claim.",
+      });
+    }
     otStoredValue = timeRange.storedValue;
   }
 

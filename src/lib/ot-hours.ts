@@ -1,3 +1,4 @@
+import { computeHoursFromTimeRange } from "./ot-offset-balance";
 import { parseOtHours } from "./ot-summary";
 
 export type OtHoursFieldParseResult = {
@@ -28,6 +29,38 @@ function parseWholeNumberField(
   }
 
   return { value: Number.parseInt(trimmed, 10), valid: true };
+}
+
+export function parseOtHoursPartsFromTimeRange(
+  timeIn: string,
+  timeOut: string,
+): {
+  hours: string;
+  minutes: string;
+  storedValue: string;
+  valid: boolean;
+  error?: string;
+} {
+  const result = computeHoursFromTimeRange(timeIn, timeOut);
+
+  if (!result.valid || result.empty || result.totalHours <= 0) {
+    return {
+      hours: "",
+      minutes: "",
+      storedValue: "",
+      valid: false,
+      error: result.error ?? "Enter valid From and To times.",
+    };
+  }
+
+  const totalMinutes = Math.round(result.totalHours * 60);
+
+  return {
+    hours: String(Math.floor(totalMinutes / 60)),
+    minutes: String(totalMinutes % 60),
+    storedValue: result.storedValue,
+    valid: true,
+  };
 }
 
 export function splitStoredOtHours(value: string | null | undefined): {

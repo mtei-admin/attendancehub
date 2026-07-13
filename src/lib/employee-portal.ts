@@ -14,6 +14,10 @@ export function employeePortalRequestTypes(employeeType?: string | null): readon
   return REQUEST_TYPES.filter((type) => type !== "OT Offset");
 }
 
+export function isOtOrHolidayWorkRequestType(requestType: string): boolean {
+  return requestType === "Overtime" || requestType === "Holiday/Rest Day Work";
+}
+
 export function showEmployeePortalTimeFields(requestType: string): boolean {
   return requestType !== "";
 }

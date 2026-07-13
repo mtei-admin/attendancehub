@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { submitRequestAction } from "@/actions/requests";
 import {
   employeePortalRequestTypes,
+  isOtOrHolidayWorkRequestType,
   showEmployeePortalTimeFields,
   showOtOffsetCreditCheckbox,
 } from "@/lib/employee-portal";
@@ -13,6 +14,7 @@ import { employeeLookupKey } from "@/lib/roster";
 
 import { FormField, inputClassName } from "./form-field";
 import { OtHoursFields } from "./ot-hours-fields";
+import { useOtHoursFromTimeRange } from "./use-ot-hours-from-time-range";
 
 type EmployeeFormProps = {
   companies: string[];
@@ -33,6 +35,8 @@ export function EmployeeForm({
   const [department, setDepartment] = useState("");
   const [employeeName, setEmployeeName] = useState("");
   const [requestType, setRequestType] = useState("");
+  const [timeIn, setTimeIn] = useState("");
+  const [timeOut, setTimeOut] = useState("");
 
   const departments = useMemo(() => {
     if (!company) return [];
@@ -61,9 +65,9 @@ export function EmployeeForm({
   }, [availableRequestTypes, requestType]);
 
   const showTimeFields = showEmployeePortalTimeFields(requestType);
-  const isOtOrHolidayWork =
-    requestType === "Overtime" || requestType === "Holiday/Rest Day Work";
+  const isOtOrHolidayWork = isOtOrHolidayWorkRequestType(requestType);
   const showOtOffsetCheckbox = showOtOffsetCreditCheckbox(employeeType, requestType);
+  const otHoursFromTime = useOtHoursFromTimeRange(timeIn, timeOut, isOtOrHolidayWork);
 
   return (
     <form
@@ -175,11 +179,25 @@ export function EmployeeForm({
         {showTimeFields && (
           <>
             <FormField label="From">
-              <input type="time" name="time_in" required className={inputClassName} />
+              <input
+                type="time"
+                name="time_in"
+                required
+                value={timeIn}
+                onChange={(event) => setTimeIn(event.target.value)}
+                className={inputClassName}
+              />
             </FormField>
 
             <FormField label="To">
-              <input type="time" name="time_out" required className={inputClassName} />
+              <input
+                type="time"
+                name="time_out"
+                required
+                value={timeOut}
+                onChange={(event) => setTimeOut(event.target.value)}
+                className={inputClassName}
+              />
             </FormField>
           </>
         )}
@@ -198,11 +216,20 @@ export function EmployeeForm({
         )}
 
         {isOtOrHolidayWork && (
-          <OtHoursFields
-            hoursName="ot_hours"
-            minutesName="ot_minutes"
-            className="md:col-span-2"
-          />
+          <>
+            <OtHoursFields
+              hoursName="ot_hours"
+              minutesName="ot_minutes"
+              hoursValue={otHoursFromTime.hours}
+              minutesValue={otHoursFromTime.minutes}
+              readOnly
+              required
+              className="md:col-span-2"
+            />
+            {otHoursFromTime.error && (
+              <p className="md:col-span-2 text-sm text-red-600">{otHoursFromTime.error}</p>
+            )}
+          </>
         )}
 
         <FormField label="Reason / remarks" className="md:col-span-2">

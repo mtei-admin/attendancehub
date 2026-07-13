@@ -4,8 +4,11 @@ import { useState } from "react";
 
 import { submitManagerSlipAction } from "@/actions/manager";
 import { REQUEST_TYPES } from "@/lib/constants";
+import { isOtOrHolidayWorkRequestType } from "@/lib/employee-portal";
 
 import { FormField, inputClassName } from "./form-field";
+import { OtHoursFields } from "./ot-hours-fields";
+import { useOtHoursFromTimeRange } from "./use-ot-hours-from-time-range";
 
 type ManagerSlipFormProps = {
   company: string;
@@ -19,12 +22,14 @@ function todayIso() {
 
 export function ManagerSlipForm({ company, department, employeeName }: ManagerSlipFormProps) {
   const [requestType, setRequestType] = useState("");
+  const [timeIn, setTimeIn] = useState("");
+  const [timeOut, setTimeOut] = useState("");
 
   const isSimpleLayout =
     requestType === "Absent/Leave" || requestType === "OT Offset";
-  const isOtOrHolidayWork =
-    requestType === "Overtime" || requestType === "Holiday/Rest Day Work";
+  const isOtOrHolidayWork = isOtOrHolidayWorkRequestType(requestType);
   const showTimeFields = !isSimpleLayout;
+  const otHoursFromTime = useOtHoursFromTimeRange(timeIn, timeOut, isOtOrHolidayWork);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:px-6">
@@ -84,11 +89,25 @@ export function ManagerSlipForm({ company, department, employeeName }: ManagerSl
             {showTimeFields && (
               <>
                 <FormField label="Actual time in">
-                  <input type="time" name="time_in" className={inputClassName} />
+                  <input
+                    type="time"
+                    name="time_in"
+                    required={isOtOrHolidayWork}
+                    value={timeIn}
+                    onChange={(event) => setTimeIn(event.target.value)}
+                    className={inputClassName}
+                  />
                 </FormField>
 
                 <FormField label="Actual time out">
-                  <input type="time" name="time_out" className={inputClassName} />
+                  <input
+                    type="time"
+                    name="time_out"
+                    required={isOtOrHolidayWork}
+                    value={timeOut}
+                    onChange={(event) => setTimeOut(event.target.value)}
+                    className={inputClassName}
+                  />
                 </FormField>
               </>
             )}
@@ -106,14 +125,20 @@ export function ManagerSlipForm({ company, department, employeeName }: ManagerSl
                   </label>
                 </div>
 
-                <FormField label="Hours to claim" className="md:col-span-2">
-                  <input
-                    type="text"
-                    name="ot_hrs"
-                    placeholder="e.g. 2"
-                    className={inputClassName}
-                  />
-                </FormField>
+                <OtHoursFields
+                  hoursName="ot_hours"
+                  minutesName="ot_minutes"
+                  hoursValue={otHoursFromTime.hours}
+                  minutesValue={otHoursFromTime.minutes}
+                  onHoursChange={otHoursFromTime.setHours}
+                  onMinutesChange={otHoursFromTime.setMinutes}
+                  required
+                  helperText="Auto-calculated from Actual time in/out — you may adjust if needed."
+                  className="md:col-span-2"
+                />
+                {otHoursFromTime.error && (
+                  <p className="md:col-span-2 text-sm text-red-600">{otHoursFromTime.error}</p>
+                )}
               </>
             )}
 

@@ -6,6 +6,8 @@ import { redirect } from "next/navigation";
 import { isNextNavigationError } from "@/lib/action-auth";
 import { getSession } from "@/lib/auth";
 import { ROLE_ROUTES } from "@/lib/constants";
+import { isOtOrHolidayWorkRequestType } from "@/lib/employee-portal";
+import { readOtHoursFromFormData } from "@/lib/ot-hours";
 import { addManagerOwnRequest } from "@/lib/requests";
 import { getEmployeeByPlacement } from "@/lib/roster";
 
@@ -37,7 +39,6 @@ export async function submitManagerSlipAction(formData: FormData) {
   const dateOfIncident = String(formData.get("date_of_incident") ?? "").trim();
   const timeIn = String(formData.get("time_in") ?? "").trim();
   const timeOut = String(formData.get("time_out") ?? "").trim();
-  const otHrs = String(formData.get("ot_hrs") ?? "").trim();
   const fileAsOtOffset = formData.get("file_as_ot_offset") === "on";
   let reason = String(formData.get("reason") ?? "").trim();
 
@@ -63,6 +64,24 @@ export async function submitManagerSlipAction(formData: FormData) {
     });
   }
 
+  let otStoredValue: string | null = null;
+
+  if (isOtOrHolidayWorkRequestType(requestType)) {
+    if (!timeIn || !timeOut) {
+      managerRedirect({
+        error: "Actual time in and out are required for Overtime and Holiday/Rest Day Work.",
+      });
+    }
+
+    const otHours = readOtHoursFromFormData(formData, "ot_hours", "ot_minutes", {
+      required: true,
+    });
+    if (!otHours.valid) {
+      managerRedirect({ error: otHours.error ?? "Invalid hours to claim." });
+    }
+    otStoredValue = otHours.storedValue;
+  }
+
   if (fileAsOtOffset) {
     reason = `[OT offset credit] ${reason}`;
   }
@@ -79,7 +98,7 @@ export async function submitManagerSlipAction(formData: FormData) {
       reason,
       timeIn: timeIn || null,
       timeOut: timeOut || null,
-      otHrs: otHrs || null,
+      otHrs: otStoredValue,
     });
 
     revalidateRolePaths();

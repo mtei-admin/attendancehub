@@ -1,8 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import type { CutoffPeriod } from "@/lib/cutoff";
+import {
+  getCurrentCutoffPeriod,
+  listCutoffPeriods,
+  type CutoffPeriod,
+} from "@/lib/cutoff";
 import type { OtExportBasis, OtSummaryReport } from "@/lib/ot-summary";
 import type { EmployeesByCompanyDepartment } from "@/lib/roster";
 import type { PayrollCutoffRule } from "@/lib/schema";
@@ -37,6 +41,33 @@ type OtSummaryPanelProps = {
   restrictRfToCheckedBasis?: boolean;
 };
 
+function periodsForPayrollGroup(
+  cutoffRules: PayrollCutoffRule[],
+  payrollGroup: string,
+): CutoffPeriod[] {
+  const rule = cutoffRules.find((item) => item.employeeType === payrollGroup);
+  return rule ? listCutoffPeriods(rule) : [];
+}
+
+function defaultPeriodIdForGroup(
+  cutoffRules: PayrollCutoffRule[],
+  payrollGroup: string,
+  preferredPeriodId?: string,
+): string {
+  const periods = periodsForPayrollGroup(cutoffRules, payrollGroup);
+  if (preferredPeriodId && periods.some((period) => period.id === preferredPeriodId)) {
+    return preferredPeriodId;
+  }
+
+  const rule = cutoffRules.find((item) => item.employeeType === payrollGroup);
+  if (rule) {
+    const current = getCurrentCutoffPeriod(rule);
+    if (current) return current.id;
+  }
+
+  return periods[0]?.id ?? "";
+}
+
 function buildExportUrl(filters: OtSummaryPanelProps["filters"]): string {
   const params = new URLSearchParams();
   params.set("payroll_group", filters.payrollGroup);
@@ -59,7 +90,7 @@ function buildExportUrl(filters: OtSummaryPanelProps["filters"]): string {
 export function OtSummaryPanel({
   payrollGroups,
   cutoffRules,
-  periodOptions,
+  periodOptions: _serverPeriodOptions,
   companies,
   employeesByCompanyDepartment,
   report,
@@ -71,10 +102,26 @@ export function OtSummaryPanel({
   eligibleTypes,
   restrictRfToCheckedBasis = false,
 }: OtSummaryPanelProps) {
+  const [payrollGroup, setPayrollGroup] = useState(filters.payrollGroup);
+  const [periodId, setPeriodId] = useState(() =>
+    defaultPeriodIdForGroup(cutoffRules, filters.payrollGroup, filters.periodId),
+  );
   const [company, setCompany] = useState(filters.company);
   const [department, setDepartment] = useState(filters.department);
   const [useCustomRange, setUseCustomRange] = useState(filters.useCustomRange);
   const [overrideOpen, setOverrideOpen] = useState(false);
+
+  const periodOptions = useMemo(
+    () => periodsForPayrollGroup(cutoffRules, payrollGroup),
+    [cutoffRules, payrollGroup],
+  );
+
+  useEffect(() => {
+    setPayrollGroup(filters.payrollGroup);
+    setPeriodId(
+      defaultPeriodIdForGroup(cutoffRules, filters.payrollGroup, filters.periodId),
+    );
+  }, [filters.payrollGroup, filters.periodId, cutoffRules]);
 
   const departments = useMemo(() => {
     if (!company) return [];
@@ -86,14 +133,20 @@ export function OtSummaryPanel({
     return employeesByCompanyDepartment[company]?.[department] ?? [];
   }, [company, department, employeesByCompanyDepartment]);
 
-  const exportUrl = buildExportUrl({ ...filters, company, department, useCustomRange });
+  const exportUrl = buildExportUrl({
+    ...filters,
+    payrollGroup,
+    periodId,
+    company,
+    department,
+    useCustomRange,
+  });
   const canExport = Boolean(
-    filters.payrollGroup &&
-      (useCustomRange ? filters.startDate && filters.endDate : filters.periodId),
+    payrollGroup && (useCustomRange ? filters.startDate && filters.endDate : periodId),
   );
 
   const canManualOverride = Boolean(
-    filters.payrollGroup === "Confi" &&
+    payrollGroup === "Confi" &&
       filters.exportBasis === "checked" &&
       company &&
       department &&
@@ -116,7 +169,7 @@ export function OtSummaryPanel({
     return overrideRow?.otHrs ?? 0;
   }, [report, filters.employeeName]);
 
-  const lockRfBasis = restrictRfToCheckedBasis && filters.payrollGroup === "Rank & File";
+  const lockRfBasis = restrictRfToCheckedBasis && payrollGroup === "Rank & File";
 
   return (
     <div className="space-y-6">
@@ -145,7 +198,12 @@ export function OtSummaryPanel({
               <select
                 name="ot_group"
                 required
-                defaultValue={filters.payrollGroup}
+                value={payrollGroup}
+                onChange={(event) => {
+                  const nextGroup = event.target.value;
+                  setPayrollGroup(nextGroup);
+                  setPeriodId(defaultPeriodIdForGroup(cutoffRules, nextGroup));
+                }}
                 className={inputClassName}
               >
                 {payrollGroups.map((group) => (
@@ -184,7 +242,8 @@ export function OtSummaryPanel({
             <FormField label="Cutoff period">
               <select
                 name="ot_period"
-                defaultValue={filters.periodId}
+                value={periodId}
+                onChange={(event) => setPeriodId(event.target.value)}
                 className={inputClassName}
               >
                 <option value="">— Select period —</option>
@@ -325,9 +384,9 @@ export function OtSummaryPanel({
         slipHoursTotal={slipHoursTotal}
         existingOverrideHours={existingOverrideHours}
         contextFields={{
-          payrollGroup: filters.payrollGroup,
+          payrollGroup,
           exportBasis: filters.exportBasis,
-          periodId: filters.periodId,
+          periodId,
           startDate: filters.startDate,
           endDate: filters.endDate,
           useCustomRange,

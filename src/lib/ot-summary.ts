@@ -2,7 +2,7 @@ import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
 
 import { getDb } from "./db";
 import { getActiveOtEligibleTypes } from "./ot-settings";
-import { listOtManualOverrides, listOtManualOverridesLifetime, parseStoredOtOverrideHours } from "./ot-overrides";
+import { listOtManualOverrides, parseStoredOtOverrideHours } from "./ot-overrides";
 import { resolveEmployeeTypeForHr } from "./hr-portal-access";
 import { requestEmployeeKey } from "./roster";
 import { attendanceRequests, type AttendanceRequest } from "./schema";
@@ -55,11 +55,6 @@ export type BuildOtSummaryParams = {
   employeeTypeLookup: Record<string, string>;
   hrScope?: string | null;
 };
-
-export type BuildOtLifetimeHoursParams = Omit<
-  BuildOtSummaryParams,
-  "startDate" | "endDate" | "exportBasis"
->;
 
 export function parseOtHours(value: string | null): { hours: number; valid: boolean } {
   if (!value?.trim()) {
@@ -264,58 +259,6 @@ export async function buildOtSummaryReport(params: BuildOtSummaryParams): Promis
     grandTotalRequests: mergedDetails.length,
     invalidOtWarnings,
   };
-}
-
-/** HR-checked OT hours across all periods for the selected filters (ignores cutoff dates). */
-export async function buildOtLifetimeHoursTotal(
-  params: BuildOtLifetimeHoursParams,
-): Promise<number> {
-  const eligibleTypes = await getActiveOtEligibleTypes();
-  if (eligibleTypes.length === 0) {
-    return 0;
-  }
-
-  const db = getDb();
-  const rows = await db
-    .select()
-    .from(attendanceRequests)
-    .where(
-      and(
-        eq(attendanceRequests.status, "Approved"),
-        eq(attendanceRequests.archived, true),
-        inArray(attendanceRequests.requestType, eligibleTypes),
-      ),
-    );
-
-  const filtered = rows.filter((request) => {
-    if (!matchesHrScope(request, params.employeeTypeLookup, params.hrScope)) return false;
-    if (!matchesPayrollGroup(request, params.payrollGroup, params.employeeTypeLookup)) return false;
-    if (params.company && request.company !== params.company) return false;
-    if (params.department && request.department !== params.department) return false;
-    if (params.employeeName && request.employeeName !== params.employeeName) return false;
-    return true;
-  });
-
-  let totalHours = filtered.reduce((sum, request) => {
-    const parsed = parseOtHours(request.otHrs);
-    return sum + (parsed.valid ? parsed.hours : 0);
-  }, 0);
-
-  if (params.payrollGroup === "Confi") {
-    const overrides = await listOtManualOverridesLifetime({
-      payrollGroup: "Confi",
-      company: params.company,
-      department: params.department,
-      employeeName: params.employeeName,
-    });
-
-    totalHours += overrides.reduce(
-      (sum, override) => sum + parseStoredOtOverrideHours(override.hours),
-      0,
-    );
-  }
-
-  return totalHours;
 }
 
 function csvCell(value: string | number): string {

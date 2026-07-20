@@ -36,11 +36,16 @@ import type { AttendanceRequest } from "@/lib/schema";
 import { requestEmployeeKey } from "@/lib/roster";
 import {
   allowedPayrollGroups,
+  getActiveOtEligibleTypes,
   getPayrollCutoffRule,
   listOtEligibleTypes,
   listPayrollCutoffRules,
 } from "@/lib/ot-settings";
-import { buildOtSummaryReport, buildOtLifetimeHoursTotal, type OtExportBasis } from "@/lib/ot-summary";
+import { buildOtSummaryReport, type OtExportBasis } from "@/lib/ot-summary";
+import {
+  computeAvailableOtOffsetBalance,
+  listOtOffsetBalancesByPayrollGroup,
+} from "@/lib/ot-offset-balance";
 import { listRecordRequestLogs } from "@/lib/record-requests";
 import {
   getAllApprovedRequests,
@@ -73,6 +78,8 @@ type HrPageProps = {
     ot_company?: string;
     ot_department?: string;
     ot_employee?: string;
+    ot_view?: string;
+    ot_show_all?: string;
     edit_ref?: string;
   }>;
 };
@@ -285,31 +292,54 @@ export default async function HrPage({ searchParams }: HrPageProps) {
     otResolvedStart <= otResolvedEnd &&
     (otUseCustomRange ? Boolean(otStartDate && otEndDate) : Boolean(otPeriodId));
 
+  const otView =
+    activeTab === "ot-summary" && params.ot_view === "detail" ? "detail" : "list";
+  const otShowAll = params.ot_show_all === "1";
+  const otDetailCompany = params.ot_company?.trim() ?? "";
+  const otDetailDepartment = params.ot_department?.trim() ?? "";
+  const otDetailEmployee = params.ot_employee?.trim() ?? "";
+
+  const otEligibleTypesForBalance =
+    activeTab === "ot-summary" ? await getActiveOtEligibleTypes() : [];
+
+  const otBalanceRows =
+    activeTab === "ot-summary"
+      ? await listOtOffsetBalancesByPayrollGroup({
+          payrollGroup: otPayrollGroup,
+          roster,
+          otEligibleTypes: otEligibleTypesForBalance,
+        })
+      : [];
+
   const otReport =
-    activeTab === "ot-summary" && otHasPeriod
+    activeTab === "ot-summary" && otView === "detail" && otHasPeriod
       ? await buildOtSummaryReport({
           startDate: otResolvedStart,
           endDate: otResolvedEnd,
           exportBasis: otExportBasis,
           payrollGroup: otPayrollGroup,
-          company: params.ot_company?.trim() || undefined,
-          department: params.ot_department?.trim() || undefined,
-          employeeName: params.ot_employee?.trim() || undefined,
+          company: otDetailCompany || undefined,
+          department: otDetailDepartment || undefined,
+          employeeName: otDetailEmployee || undefined,
           employeeTypeLookup,
           hrScope: resolveOtSummaryHrScope(session, otPayrollGroup),
         })
       : null;
 
-  const otLifetimeHoursTotal =
-    activeTab === "ot-summary" && otHasPeriod
-      ? await buildOtLifetimeHoursTotal({
-          payrollGroup: otPayrollGroup,
-          company: params.ot_company?.trim() || undefined,
-          department: params.ot_department?.trim() || undefined,
-          employeeName: params.ot_employee?.trim() || undefined,
-          employeeTypeLookup,
-          hrScope: resolveOtSummaryHrScope(session, otPayrollGroup),
-        })
+  const otAvailableOffsetBalance =
+    activeTab === "ot-summary" &&
+    otView === "detail" &&
+    otDetailCompany &&
+    otDetailDepartment &&
+    otDetailEmployee
+      ? await computeAvailableOtOffsetBalance(
+          {
+            company: otDetailCompany,
+            department: otDetailDepartment,
+            employeeName: otDetailEmployee,
+          },
+          otEligibleTypesForBalance,
+        )
       : null;
 
   return (
@@ -534,8 +564,11 @@ export default async function HrPage({ searchParams }: HrPageProps) {
             periodOptions={otPeriodOptions}
             companies={companyNames}
             employeesByCompanyDepartment={employeesByCompanyDepartment}
+            balanceRows={otBalanceRows}
             report={otReport}
-            lifetimeHoursTotal={otLifetimeHoursTotal}
+            availableOtOffsetBalance={otAvailableOffsetBalance}
+            view={otView}
+            showAll={otShowAll}
             filters={{
               payrollGroup: otPayrollGroup,
               periodId: otPeriodId,
@@ -543,9 +576,9 @@ export default async function HrPage({ searchParams }: HrPageProps) {
               endDate: otEndDate,
               useCustomRange: otUseCustomRange,
               exportBasis: otExportBasis,
-              company: params.ot_company?.trim() ?? "",
-              department: params.ot_department?.trim() ?? "",
-              employeeName: params.ot_employee?.trim() ?? "",
+              company: otDetailCompany,
+              department: otDetailDepartment,
+              employeeName: otDetailEmployee,
             }}
             showSettings={params.settings === "1"}
             saveCutoffRulesAction={savePayrollCutoffRulesAction}

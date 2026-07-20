@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 import { getDb } from "./db";
 import { parseOtHours } from "./ot-summary";
@@ -207,6 +207,86 @@ export async function computeAvailableOtOffsetBalance(
 ): Promise<number> {
   const records = await listEmployeeCheckedRequests(placement);
   return computeAvailableOtOffsetBalanceFromRecords(records, otEligibleTypes);
+}
+
+export type OtOffsetBalanceListRow = EmployeePlacement & {
+  availableBalance: number;
+};
+
+/** Roster employees in a payroll group with Available OT Offset Balance (credits − OT Offset usage). */
+export async function listOtOffsetBalancesByPayrollGroup(input: {
+  payrollGroup: string;
+  roster: Array<{
+    companyName: string;
+    departmentName: string;
+    fullName: string;
+    employeeType: string;
+  }>;
+  otEligibleTypes: readonly string[];
+}): Promise<OtOffsetBalanceListRow[]> {
+  const employees = input.roster.filter(
+    (employee) => employee.employeeType === input.payrollGroup,
+  );
+
+  if (employees.length === 0) {
+    return [];
+  }
+
+  const typesNeeded = [
+    ...new Set([...input.otEligibleTypes, OT_OFFSET_REQUEST_TYPE]),
+  ];
+
+  const db = getDb();
+  const checkedRows =
+    typesNeeded.length === 0
+      ? []
+      : await db
+          .select()
+          .from(attendanceRequests)
+          .where(
+            and(
+              eq(attendanceRequests.status, "Approved"),
+              eq(attendanceRequests.archived, true),
+              inArray(attendanceRequests.requestType, typesNeeded),
+            ),
+          );
+
+  const recordsByEmployee = new Map<string, AttendanceRequest[]>();
+  for (const request of checkedRows) {
+    const key = employeePlacementKey(resolveEmployeePlacement(request));
+    const existing = recordsByEmployee.get(key);
+    if (existing) {
+      existing.push(request);
+    } else {
+      recordsByEmployee.set(key, [request]);
+    }
+  }
+
+  const rows: OtOffsetBalanceListRow[] = employees.map((employee) => {
+    const placement: EmployeePlacement = {
+      company: employee.companyName,
+      department: employee.departmentName,
+      employeeName: employee.fullName,
+    };
+    const records = recordsByEmployee.get(employeePlacementKey(placement)) ?? [];
+    return {
+      ...placement,
+      availableBalance: computeAvailableOtOffsetBalanceFromRecords(
+        records,
+        input.otEligibleTypes,
+      ),
+    };
+  });
+
+  rows.sort(
+    (left, right) =>
+      right.availableBalance - left.availableBalance ||
+      left.employeeName.localeCompare(right.employeeName) ||
+      left.company.localeCompare(right.company) ||
+      left.department.localeCompare(right.department),
+  );
+
+  return rows;
 }
 
 export async function listCheckedRequestsForPlacements(

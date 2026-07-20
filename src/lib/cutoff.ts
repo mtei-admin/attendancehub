@@ -125,6 +125,16 @@ export function getCurrentCutoffPeriod(
   return findCutoffPeriodForDate(rule, iso);
 }
 
+/** Most recent cutoff period whose end date is strictly before today (fully closed). */
+export function getLastClosedCutoffPeriod(
+  rule: PayrollCutoffRule,
+  refDate: Date = new Date(),
+): CutoffPeriod | null {
+  const todayIso = refDate.toISOString().slice(0, 10);
+  const periods = listCutoffPeriods(rule, { around: refDate, count: 16 });
+  return periods.find((period) => period.endDate < todayIso) ?? null;
+}
+
 export function findCutoffPeriodForDate(
   rule: PayrollCutoffRule,
   dateIso: string,

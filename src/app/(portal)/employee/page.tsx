@@ -7,7 +7,9 @@ import { isSmtpConfigured } from "@/lib/mail";
 import { queryEmployeeRecords, type RecordRequestFilters } from "@/lib/record-requests";
 import { parseViewedAt } from "@/lib/records-view-session";
 import { computeAvailableOtOffsetBalance } from "@/lib/ot-offset-balance";
-import { getActiveOtEligibleTypes } from "@/lib/ot-settings";
+import { computeOtClaimedHoursForPlacement } from "@/lib/ot-claimed";
+import { getLastClosedCutoffPeriod } from "@/lib/cutoff";
+import { getActiveOtEligibleTypes, getPayrollCutoffRule } from "@/lib/ot-settings";
 import {
   buildEmployeeEmailLookup,
   buildEmployeeTypeLookup,
@@ -109,6 +111,28 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
         )
       : null;
 
+  let otClaimedThisCutoff: number | null = null;
+  let otClaimedCutoffLabel: string | null = null;
+  if (selectedEmployee?.employeeType === "Rank & File" && activeRecordView) {
+    const rfCutoffRule = await getPayrollCutoffRule("Rank & File");
+    const lastClosed = rfCutoffRule ? getLastClosedCutoffPeriod(rfCutoffRule) : null;
+    if (lastClosed) {
+      otClaimedCutoffLabel = lastClosed.label;
+      otClaimedThisCutoff = await computeOtClaimedHoursForPlacement(
+        {
+          company: activeRecordView.filters.company,
+          department: activeRecordView.filters.department,
+          employeeName: activeRecordView.filters.employeeName,
+        },
+        lastClosed.startDate,
+        lastClosed.endDate,
+        otEligibleTypes,
+      );
+    } else {
+      otClaimedThisCutoff = 0;
+    }
+  }
+
   const employeesByCompanyDepartment = buildEmployeesByCompanyDepartment(roster);
   const employeeTypeLookup = buildEmployeeTypeLookup(roster);
   const employeeEmails = buildEmployeeEmailLookup(roster);
@@ -137,6 +161,8 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
             editRefId={params.edit?.trim()}
             employeeType={selectedEmployee?.employeeType}
             availableOtOffsetBalance={availableOtOffsetBalance}
+            otClaimedThisCutoff={otClaimedThisCutoff}
+            otClaimedCutoffLabel={otClaimedCutoffLabel}
           />
         )}
       </div>

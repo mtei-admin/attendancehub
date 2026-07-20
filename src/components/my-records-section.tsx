@@ -23,6 +23,8 @@ type MyRecordsSectionProps = {
   editRefId?: string;
   employeeType?: string;
   availableOtOffsetBalance?: number | null;
+  otClaimedThisCutoff?: number | null;
+  otClaimedCutoffLabel?: string | null;
 };
 
 function defaultFromDate() {
@@ -90,6 +92,8 @@ export function MyRecordsSection({
   editRefId,
   employeeType,
   availableOtOffsetBalance,
+  otClaimedThisCutoff,
+  otClaimedCutoffLabel,
 }: MyRecordsSectionProps) {
   const activeFilters = activeRecordView?.filters;
   const [company, setCompany] = useState(activeFilters?.company ?? "");
@@ -301,6 +305,8 @@ export function MyRecordsSection({
             exportUrl={buildExportUrl(activeRecordView.filters)}
             employeeType={employeeType}
             availableOtOffsetBalance={availableOtOffsetBalance}
+            otClaimedThisCutoff={otClaimedThisCutoff}
+            otClaimedCutoffLabel={otClaimedCutoffLabel}
           />
         </RecordsViewSession>
       )}

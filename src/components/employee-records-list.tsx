@@ -15,6 +15,8 @@ type EmployeeRecordsListProps = {
   exportUrl: string;
   employeeType?: string;
   availableOtOffsetBalance?: number | null;
+  otClaimedThisCutoff?: number | null;
+  otClaimedCutoffLabel?: string | null;
 };
 
 function formatSubmittedAt(value: Date | null): string {
@@ -39,12 +41,15 @@ export function EmployeeRecordsList({
   exportUrl,
   employeeType,
   availableOtOffsetBalance,
+  otClaimedThisCutoff,
+  otClaimedCutoffLabel,
 }: EmployeeRecordsListProps) {
   const editingRequest = editRefId
     ? records.find((row) => row.refId === editRefId && canEmployeeEditRecord(row))
     : undefined;
 
   const isConfi = employeeType === "Confi";
+  const isRankAndFile = employeeType === "Rank & File";
 
   return (
     <section className="space-y-4 border-t border-slate-100 pt-6">
@@ -74,6 +79,21 @@ export function EmployeeRecordsList({
           </p>
           <p className="mt-1 text-xs text-slate-500">
             Lifetime balance from HR-checked OT credits minus HR-checked OT Offset usage.
+          </p>
+        </div>
+      )}
+
+      {isRankAndFile && otClaimedThisCutoff !== null && otClaimedThisCutoff !== undefined && (
+        <div className="rounded-xl border border-brand-100 bg-brand-50/60 px-4 py-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">
+            OT Claimed This Cutoff
+          </p>
+          <p className="mt-1 text-2xl font-semibold text-slate-900">
+            {otClaimedThisCutoff.toFixed(2)}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            HR-checked Overtime and Holiday/Rest Day Work for the last closed cutoff
+            {otClaimedCutoffLabel ? ` (${otClaimedCutoffLabel})` : ""}.
           </p>
         </div>
       )}

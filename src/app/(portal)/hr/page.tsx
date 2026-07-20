@@ -19,7 +19,7 @@ import { RosterPanel } from "@/components/roster-panel";
 import { getSession } from "@/lib/auth";
 import { listCompanies } from "@/lib/companies";
 import { HrTabs, type HrTab } from "@/components/hr-tabs";
-import { getCurrentCutoffPeriod, listCutoffPeriods, parseCutoffPeriodId } from "@/lib/cutoff";
+import { getCurrentCutoffPeriod, getLastClosedCutoffPeriod, listCutoffPeriods, parseCutoffPeriodId } from "@/lib/cutoff";
 import { listDepartments } from "@/lib/departments";
 import {
   canAccessHrPortal,
@@ -34,6 +34,10 @@ import {
 } from "@/lib/hr-portal-access";
 import type { AttendanceRequest } from "@/lib/schema";
 import { requestEmployeeKey } from "@/lib/roster";
+import {
+  computeOtClaimedHoursForPlacement,
+  listOtClaimedHoursByPayrollGroup,
+} from "@/lib/ot-claimed";
 import {
   allowedPayrollGroups,
   getActiveOtEligibleTypes,
@@ -302,14 +306,59 @@ export default async function HrPage({ searchParams }: HrPageProps) {
   const otEligibleTypesForBalance =
     activeTab === "ot-summary" ? await getActiveOtEligibleTypes() : [];
 
-  const otBalanceRows =
-    activeTab === "ot-summary"
-      ? await listOtOffsetBalancesByPayrollGroup({
-          payrollGroup: otPayrollGroup,
-          roster,
-          otEligibleTypes: otEligibleTypesForBalance,
-        })
-      : [];
+  const otIsRf = otPayrollGroup === "Rank & File";
+  const otLastClosedPeriod =
+    activeTab === "ot-summary" && otCutoffRule
+      ? getLastClosedCutoffPeriod(otCutoffRule)
+      : null;
+
+  let otListRows: { company: string; department: string; employeeName: string; metricValue: number }[] =
+    [];
+  let otListMetric: "offset_balance" | "latest_claimed" = "offset_balance";
+  let otListPeriodLabel: string | null = null;
+
+  if (activeTab === "ot-summary") {
+    if (otIsRf && otLastClosedPeriod) {
+      const claimedRows = await listOtClaimedHoursByPayrollGroup({
+        payrollGroup: otPayrollGroup,
+        roster,
+        otEligibleTypes: otEligibleTypesForBalance,
+        startDate: otLastClosedPeriod.startDate,
+        endDate: otLastClosedPeriod.endDate,
+      });
+      otListRows = claimedRows.map((row) => ({
+        company: row.company,
+        department: row.department,
+        employeeName: row.employeeName,
+        metricValue: row.claimedHours,
+      }));
+      otListMetric = "latest_claimed";
+      otListPeriodLabel = otLastClosedPeriod.label;
+    } else if (otIsRf) {
+      otListMetric = "latest_claimed";
+      otListRows = roster
+        .filter((employee) => employee.employeeType === otPayrollGroup)
+        .map((employee) => ({
+          company: employee.companyName,
+          department: employee.departmentName,
+          employeeName: employee.fullName,
+          metricValue: 0,
+        }));
+    } else {
+      const balanceRows = await listOtOffsetBalancesByPayrollGroup({
+        payrollGroup: otPayrollGroup,
+        roster,
+        otEligibleTypes: otEligibleTypesForBalance,
+      });
+      otListRows = balanceRows.map((row) => ({
+        company: row.company,
+        department: row.department,
+        employeeName: row.employeeName,
+        metricValue: row.availableBalance,
+      }));
+      otListMetric = "offset_balance";
+    }
+  }
 
   const otReport =
     activeTab === "ot-summary" && otView === "detail" && otHasPeriod
@@ -329,6 +378,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
   const otAvailableOffsetBalance =
     activeTab === "ot-summary" &&
     otView === "detail" &&
+    !otIsRf &&
     otDetailCompany &&
     otDetailDepartment &&
     otDetailEmployee
@@ -338,6 +388,26 @@ export default async function HrPage({ searchParams }: HrPageProps) {
             department: otDetailDepartment,
             employeeName: otDetailEmployee,
           },
+          otEligibleTypesForBalance,
+        )
+      : null;
+
+  const otRfClaimedHours =
+    activeTab === "ot-summary" &&
+    otView === "detail" &&
+    otIsRf &&
+    otHasPeriod &&
+    otDetailCompany &&
+    otDetailDepartment &&
+    otDetailEmployee
+      ? await computeOtClaimedHoursForPlacement(
+          {
+            company: otDetailCompany,
+            department: otDetailDepartment,
+            employeeName: otDetailEmployee,
+          },
+          otResolvedStart,
+          otResolvedEnd,
           otEligibleTypesForBalance,
         )
       : null;
@@ -564,9 +634,13 @@ export default async function HrPage({ searchParams }: HrPageProps) {
             periodOptions={otPeriodOptions}
             companies={companyNames}
             employeesByCompanyDepartment={employeesByCompanyDepartment}
-            balanceRows={otBalanceRows}
+            listRows={otListRows}
+            listMetric={otListMetric}
+            listPeriodLabel={otListPeriodLabel}
+            lastClosedPeriodId={otLastClosedPeriod?.id ?? null}
             report={otReport}
             availableOtOffsetBalance={otAvailableOffsetBalance}
+            rfClaimedHours={otRfClaimedHours}
             view={otView}
             showAll={otShowAll}
             filters={{

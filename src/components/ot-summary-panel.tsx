@@ -4,10 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   getCurrentCutoffPeriod,
+  getLastClosedCutoffPeriod,
   listCutoffPeriods,
   type CutoffPeriod,
 } from "@/lib/cutoff";
-import type { OtOffsetBalanceListRow } from "@/lib/ot-offset-balance";
 import type { OtExportBasis, OtSummaryReport } from "@/lib/ot-summary";
 import type { EmployeesByCompanyDepartment } from "@/lib/roster";
 import type { PayrollCutoffRule } from "@/lib/schema";
@@ -15,6 +15,15 @@ import type { PayrollCutoffRule } from "@/lib/schema";
 import { FormField, inputClassName } from "./form-field";
 import { OtManualOverrideModal } from "./ot-manual-override-modal";
 import { OtSummarySettings } from "./ot-summary-settings";
+
+export type OtSummaryListRow = {
+  company: string;
+  department: string;
+  employeeName: string;
+  metricValue: number;
+};
+
+export type OtSummaryListMetric = "offset_balance" | "latest_claimed";
 
 type OtSummaryFilters = {
   payrollGroup: string;
@@ -34,9 +43,13 @@ type OtSummaryPanelProps = {
   periodOptions: CutoffPeriod[];
   companies: string[];
   employeesByCompanyDepartment: EmployeesByCompanyDepartment;
-  balanceRows: OtOffsetBalanceListRow[];
+  listRows: OtSummaryListRow[];
+  listMetric: OtSummaryListMetric;
+  listPeriodLabel: string | null;
+  lastClosedPeriodId: string | null;
   report: OtSummaryReport | null;
   availableOtOffsetBalance: number | null;
+  rfClaimedHours: number | null;
   view: "list" | "detail";
   showAll: boolean;
   filters: OtSummaryFilters;
@@ -67,6 +80,10 @@ function defaultPeriodIdForGroup(
 
   const rule = cutoffRules.find((item) => item.employeeType === payrollGroup);
   if (rule) {
+    if (payrollGroup === "Rank & File") {
+      const lastClosed = getLastClosedCutoffPeriod(rule);
+      if (lastClosed) return lastClosed.id;
+    }
     const current = getCurrentCutoffPeriod(rule);
     if (current) return current.id;
   }
@@ -130,9 +147,13 @@ export function OtSummaryPanel({
   periodOptions: _serverPeriodOptions,
   companies,
   employeesByCompanyDepartment,
-  balanceRows,
+  listRows,
+  listMetric,
+  listPeriodLabel,
+  lastClosedPeriodId,
   report,
   availableOtOffsetBalance,
+  rfClaimedHours,
   view,
   showAll,
   filters,
@@ -151,6 +172,8 @@ export function OtSummaryPanel({
         employeesByCompanyDepartment={employeesByCompanyDepartment}
         report={report}
         availableOtOffsetBalance={availableOtOffsetBalance}
+        rfClaimedHours={rfClaimedHours}
+        lastClosedPeriodId={lastClosedPeriodId}
         filters={filters}
         showAll={showAll}
         showSettings={showSettings}
@@ -166,7 +189,9 @@ export function OtSummaryPanel({
     <OtSummaryList
       payrollGroups={payrollGroups}
       cutoffRules={cutoffRules}
-      balanceRows={balanceRows}
+      listRows={listRows}
+      listMetric={listMetric}
+      listPeriodLabel={listPeriodLabel}
       filters={filters}
       showAll={showAll}
       showSettings={showSettings}
@@ -181,7 +206,9 @@ export function OtSummaryPanel({
 function OtSummaryList({
   payrollGroups,
   cutoffRules,
-  balanceRows,
+  listRows,
+  listMetric,
+  listPeriodLabel,
   filters,
   showAll,
   showSettings,
@@ -192,7 +219,9 @@ function OtSummaryList({
 }: {
   payrollGroups: string[];
   cutoffRules: PayrollCutoffRule[];
-  balanceRows: OtOffsetBalanceListRow[];
+  listRows: OtSummaryListRow[];
+  listMetric: OtSummaryListMetric;
+  listPeriodLabel: string | null;
   filters: OtSummaryFilters;
   showAll: boolean;
   showSettings: boolean;
@@ -216,11 +245,15 @@ function OtSummaryList({
   const lockRfBasis = restrictRfToCheckedBasis && payrollGroup === "Rank & File";
   const exportBasis: OtExportBasis = lockRfBasis ? "checked" : filters.exportBasis || "checked";
   const defaultPeriodId = defaultPeriodIdForGroup(cutoffRules, payrollGroup);
+  const metricColumnLabel =
+    listMetric === "latest_claimed"
+      ? "Latest Overtime Claimed"
+      : "Available OT Offset Balance";
 
   const visibleRows = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return balanceRows.filter((row) => {
-      if (!showAllLocal && row.availableBalance <= 0) return false;
+    return listRows.filter((row) => {
+      if (!showAllLocal && row.metricValue <= 0) return false;
       if (!query) return true;
       return (
         row.employeeName.toLowerCase().includes(query) ||
@@ -228,15 +261,16 @@ function OtSummaryList({
         row.department.toLowerCase().includes(query)
       );
     });
-  }, [balanceRows, showAllLocal, search]);
+  }, [listRows, showAllLocal, search]);
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold text-slate-900">OT Summary</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Browse Available OT Offset Balance by employee. Open a row for period preview, CSV export,
-          and manual override.
+          {listMetric === "latest_claimed"
+            ? "Browse Latest Overtime Claimed by employee for the last closed Rank & File cutoff. Open a row for period preview and CSV export."
+            : "Browse Available OT Offset Balance by employee. Open a row for period preview, CSV export, and manual override."}
         </p>
       </div>
 
@@ -305,9 +339,12 @@ function OtSummaryList({
         <div className="border-b border-slate-200 px-5 py-4">
           <h3 className="text-lg font-semibold text-slate-900">Employees</h3>
           <p className="mt-1 text-sm text-slate-500">
+            {listMetric === "latest_claimed" && listPeriodLabel
+              ? `Last closed cutoff: ${listPeriodLabel}. `
+              : null}
             {showAllLocal
               ? "All employees in this payroll group."
-              : "Showing Available OT Offset Balance greater than zero."}{" "}
+              : `Showing ${metricColumnLabel} greater than zero.`}{" "}
             {visibleRows.length} row{visibleRows.length === 1 ? "" : "s"}.
           </p>
         </div>
@@ -315,7 +352,7 @@ function OtSummaryList({
           <table className="min-w-full text-sm">
             <thead className="border-b border-slate-200 bg-slate-50">
               <tr>
-                {["Name", "Company", "Department", "Available OT Offset Balance"].map((header) => (
+                {["Name", "Company", "Department", metricColumnLabel].map((header) => (
                   <th
                     key={header}
                     className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400"
@@ -331,12 +368,15 @@ function OtSummaryList({
                   <td colSpan={4} className="px-4 py-8 text-center text-slate-500">
                     {showAllLocal
                       ? "No employees found for this payroll group."
-                      : "No employees with Available OT Offset Balance greater than zero. Turn on Show All to see everyone."}
+                      : `No employees with ${metricColumnLabel} greater than zero. Turn on Show All to see everyone.`}
                   </td>
                 </tr>
               ) : (
                 visibleRows.map((row) => (
-                  <tr key={`${row.company}|${row.department}|${row.employeeName}`} className="hover:bg-slate-50/60">
+                  <tr
+                    key={`${row.company}|${row.department}|${row.employeeName}`}
+                    className="hover:bg-slate-50/60"
+                  >
                     <td className="px-4 py-3">
                       <a
                         href={buildDetailHref({
@@ -356,7 +396,7 @@ function OtSummaryList({
                     <td className="px-4 py-3 text-slate-700">{row.company}</td>
                     <td className="px-4 py-3 text-slate-700">{row.department}</td>
                     <td className="px-4 py-3 font-semibold text-slate-900">
-                      {row.availableBalance.toFixed(2)}
+                      {row.metricValue.toFixed(2)}
                     </td>
                   </tr>
                 ))
@@ -376,6 +416,8 @@ function OtSummaryDetail({
   employeesByCompanyDepartment,
   report,
   availableOtOffsetBalance,
+  rfClaimedHours,
+  lastClosedPeriodId,
   filters,
   showAll,
   showSettings,
@@ -390,6 +432,8 @@ function OtSummaryDetail({
   employeesByCompanyDepartment: EmployeesByCompanyDepartment;
   report: OtSummaryReport | null;
   availableOtOffsetBalance: number | null;
+  rfClaimedHours: number | null;
+  lastClosedPeriodId: string | null;
   filters: OtSummaryFilters;
   showAll: boolean;
   showSettings: boolean;
@@ -481,6 +525,23 @@ function OtSummaryDetail({
 
   const lockRfBasis = restrictRfToCheckedBasis && payrollGroup === "Rank & File";
   const backHref = buildListHref(filters.payrollGroup || payrollGroup, showAll);
+  const isRf = payrollGroup === "Rank & File";
+  const selectedIsLastClosed =
+    Boolean(lastClosedPeriodId) &&
+    !useCustomRange &&
+    periodId === lastClosedPeriodId;
+  const rfHighlightValue = report ? report.grandTotalHours : rfClaimedHours;
+  const highlightTitle = isRf
+    ? selectedIsLastClosed
+      ? "Latest Overtime Claimed"
+      : "Period OT hours"
+    : "Available OT Offset Balance";
+  const highlightSubtitle = isRf
+    ? selectedIsLastClosed
+      ? "HR-checked · last closed cutoff"
+      : "HR-checked · selected period"
+    : "Credits − OT Offset · lifetime";
+  const highlightValue = isRf ? rfHighlightValue : availableOtOffsetBalance;
 
   return (
     <div className="space-y-6">
@@ -747,11 +808,11 @@ function OtSummaryDetail({
             </div>
             <div className="rounded-xl border border-brand-200 bg-brand-50/40 p-4 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-                Available OT Offset Balance
+                {highlightTitle}
               </p>
-              <p className="mt-1 text-xs text-brand-600/80">Credits − OT Offset · lifetime</p>
+              <p className="mt-1 text-xs text-brand-600/80">{highlightSubtitle}</p>
               <p className="mt-1 text-2xl font-semibold text-brand-900">
-                {availableOtOffsetBalance !== null ? availableOtOffsetBalance.toFixed(2) : "—"}
+                {highlightValue !== null ? highlightValue.toFixed(2) : "—"}
               </p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">

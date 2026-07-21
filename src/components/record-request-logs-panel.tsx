@@ -12,6 +12,18 @@ function formatTimestamp(value: Date | null): string {
 /** ~8 body rows visible; scroll for the rest. */
 const SCROLL_VIEWPORT_CLASS = "max-h-[28rem] overflow-auto";
 
+const COLUMNS = [
+  { label: "When", className: "w-[12%]" },
+  { label: "Action", className: "w-[7%]" },
+  { label: "Employee", className: "w-[26%]" },
+  { label: "Email / detail", className: "w-[14%]" },
+  { label: "Submitted range", className: "w-[13%]" },
+  { label: "Type", className: "w-[8%]" },
+  { label: "Status", className: "w-[7%]" },
+  { label: "Rows", className: "w-[4%]" },
+  { label: "IP", className: "w-[9%]" },
+] as const;
+
 export function RecordRequestLogsPanel({ logs }: RecordRequestLogsPanelProps) {
   return (
     <section className="space-y-4">
@@ -25,25 +37,20 @@ export function RecordRequestLogsPanel({ logs }: RecordRequestLogsPanelProps) {
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className={SCROLL_VIEWPORT_CLASS}>
-          <table className="min-w-full text-sm">
+          <table className="w-full table-fixed text-sm">
+            <colgroup>
+              {COLUMNS.map((column) => (
+                <col key={column.label} className={column.className} />
+              ))}
+            </colgroup>
             <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50">
               <tr>
-                {[
-                  "When",
-                  "Action",
-                  "Employee",
-                  "Email / detail",
-                  "Submitted range",
-                  "Type",
-                  "Status",
-                  "Rows",
-                  "IP",
-                ].map((header) => (
+                {COLUMNS.map((column) => (
                   <th
-                    key={header}
-                    className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400"
+                    key={column.label}
+                    className="px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400"
                   >
-                    {header}
+                    {column.label}
                   </th>
                 ))}
               </tr>
@@ -58,32 +65,41 @@ export function RecordRequestLogsPanel({ logs }: RecordRequestLogsPanelProps) {
               ) : (
                 logs.map((log) => (
                   <tr key={log.id} className="hover:bg-slate-50/60">
-                    <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+                    <td className="whitespace-nowrap px-3 py-3 text-slate-700">
                       {formatTimestamp(log.createdAt)}
                     </td>
-                    <td className="px-4 py-3 text-slate-700">
+                    <td className="px-3 py-3 text-slate-700">
                       <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold capitalize text-slate-700">
                         {log.action ?? "email"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-slate-900">
-                      <div className="font-medium">{log.employeeName}</div>
-                      <div className="text-xs text-slate-500">
+                    <td className="px-3 py-3 text-slate-900">
+                      <div className="truncate font-medium" title={log.employeeName}>
+                        {log.employeeName}
+                      </div>
+                      <div
+                        className="truncate text-xs text-slate-500"
+                        title={`${log.company} · ${log.department}`}
+                      >
                         {log.company} · {log.department}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-slate-700">
+                    <td className="truncate px-3 py-3 text-slate-700">
                       {log.action === "edit" && log.recordRefId
                         ? log.recordRefId
                         : log.emailSentTo || "—"}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+                    <td className="whitespace-nowrap px-3 py-3 text-slate-700">
                       {log.submittedFrom} – {log.submittedTo}
                     </td>
-                    <td className="px-4 py-3 text-slate-700">{log.requestTypeFilter ?? "All"}</td>
-                    <td className="px-4 py-3 text-slate-700">{log.statusFilter ?? "All"}</td>
-                    <td className="px-4 py-3 text-slate-700">{log.rowCount}</td>
-                    <td className="px-4 py-3 text-slate-500">{log.ipAddress ?? "—"}</td>
+                    <td className="truncate px-3 py-3 text-slate-700">
+                      {log.requestTypeFilter ?? "All"}
+                    </td>
+                    <td className="truncate px-3 py-3 text-slate-700">
+                      {log.statusFilter ?? "All"}
+                    </td>
+                    <td className="px-3 py-3 text-slate-700">{log.rowCount}</td>
+                    <td className="truncate px-3 py-3 text-slate-500">{log.ipAddress ?? "—"}</td>
                   </tr>
                 ))
               )}

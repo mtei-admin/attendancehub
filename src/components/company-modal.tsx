@@ -51,8 +51,8 @@ export function CompanyModal({
             placeholder="https://3.basecampapi.com/.../lines.json"
           />
           <p className="mt-1.5 text-xs text-slate-500">
-            Optional. Campfire chatbot lines URL for this company. When set, managers get a
-            Basecamp ping when an employee submits a slip.
+            Optional. Fallback Campfire when a department has no URL of its own. Used when an
+            employee submits a slip.
           </p>
         </FormField>
 

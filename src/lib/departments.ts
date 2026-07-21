@@ -39,6 +39,7 @@ export async function getDepartmentByCompanyAndName(
 export async function createDepartment(input: {
   company: string;
   name: string;
+  basecampWebhookUrl?: string | null;
 }): Promise<Department> {
   const db = getDb();
   const [row] = await db
@@ -46,6 +47,9 @@ export async function createDepartment(input: {
     .values({
       company: input.company.trim(),
       name: input.name.trim(),
+      ...(input.basecampWebhookUrl !== undefined
+        ? { basecampWebhookUrl: input.basecampWebhookUrl }
+        : {}),
     })
     .returning();
 
@@ -54,7 +58,12 @@ export async function createDepartment(input: {
 
 export async function updateDepartment(
   id: number,
-  input: { company?: string; name?: string; isActive?: boolean },
+  input: {
+    company?: string;
+    name?: string;
+    isActive?: boolean;
+    basecampWebhookUrl?: string | null;
+  },
 ): Promise<Department | null> {
   const db = getDb();
   const [row] = await db
@@ -63,6 +72,9 @@ export async function updateDepartment(
       ...(input.company !== undefined ? { company: input.company.trim() } : {}),
       ...(input.name !== undefined ? { name: input.name.trim() } : {}),
       ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+      ...(input.basecampWebhookUrl !== undefined
+        ? { basecampWebhookUrl: input.basecampWebhookUrl }
+        : {}),
     })
     .where(eq(departments.id, id))
     .returning();

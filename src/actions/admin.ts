@@ -39,6 +39,9 @@ export async function saveDepartmentAction(formData: FormData) {
   const company = String(formData.get("company") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
   const isActive = formData.get("is_active") === "on";
+  const basecampWebhookUrl = normalizeBasecampWebhookUrl(
+    String(formData.get("basecamp_webhook_url") ?? ""),
+  );
 
   if (!company || !name) {
     adminRedirect({ tab: "departments", error: "Company and department name are required." });
@@ -48,9 +51,21 @@ export async function saveDepartmentAction(formData: FormData) {
     adminRedirect({ tab: "departments", error: "Invalid or inactive company." });
   }
 
+  if (basecampWebhookUrl && !isValidBasecampWebhookUrl(basecampWebhookUrl)) {
+    adminRedirect({
+      tab: "departments",
+      error: "Basecamp chatbot URL must be a valid https:// URL.",
+    });
+  }
+
   try {
     if (id > 0) {
-      const updated = await updateDepartment(id, { company, name, isActive });
+      const updated = await updateDepartment(id, {
+        company,
+        name,
+        isActive,
+        basecampWebhookUrl,
+      });
       if (!updated) {
         adminRedirect({ tab: "departments", error: "Department not found." });
       }
@@ -60,7 +75,7 @@ export async function saveDepartmentAction(formData: FormData) {
       adminRedirect({ tab: "departments", success: `Updated ${company} · ${name}.` });
     }
 
-    await createDepartment({ company, name });
+    await createDepartment({ company, name, basecampWebhookUrl });
     revalidatePath("/admin");
     revalidatePath("/hr");
     revalidatePath("/employee");

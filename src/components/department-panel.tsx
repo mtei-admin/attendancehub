@@ -56,7 +56,7 @@ export function DepartmentPanel({
           <table className="min-w-full text-sm">
             <thead className="border-b border-slate-200 bg-slate-50">
               <tr>
-                {["Company", "Department", "Actions"].map((header) => (
+                {["Company", "Department", "Basecamp", "Actions"].map((header) => (
                   <th
                     key={header}
                     className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400"
@@ -69,7 +69,7 @@ export function DepartmentPanel({
             <tbody className="divide-y divide-slate-100">
               {activeDepartments.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={4} className="px-4 py-8 text-center text-slate-500">
                     No departments yet.
                   </td>
                 </tr>
@@ -78,6 +78,9 @@ export function DepartmentPanel({
                   <tr key={department.id} className="hover:bg-slate-50/60">
                     <td className="px-4 py-3 text-slate-700">{department.company}</td>
                     <td className="px-4 py-3 font-semibold text-slate-900">{department.name}</td>
+                    <td className="px-4 py-3 text-slate-600">
+                      {department.basecampWebhookUrl?.trim() ? "Configured" : "—"}
+                    </td>
                     <td className="px-4 py-3">
                       {deleteAction ? (
                         <AdminTableActions

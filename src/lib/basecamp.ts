@@ -1,4 +1,5 @@
 import { getCompanyByName } from "./companies";
+import { getDepartmentByCompanyAndName } from "./departments";
 
 export type NewSlipNotification = {
   company: string;
@@ -64,25 +65,47 @@ export function isValidBasecampWebhookUrl(url: string): boolean {
 }
 
 /**
+ * Resolve chatbot URL: department first, then company fallback.
+ * Special scoped managers (e.g. Dominic) are not notified separately.
+ */
+async function resolveWebhookUrl(
+  companyName: string,
+  departmentName: string,
+): Promise<{ url: string; source: "department" | "company" } | null> {
+  const department = await getDepartmentByCompanyAndName(companyName, departmentName);
+  const departmentUrl = department?.basecampWebhookUrl?.trim();
+  if (departmentUrl) {
+    return { url: departmentUrl, source: "department" };
+  }
+
+  const company = await getCompanyByName(companyName);
+  const companyUrl = company?.basecampWebhookUrl?.trim();
+  if (companyUrl) {
+    return { url: companyUrl, source: "company" };
+  }
+
+  return null;
+}
+
+/**
  * Posts a Campfire chatbot line for a new employee slip.
  * Soft-fails: missing URL, invalid URL, or network errors never throw to callers.
  */
 export async function notifyManagersOfNewSlip(input: NewSlipNotification): Promise<void> {
   try {
-    const company = await getCompanyByName(input.company);
-    const webhookUrl = company?.basecampWebhookUrl?.trim();
-    if (!webhookUrl) {
+    const resolved = await resolveWebhookUrl(input.company, input.department);
+    if (!resolved) {
       return;
     }
 
-    if (!isValidBasecampWebhookUrl(webhookUrl)) {
+    if (!isValidBasecampWebhookUrl(resolved.url)) {
       console.error(
-        `[basecamp] Invalid webhook URL for company ${input.company}; skipping notification.`,
+        `[basecamp] Invalid webhook URL for ${resolved.source} ${input.company}/${input.department}; skipping notification.`,
       );
       return;
     }
 
-    const response = await fetch(webhookUrl, {
+    const response = await fetch(resolved.url, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({ content: buildSlipMessage(input) }),

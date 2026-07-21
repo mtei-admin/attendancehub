@@ -60,6 +60,19 @@ export function DepartmentModal({
           />
         </FormField>
 
+        <FormField label="Basecamp chatbot URL">
+          <input
+            name="basecamp_webhook_url"
+            type="url"
+            defaultValue={editing?.basecampWebhookUrl ?? ""}
+            className={inputClassName}
+            placeholder="https://3.basecampapi.com/.../lines.json"
+          />
+          <p className="mt-1.5 text-xs text-slate-500">
+            Optional. Preferred Campfire for this department. If empty, the company URL is used.
+          </p>
+        </FormField>
+
         {isEditing && editing && (
           <FormField label="Status">
             <label className="flex items-center gap-2 text-sm text-slate-700">

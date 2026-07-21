@@ -29,6 +29,8 @@ export const departments = pgTable(
     id: serial("id").primaryKey(),
     company: text("company").notNull().default(DEFAULT_COMPANY),
     name: text("name").notNull(),
+    /** Preferred Basecamp Campfire chatbot lines URL (falls back to company URL). */
+    basecampWebhookUrl: text("basecamp_webhook_url"),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

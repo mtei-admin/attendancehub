@@ -21,6 +21,7 @@ const DEPARTMENT_ALTER_STATEMENTS = [
   `ALTER TABLE departments DROP CONSTRAINT IF EXISTS departments_name_key`,
   `DROP INDEX IF EXISTS departments_name_key`,
   `CREATE UNIQUE INDEX IF NOT EXISTS departments_company_name_unique ON departments (company, name)`,
+  `ALTER TABLE departments ADD COLUMN IF NOT EXISTS basecamp_webhook_url text`,
 ];
 
 const BACKFILL_STATEMENTS = [
@@ -49,6 +50,7 @@ CREATE TABLE IF NOT EXISTS departments (
   id serial PRIMARY KEY,
   company text NOT NULL DEFAULT '${DEFAULT_COMPANY}',
   name text NOT NULL,
+  basecamp_webhook_url text,
   is_active boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now()
 );

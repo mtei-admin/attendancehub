@@ -8,6 +8,7 @@ import {
 } from "@/actions/hr";
 import { FlashMessage } from "@/components/flash-message";
 import { CompanyPanel } from "@/components/company-panel";
+import { HrAllRecordsCutoffBar } from "@/components/hr-all-records-cutoff-bar";
 import { HrRecordsList } from "@/components/hr-records-list";
 import { HrSlipEditModal } from "@/components/hr-slip-edit-modal";
 import { PayrollOfficerTabs } from "@/components/payroll-officer-tabs";
@@ -26,6 +27,7 @@ import {
   canHrEditRequest,
   filterPayrollOfficerConfiRequests,
   filterPayrollOfficerRfRequests,
+  filterRequestsByIncidentCutoff,
   filterRequestsForHrPortal,
   isPayrollOfficerRole,
   payrollOfficerConfiView,
@@ -209,9 +211,35 @@ export default async function HrPage({ searchParams }: HrPageProps) {
   const checkedRequests = isPayrollOfficer
     ? confiCheckedRequests
     : filterRequestsForHrPortal(checkedRaw, employeeTypeLookup, session, "checked");
-  const allRequests = isPayrollOfficer
+  const allRequestsRaw = isPayrollOfficer
     ? confiAllRequests
     : filterRequestsForHrPortal(allRaw, employeeTypeLookup, session, "all");
+
+  const isHrRfAllCutoff = !isPayrollOfficer && session.hrScope === "R&F only";
+  const hrAllCutoffRule = isHrRfAllCutoff ? await getPayrollCutoffRule("Rank & File") : null;
+  const hrAllPeriodOptions = hrAllCutoffRule ? listCutoffPeriods(hrAllCutoffRule) : [];
+  const defaultHrAllPeriod =
+    (isHrRfAllCutoff && params.period && parseCutoffPeriodId(params.period)
+      ? params.period
+      : null) ??
+    (hrAllCutoffRule ? getCurrentCutoffPeriod(hrAllCutoffRule)?.id : null) ??
+    hrAllPeriodOptions[0]?.id ??
+    "";
+  const parsedHrAllPeriod = defaultHrAllPeriod ? parseCutoffPeriodId(defaultHrAllPeriod) : null;
+  const allRequests =
+    isHrRfAllCutoff && parsedHrAllPeriod
+      ? filterRequestsByIncidentCutoff(
+          allRequestsRaw,
+          parsedHrAllPeriod.startDate,
+          parsedHrAllPeriod.endDate,
+        )
+      : allRequestsRaw;
+  const selectedHrAllPeriodLabel =
+    hrAllPeriodOptions.find((period) => period.id === defaultHrAllPeriod)?.label ??
+    defaultHrAllPeriod;
+  const hrAllExportHref = defaultHrAllPeriod
+    ? `/api/export/csv?period=${encodeURIComponent(defaultHrAllPeriod)}`
+    : "/api/export/csv";
 
   const confiView = isPayrollOfficer && payrollOfficerTab ? payrollOfficerConfiView(payrollOfficerTab) : null;
 
@@ -228,12 +256,20 @@ export default async function HrPage({ searchParams }: HrPageProps) {
   const editRefId = params.edit_ref?.trim() ?? "";
   const hrPanelHref = buildHrTabHref(
     typeof hrListTab === "string" ? hrListTab : "pending",
-    isPayrollOfficer && payrollOfficerTab === "rf" ? defaultRfPeriod : undefined,
+    isPayrollOfficer && payrollOfficerTab === "rf"
+      ? defaultRfPeriod
+      : isHrRfAllCutoff && (activeTab as HrTab) === "all"
+        ? defaultHrAllPeriod
+        : undefined,
   );
   const getHrEditHref = (refId: string) =>
     buildHrTabHref(
       typeof hrListTab === "string" ? hrListTab : "pending",
-      isPayrollOfficer && payrollOfficerTab === "rf" ? defaultRfPeriod : undefined,
+      isPayrollOfficer && payrollOfficerTab === "rf"
+        ? defaultRfPeriod
+        : isHrRfAllCutoff && (activeTab as HrTab) === "all"
+          ? defaultHrAllPeriod
+          : undefined,
       refId,
     );
 
@@ -429,8 +465,9 @@ export default async function HrPage({ searchParams }: HrPageProps) {
           activeTab={activeTab as HrTab}
           pendingCount={pendingRequests.length}
           checkedCount={checkedRequests.length}
-          allCount={allRequests.length}
+          allCount={isHrRfAllCutoff ? allRequests.length : allRequestsRaw.length}
           companyCount={activeCompanies.length}
+          periodId={isHrRfAllCutoff ? defaultHrAllPeriod || undefined : undefined}
         />
       )}
 
@@ -444,7 +481,11 @@ export default async function HrPage({ searchParams }: HrPageProps) {
           employeeType={editingEmployeeType}
           returnTab={typeof hrListTab === "string" ? hrListTab : "pending"}
           returnPeriod={
-            isPayrollOfficer && payrollOfficerTab === "rf" ? defaultRfPeriod : undefined
+            isPayrollOfficer && payrollOfficerTab === "rf"
+              ? defaultRfPeriod
+              : isHrRfAllCutoff && (activeTab as HrTab) === "all"
+                ? defaultHrAllPeriod
+                : undefined
           }
         />
 
@@ -547,21 +588,35 @@ export default async function HrPage({ searchParams }: HrPageProps) {
 
         {!isPayrollOfficer && activeTab === "all" && (
           <section className="space-y-4">
-            {allRequests.length > 0 && (
-              <div className="flex justify-end">
-                <a
-                  href="/api/export/csv"
-                  className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
-                >
-                  Download CSV for Payroll
-                </a>
-              </div>
+            {isHrRfAllCutoff && hrAllPeriodOptions.length > 0 && defaultHrAllPeriod ? (
+              <HrAllRecordsCutoffBar
+                periodOptions={hrAllPeriodOptions}
+                selectedPeriodId={defaultHrAllPeriod}
+                selectedPeriodLabel={selectedHrAllPeriodLabel}
+                filteredCount={allRequests.length}
+                exportHref={hrAllExportHref}
+              />
+            ) : (
+              allRequests.length > 0 && (
+                <div className="flex justify-end">
+                  <a
+                    href="/api/export/csv"
+                    className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+                  >
+                    Download CSV for Payroll
+                  </a>
+                </div>
+              )
             )}
             <HrRecordsList
               requests={allRequests}
               employeeTypeLookup={employeeTypeLookup}
               mode="all"
-              emptyMessage="No records to display."
+              emptyMessage={
+                isHrRfAllCutoff
+                  ? "No records in the selected cutoff period."
+                  : "No records to display."
+              }
             />
           </section>
         )}

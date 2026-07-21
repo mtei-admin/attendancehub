@@ -134,6 +134,17 @@ export function filterPayrollOfficerRfRequests(
   });
 }
 
+/** Filter approved records whose date of incident falls in the cutoff window. */
+export function filterRequestsByIncidentCutoff(
+  requests: AttendanceRequest[],
+  startDate: string,
+  endDate: string,
+): AttendanceRequest[] {
+  return requests.filter((request) =>
+    isDateInPeriod(String(request.dateOfIncident), startDate, endDate),
+  );
+}
+
 export function filterRequestsForHrPortal(
   requests: AttendanceRequest[],
   employeeTypeLookup: Record<string, string>,

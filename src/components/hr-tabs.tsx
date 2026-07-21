@@ -8,9 +8,18 @@ type HrTabsProps = {
   checkedCount: number;
   allCount: number;
   companyCount: number;
+  /** Preserve cutoff period when switching tabs (All records filter). */
+  periodId?: string;
 };
 
-export function HrTabs({ activeTab, pendingCount, checkedCount, allCount, companyCount }: HrTabsProps) {
+export function HrTabs({
+  activeTab,
+  pendingCount,
+  checkedCount,
+  allCount,
+  companyCount,
+  periodId,
+}: HrTabsProps) {
   const tabs: {
     id: HrTab;
     label: string;
@@ -48,6 +57,14 @@ export function HrTabs({ activeTab, pendingCount, checkedCount, allCount, compan
     { id: "record-logs", label: "Record logs", count: null, countClass: "" },
   ];
 
+  function tabHref(tab: HrTab): string {
+    const params = new URLSearchParams({ tab });
+    if (periodId && tab === "all") {
+      params.set("period", periodId);
+    }
+    return `/hr?${params.toString()}`;
+  }
+
   return (
     <nav className="border-b border-slate-200 bg-white">
       <div className="mx-auto flex max-w-6xl gap-6 overflow-x-auto px-4 md:px-6">
@@ -56,7 +73,7 @@ export function HrTabs({ activeTab, pendingCount, checkedCount, allCount, compan
           return (
             <Link
               key={tab.id}
-              href={`/hr?tab=${tab.id}`}
+              href={tabHref(tab.id)}
               className={`relative flex shrink-0 items-center gap-2 py-4 text-sm font-medium transition ${
                 isActive ? "text-brand-600" : "text-slate-500 hover:text-slate-700"
               }`}

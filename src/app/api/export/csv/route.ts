@@ -6,6 +6,7 @@ import {
   canAccessHrPortal,
   filterPayrollOfficerConfiRequests,
   filterPayrollOfficerRfRequests,
+  filterRequestsByIncidentCutoff,
   filterRequestsForHrPortal,
   isPayrollOfficerRole,
 } from "@/lib/hr-portal-access";
@@ -65,14 +66,26 @@ export async function GET(request: NextRequest) {
     );
   } else if (isPayrollOfficerRole(session.role) && group === "confi") {
     scoped = filterPayrollOfficerConfiRequests(approved, employeeTypeLookup, "all");
+  } else if (periodId) {
+    const parsedPeriod = parseCutoffPeriodId(periodId);
+    if (!parsedPeriod) {
+      return new Response("Invalid cutoff period.", { status: 400 });
+    }
+    scoped = filterRequestsByIncidentCutoff(
+      scoped,
+      parsedPeriod.startDate,
+      parsedPeriod.endDate,
+    );
   }
 
   const csv = toCsv(scoped.map(toDisplayRow));
   const safePeriod = periodId.replace(/[^\d|]/g, "").slice(0, 24);
   const filename =
-    group === "rf" && safePeriod
+    (group === "rf" || (!group && session.hrScope === "R&F only")) && safePeriod
       ? `rf_payroll_${safePeriod.replace("|", "_to_")}.csv`
-      : "approved_attendance_records.csv";
+      : safePeriod
+        ? `payroll_${safePeriod.replace("|", "_to_")}.csv`
+        : "approved_attendance_records.csv";
 
   return new Response(csv, {
     headers: {

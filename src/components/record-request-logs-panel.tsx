@@ -9,21 +9,24 @@ function formatTimestamp(value: Date | null): string {
   return value.toISOString().slice(0, 19).replace("T", " ");
 }
 
+/** ~8 body rows visible; scroll for the rest. */
+const SCROLL_VIEWPORT_CLASS = "max-h-[28rem] overflow-auto";
+
 export function RecordRequestLogsPanel({ logs }: RecordRequestLogsPanelProps) {
   return (
     <section className="space-y-4">
       <div>
         <h2 className="text-2xl font-semibold text-slate-900">Record request logs</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Audit trail when employees view, edit, or email their records. Use for disputes and abuse
-          review.
+          Audit trail when employees view, edit, or email their records. Latest 8 entries in a
+          scrollable panel.
         </p>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="overflow-x-auto">
+        <div className={SCROLL_VIEWPORT_CLASS}>
           <table className="min-w-full text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50">
+            <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50">
               <tr>
                 {[
                   "When",
@@ -55,7 +58,9 @@ export function RecordRequestLogsPanel({ logs }: RecordRequestLogsPanelProps) {
               ) : (
                 logs.map((log) => (
                   <tr key={log.id} className="hover:bg-slate-50/60">
-                    <td className="px-4 py-3 text-slate-700">{formatTimestamp(log.createdAt)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+                      {formatTimestamp(log.createdAt)}
+                    </td>
                     <td className="px-4 py-3 text-slate-700">
                       <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold capitalize text-slate-700">
                         {log.action ?? "email"}
@@ -72,7 +77,7 @@ export function RecordRequestLogsPanel({ logs }: RecordRequestLogsPanelProps) {
                         ? log.recordRefId
                         : log.emailSentTo || "—"}
                     </td>
-                    <td className="px-4 py-3 text-slate-700">
+                    <td className="whitespace-nowrap px-4 py-3 text-slate-700">
                       {log.submittedFrom} – {log.submittedTo}
                     </td>
                     <td className="px-4 py-3 text-slate-700">{log.requestTypeFilter ?? "All"}</td>

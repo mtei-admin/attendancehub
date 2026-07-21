@@ -18,8 +18,8 @@ export function RecordRequestLogsPanel({ logs }: RecordRequestLogsPanelProps) {
       <div>
         <h2 className="text-2xl font-semibold text-slate-900">Record request logs</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Audit trail when employees view, edit, or email their records. Latest 8 entries in a
-          scrollable panel.
+          Audit trail when employees view, edit, or email their records. Shows about 8 rows at
+          a time — scroll for all {logs.length} loaded entr{logs.length === 1 ? "y" : "ies"}.
         </p>
       </div>
 

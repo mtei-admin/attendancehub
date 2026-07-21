@@ -209,7 +209,7 @@ export async function logRecordRequest(input: RecordRequestAuditInput): Promise<
   });
 }
 
-export async function listRecordRequestLogs(limit = 8) {
+export async function listRecordRequestLogs(limit = 200) {
   const db = getDb();
   return db
     .select()

@@ -58,10 +58,15 @@ const CREATE_COMPANIES_TABLE = `
 CREATE TABLE IF NOT EXISTS companies (
   id serial PRIMARY KEY,
   name text NOT NULL UNIQUE,
+  basecamp_webhook_url text,
   is_active boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 `;
+
+const COMPANIES_ALTER_STATEMENTS = [
+  `ALTER TABLE companies ADD COLUMN IF NOT EXISTS basecamp_webhook_url text`,
+];
 
 const EMPLOYEE_ALTER_STATEMENTS = [
   `ALTER TABLE employees ADD COLUMN IF NOT EXISTS employee_type text NOT NULL DEFAULT 'Rank & File'`,
@@ -328,6 +333,11 @@ async function main() {
 
   await sql(CREATE_COMPANIES_TABLE);
   console.log("OK: companies table ready");
+
+  for (const statement of COMPANIES_ALTER_STATEMENTS) {
+    await sql(statement);
+    console.log(`OK: ${statement}`);
+  }
 
   await seedCompanies(sql);
 

@@ -42,6 +42,20 @@ export function CompanyModal({
           />
         </FormField>
 
+        <FormField label="Basecamp chatbot URL">
+          <input
+            name="basecamp_webhook_url"
+            type="url"
+            defaultValue={editing?.basecampWebhookUrl ?? ""}
+            className={inputClassName}
+            placeholder="https://3.basecampapi.com/.../lines.json"
+          />
+          <p className="mt-1.5 text-xs text-slate-500">
+            Optional. Campfire chatbot lines URL for this company. When set, managers get a
+            Basecamp ping when an employee submits a slip.
+          </p>
+        </FormField>
+
         {isEditing && editing && (
           <FormField label="Status">
             <label className="flex items-center gap-2 text-sm text-slate-700">

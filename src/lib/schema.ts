@@ -14,6 +14,8 @@ import { DEFAULT_COMPANY } from "./constants";
 export const companies = pgTable("companies", {
   id: serial("id").primaryKey(),
   name: text("name").notNull().unique(),
+  /** Basecamp Campfire chatbot lines URL for manager notifications (per company). */
+  basecampWebhookUrl: text("basecamp_webhook_url"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

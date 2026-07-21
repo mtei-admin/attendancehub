@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireHrPortalAccess, isNextNavigationError } from "@/lib/action-auth";
+import {
+  isValidBasecampWebhookUrl,
+  normalizeBasecampWebhookUrl,
+} from "@/lib/basecamp";
 import { EMPLOYEE_TYPES, needsCheckHoursOnHrCheck, normalizeManagerDepartment, REQUEST_TYPES } from "@/lib/constants";
 import { parseCutoffPeriodId } from "@/lib/cutoff";
 import { createCompany, isActiveCompany, updateCompany } from "@/lib/companies";
@@ -1015,14 +1019,24 @@ export async function saveHrCompanyAction(formData: FormData) {
   const id = Number(formData.get("id") ?? 0);
   const name = String(formData.get("name") ?? "").trim();
   const isActive = formData.get("is_active") === "on";
+  const basecampWebhookUrl = normalizeBasecampWebhookUrl(
+    String(formData.get("basecamp_webhook_url") ?? ""),
+  );
 
   if (!name) {
     hrRedirect({ tab: "companies", error: "Company name is required." });
   }
 
+  if (basecampWebhookUrl && !isValidBasecampWebhookUrl(basecampWebhookUrl)) {
+    hrRedirect({
+      tab: "companies",
+      error: "Basecamp chatbot URL must be a valid https:// URL.",
+    });
+  }
+
   try {
     if (id > 0) {
-      const updated = await updateCompany(id, { name, isActive });
+      const updated = await updateCompany(id, { name, isActive, basecampWebhookUrl });
       if (!updated) {
         hrRedirect({ tab: "companies", error: "Company not found." });
       }
@@ -1032,7 +1046,7 @@ export async function saveHrCompanyAction(formData: FormData) {
       hrRedirect({ tab: "companies", success: `Updated company ${name}.` });
     }
 
-    await createCompany(name);
+    await createCompany(name, { basecampWebhookUrl });
     revalidatePath("/hr");
     revalidatePath("/admin");
     revalidatePath("/employee");

@@ -40,11 +40,19 @@ export async function isActiveCompany(name: string): Promise<boolean> {
   return Boolean(company?.isActive);
 }
 
-export async function createCompany(name: string): Promise<Company> {
+export async function createCompany(
+  name: string,
+  input?: { basecampWebhookUrl?: string | null },
+): Promise<Company> {
   const db = getDb();
   const [row] = await db
     .insert(companies)
-    .values({ name: name.trim() })
+    .values({
+      name: name.trim(),
+      ...(input?.basecampWebhookUrl !== undefined
+        ? { basecampWebhookUrl: input.basecampWebhookUrl }
+        : {}),
+    })
     .returning();
 
   return row;
@@ -52,7 +60,11 @@ export async function createCompany(name: string): Promise<Company> {
 
 export async function updateCompany(
   id: number,
-  input: { name?: string; isActive?: boolean },
+  input: {
+    name?: string;
+    isActive?: boolean;
+    basecampWebhookUrl?: string | null;
+  },
 ): Promise<Company | null> {
   const db = getDb();
   const [row] = await db
@@ -60,6 +72,9 @@ export async function updateCompany(
     .set({
       ...(input.name !== undefined ? { name: input.name.trim() } : {}),
       ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+      ...(input.basecampWebhookUrl !== undefined
+        ? { basecampWebhookUrl: input.basecampWebhookUrl }
+        : {}),
     })
     .where(eq(companies.id, id))
     .returning();

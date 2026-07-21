@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireRoles, isNextNavigationError } from "@/lib/action-auth";
+import {
+  isValidBasecampWebhookUrl,
+  normalizeBasecampWebhookUrl,
+} from "@/lib/basecamp";
 import { EMPLOYEE_TYPES, HR_SCOPES, REQUEST_TYPES, normalizeManagerDepartment } from "@/lib/constants";
 import { isValidEmail, normalizeEmail } from "@/lib/email";
 import { createCompany, isActiveCompany, updateCompany } from "@/lib/companies";
@@ -322,14 +326,24 @@ export async function saveCompanyAction(formData: FormData) {
   const id = Number(formData.get("id") ?? 0);
   const name = String(formData.get("name") ?? "").trim();
   const isActive = formData.get("is_active") === "on";
+  const basecampWebhookUrl = normalizeBasecampWebhookUrl(
+    String(formData.get("basecamp_webhook_url") ?? ""),
+  );
 
   if (!name) {
     adminRedirect({ tab: "companies", error: "Company name is required." });
   }
 
+  if (basecampWebhookUrl && !isValidBasecampWebhookUrl(basecampWebhookUrl)) {
+    adminRedirect({
+      tab: "companies",
+      error: "Basecamp chatbot URL must be a valid https:// URL.",
+    });
+  }
+
   try {
     if (id > 0) {
-      const updated = await updateCompany(id, { name, isActive });
+      const updated = await updateCompany(id, { name, isActive, basecampWebhookUrl });
       if (!updated) {
         adminRedirect({ tab: "companies", error: "Company not found." });
       }
@@ -339,7 +353,7 @@ export async function saveCompanyAction(formData: FormData) {
       adminRedirect({ tab: "companies", success: `Updated company ${name}.` });
     }
 
-    await createCompany(name);
+    await createCompany(name, { basecampWebhookUrl });
     revalidatePath("/admin");
     revalidatePath("/hr");
     revalidatePath("/employee");

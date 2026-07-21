@@ -2,9 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 
 import { isNextNavigationError } from "@/lib/action-auth";
 import { getSession } from "@/lib/auth";
+import { notifyManagersOfNewSlip } from "@/lib/basecamp";
 import { ROLE_ROUTES, type Role } from "@/lib/constants";
 import { readOtHoursFromFormData } from "@/lib/ot-hours";
 import {
@@ -129,7 +131,8 @@ export async function submitRequestAction(formData: FormData) {
   }
 
   try {
-    const refId = shouldDirectHrConfiOwnSlipOnSubmit(employeeName)
+    const directToHr = shouldDirectHrConfiOwnSlipOnSubmit(employeeName);
+    const refId = directToHr
       ? await addManagerOwnRequest({
           company,
           department,
@@ -155,9 +158,24 @@ export async function submitRequestAction(formData: FormData) {
           timeOut: timeOut || null,
           otHrs: otStoredValue,
         });
+
+    // Company Campfire only — not special scoped managers (e.g. Dominic).
+    if (!directToHr) {
+      after(() =>
+        notifyManagersOfNewSlip({
+          company,
+          department,
+          employeeName,
+          requestType,
+          dateOfIncident,
+          refId,
+        }),
+      );
+    }
+
     revalidateRolePaths();
     redirect(
-      shouldDirectHrConfiOwnSlipOnSubmit(employeeName)
+      directToHr
         ? `/employee?success=Request ${refId} submitted and sent to HR Confi pending.`
         : `/employee?success=Request ${refId} submitted successfully and is pending verification and manager review.`,
     );

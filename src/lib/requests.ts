@@ -7,6 +7,8 @@ import { attendanceRequests, type AttendanceRequest } from "./schema";
 export type RequestScope = {
   company?: string;
   department?: string;
+  /** When set, only these employee names are visible/actionable. */
+  employeeNames?: string[];
 };
 
 async function generateRefId(): Promise<string> {
@@ -26,7 +28,7 @@ async function generateRefId(): Promise<string> {
 }
 
 function buildScopeConditions(scope?: RequestScope) {
-  if (!scope?.company && !scope?.department) {
+  if (!scope?.company && !scope?.department && !scope?.employeeNames?.length) {
     return undefined;
   }
 
@@ -37,7 +39,11 @@ function buildScopeConditions(scope?: RequestScope) {
   if (scope.department) {
     parts.push(eq(attendanceRequests.department, scope.department));
   }
+  if (scope.employeeNames && scope.employeeNames.length > 0) {
+    parts.push(inArray(attendanceRequests.employeeName, scope.employeeNames));
+  }
 
+  if (parts.length === 0) return undefined;
   return parts.length === 1 ? parts[0] : and(...parts);
 }
 

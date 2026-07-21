@@ -5,6 +5,13 @@ import { ManagerSlipForm } from "@/components/manager-slip-form";
 import { ManagerTabs, type ManagerTab } from "@/components/manager-tabs";
 import { getSession } from "@/lib/auth";
 import {
+  filterRequestsForManagerEmployeeScope,
+  formatManagerEmployeeScopeLabel,
+  getManagerAllowedEmployeeNames,
+  isEmployeeOnlyManager,
+  managerCanFileOwnSlip,
+} from "@/lib/manager-approval-scope";
+import {
   buildManagerGroupedRequests,
   filterRequestsForManagerRange,
   parseManagerCutoffRange,
@@ -23,15 +30,14 @@ type ManagerPageProps = {
   }>;
 };
 
-function resolveTab(tab?: string): ManagerTab {
-  if (tab === "file" || tab === "history") return tab;
+function resolveTab(tab?: string, allowFile = true): ManagerTab {
+  if (tab === "file" && allowFile) return "file";
+  if (tab === "history") return "history";
   return "pending";
 }
 
 export default async function ManagerPage({ searchParams }: ManagerPageProps) {
   const params = await searchParams;
-  const activeTab = resolveTab(params.tab);
-  const range = parseManagerCutoffRange(params.range);
 
   const session = await getSession();
   if (!session) redirect("/");
@@ -39,17 +45,31 @@ export default async function ManagerPage({ searchParams }: ManagerPageProps) {
   const company = session.company?.trim() ?? "";
   const department = session.department?.trim() ?? "";
   const managerName = session.fullName.trim();
+  const canFileOwnSlipByPolicy = managerCanFileOwnSlip(managerName);
+  const employeeScopeLabel = formatManagerEmployeeScopeLabel(managerName);
 
+  const activeTab = resolveTab(params.tab, canFileOwnSlipByPolicy);
+  if (params.tab === "file" && !canFileOwnSlipByPolicy) {
+    redirect("/manager?tab=pending&error=This manager account cannot file slips.");
+  }
+
+  const range = parseManagerCutoffRange(params.range);
+  const employeeOnlyManager = isEmployeeOnlyManager(managerName);
+  const allowedEmployeeNames = getManagerAllowedEmployeeNames(managerName);
+
+  // Employee-scoped managers only load allowlisted employees (never other slips).
   const departmentFilter =
     session.role === "Manager"
       ? company
-        ? department
-          ? { company, department }
-          : { company }
+        ? employeeOnlyManager && allowedEmployeeNames
+          ? { company, employeeNames: allowedEmployeeNames }
+          : department
+            ? { company, department }
+            : { company }
         : undefined
       : undefined;
 
-  const [pendingRequests, historyRequests, roster, cutoffRules, managerRosterEntry] =
+  const [pendingRequestsRaw, historyRequestsRaw, roster, cutoffRules, managerRosterEntry] =
     session.role === "Manager" && !company
       ? [[], [], [], [], null]
       : await Promise.all([
@@ -61,6 +81,15 @@ export default async function ManagerPage({ searchParams }: ManagerPageProps) {
             ? getEmployeeByPlacement(company, department, managerName)
             : Promise.resolve(null),
         ]);
+
+  const pendingRequests = filterRequestsForManagerEmployeeScope(
+    managerName,
+    pendingRequestsRaw,
+  );
+  const historyRequests = filterRequestsForManagerEmployeeScope(
+    managerName,
+    historyRequestsRaw,
+  );
 
   const employeeTypeLookup = buildEmployeeTypeLookup(roster);
 
@@ -100,7 +129,11 @@ export default async function ManagerPage({ searchParams }: ManagerPageProps) {
       : "No request history to display.";
 
   const canFileOwnSlip = Boolean(
-    session.role === "Manager" && company && department && managerRosterEntry,
+    canFileOwnSlipByPolicy &&
+      session.role === "Manager" &&
+      company &&
+      department &&
+      managerRosterEntry,
   );
 
   return (
@@ -110,6 +143,7 @@ export default async function ManagerPage({ searchParams }: ManagerPageProps) {
         range={range}
         pendingCount={visiblePending.length}
         historyCount={visibleHistory.length}
+        showFileTab={canFileOwnSlipByPolicy}
       />
 
       {activeTab === "file" ? (
@@ -126,17 +160,26 @@ export default async function ManagerPage({ searchParams }: ManagerPageProps) {
           ) : (
             <div className="mx-auto max-w-6xl px-4 py-6 md:px-6">
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                {session.role !== "Manager"
-                  ? "Only manager accounts can file slips here."
-                  : !company || !department
-                    ? "Your manager account has no company or department assigned. Contact HR."
-                    : "Your manager account name must match your name on the employee roster before you can file a slip."}
+                {!canFileOwnSlipByPolicy
+                  ? "This manager account is approval-only and cannot file slips."
+                  : session.role !== "Manager"
+                    ? "Only manager accounts can file slips here."
+                    : !company || !department
+                      ? "Your manager account has no company or department assigned. Contact HR."
+                      : "Your manager account name must match your name on the employee roster before you can file a slip."}
               </div>
             </div>
           )}
         </>
       ) : (
         <div className="mx-auto max-w-6xl px-4 md:px-6">
+          {employeeScopeLabel && (
+            <div className="mt-4 rounded-lg border border-brand-100 bg-brand-50/60 px-4 py-3 text-sm text-brand-900">
+              Approval scope: you only see slips for <strong>{employeeScopeLabel}</strong>. Other
+              employees are hidden. The department manager can still approve these slips as well.
+            </div>
+          )}
+
           <ManagerCutoffFilter activeTab={activeTab} range={range} />
 
           <div className="py-2">

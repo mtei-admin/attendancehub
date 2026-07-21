@@ -9,6 +9,7 @@ type ManagerTabsProps = {
   range: ManagerCutoffRange;
   pendingCount: number;
   historyCount: number;
+  showFileTab?: boolean;
 };
 
 export function ManagerTabs({
@@ -16,9 +17,10 @@ export function ManagerTabs({
   range,
   pendingCount,
   historyCount,
+  showFileTab = true,
 }: ManagerTabsProps) {
   const tabs: { id: ManagerTab; label: string; count?: number }[] = [
-    { id: "file", label: "File a slip" },
+    ...(showFileTab ? [{ id: "file" as const, label: "File a slip" }] : []),
     { id: "pending", label: "Pending", count: pendingCount },
     { id: "history", label: "History", count: historyCount },
   ];

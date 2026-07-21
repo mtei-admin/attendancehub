@@ -21,8 +21,9 @@ import {
   validateEmployeePortalOtFeatures,
   validateEmployeePortalTimeFields,
 } from "@/lib/employee-portal";
-import { addManagerOwnRequest, addRequest, updateRequestStatus } from "@/lib/requests";
+import { addManagerOwnRequest, addRequest, getRequestByRefId, updateRequestStatus } from "@/lib/requests";
 import { shouldDirectHrConfiOwnSlipOnSubmit } from "@/lib/direct-hr-confi-slips";
+import { managerCanApproveEmployee, isEmployeeOnlyManager, getManagerAllowedEmployeeNames } from "@/lib/manager-approval-scope";
 import { getEmployeeByPlacement, verifyEmployeePlacement } from "@/lib/roster";
 
 function revalidateRolePaths() {
@@ -189,14 +190,35 @@ export async function updateStatusAction(formData: FormData) {
 
   const scope =
     session.role === "Manager"
-      ? {
-          company: session.company ?? undefined,
-          department: session.department ?? undefined,
-        }
+      ? (() => {
+          const allowedNames = getManagerAllowedEmployeeNames(session.fullName);
+          if (isEmployeeOnlyManager(session.fullName) && allowedNames) {
+            return {
+              company: session.company ?? undefined,
+              employeeNames: allowedNames,
+            };
+          }
+          return {
+            company: session.company ?? undefined,
+            department: session.department ?? undefined,
+          };
+        })()
       : undefined;
 
   if (session.role === "Manager" && !session.company) {
     redirect("/manager?error=Your manager account has no company assigned.");
+  }
+
+  if (session.role === "Manager") {
+    const existing = await getRequestByRefId(refId);
+    if (!existing) {
+      redirect("/manager?error=Request could not be updated. It may have already been processed.");
+    }
+    if (!managerCanApproveEmployee(session.fullName, existing.employeeName)) {
+      redirect(
+        "/manager?error=You are not authorized to approve or reject this employee%27s request.",
+      );
+    }
   }
 
   try {

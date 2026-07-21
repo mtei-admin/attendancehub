@@ -7,6 +7,7 @@ import { isNextNavigationError } from "@/lib/action-auth";
 import { getSession } from "@/lib/auth";
 import { ROLE_ROUTES } from "@/lib/constants";
 import { isOtOrHolidayWorkRequestType } from "@/lib/employee-portal";
+import { managerCanFileOwnSlip } from "@/lib/manager-approval-scope";
 import { readOtHoursFromFormData } from "@/lib/ot-hours";
 import { addManagerOwnRequest } from "@/lib/requests";
 import { getEmployeeByPlacement } from "@/lib/roster";
@@ -28,6 +29,10 @@ export async function submitManagerSlipAction(formData: FormData) {
   const session = await getSession();
   if (!session || session.role !== "Manager") {
     redirect("/manager?tab=file&error=You are not authorized to file slips here.");
+  }
+
+  if (!managerCanFileOwnSlip(session.fullName)) {
+    managerRedirect({ error: "This manager account is approval-only and cannot file slips." });
   }
 
   const company = session.company?.trim() ?? "";

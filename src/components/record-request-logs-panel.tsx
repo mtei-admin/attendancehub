@@ -4,24 +4,28 @@ type RecordRequestLogsPanelProps = {
   logs: RecordRequestLog[];
 };
 
-function formatTimestamp(value: Date | null): string {
-  if (!value) return "";
-  return value.toISOString().slice(0, 19).replace("T", " ");
+function formatTimestampParts(value: Date | null): { date: string; time: string } | null {
+  if (!value) return null;
+  const iso = value.toISOString();
+  return {
+    date: iso.slice(0, 10),
+    time: iso.slice(11, 19),
+  };
 }
 
 /** ~8 body rows visible; scroll for the rest. */
 const SCROLL_VIEWPORT_CLASS = "max-h-[28rem] overflow-auto";
 
 const COLUMNS = [
-  { label: "When", className: "w-[12%]" },
-  { label: "Action", className: "w-[7%]" },
-  { label: "Employee", className: "w-[20%]" },
+  { label: "When", className: "w-[11%]" },
+  { label: "Action", className: "w-[8%]" },
+  { label: "Employee", className: "w-[19%]" },
   { label: "Email / detail", className: "w-[11%]" },
   { label: "Submitted range", className: "w-[14%]" },
   { label: "Type", className: "w-[10%]" },
   { label: "Status", className: "w-[7%]" },
   { label: "Rows", className: "w-[4%]" },
-  { label: "IP", className: "w-[15%]" },
+  { label: "IP", className: "w-[16%]" },
 ] as const;
 
 export function RecordRequestLogsPanel({ logs }: RecordRequestLogsPanelProps) {
@@ -63,10 +67,22 @@ export function RecordRequestLogsPanel({ logs }: RecordRequestLogsPanelProps) {
                   </td>
                 </tr>
               ) : (
-                logs.map((log) => (
+                logs.map((log) => {
+                  const when = formatTimestampParts(log.createdAt);
+                  return (
                   <tr key={log.id} className="hover:bg-slate-50/60">
-                    <td className="whitespace-nowrap px-3 py-3 text-slate-700">
-                      {formatTimestamp(log.createdAt)}
+                    <td className="px-3 py-3 text-slate-700">
+                      {when ? (
+                        <div
+                          className="leading-snug"
+                          title={`${when.date} ${when.time}`}
+                        >
+                          <div>{when.date}</div>
+                          <div className="text-xs text-slate-500">{when.time}</div>
+                        </div>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td className="px-3 py-3 text-slate-700">
                       <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold capitalize text-slate-700">
@@ -111,7 +127,8 @@ export function RecordRequestLogsPanel({ logs }: RecordRequestLogsPanelProps) {
                       {log.ipAddress ?? "—"}
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

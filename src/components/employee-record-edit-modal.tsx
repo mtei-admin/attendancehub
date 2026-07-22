@@ -15,6 +15,7 @@ import type { AttendanceRequest } from "@/lib/schema";
 import { FormField, inputClassName } from "./form-field";
 import { FormModal } from "./form-modal";
 import { OtHoursFields } from "./ot-hours-fields";
+import { PendingSubmitButton } from "./pending-submit-button";
 import { useOtHoursFromTimeRange } from "./use-ot-hours-from-time-range";
 
 type EmployeeRecordEditModalProps = {
@@ -224,12 +225,12 @@ function EmployeeRecordEditForm({
         >
           Cancel
         </a>
-        <button
-          type="submit"
+        <PendingSubmitButton
+          pendingLabel="Saving…"
           className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
         >
           Save changes
-        </button>
+        </PendingSubmitButton>
       </div>
     </form>
   );

@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { FormField, inputClassName } from "./form-field";
 import { FormModal } from "./form-modal";
+import { PendingSubmitButton } from "./pending-submit-button";
 
 type RejectRequestButtonLabels = {
   button?: string;
@@ -79,11 +80,7 @@ export function RejectRequestButton({
         title={merged.title}
         titleId={`reject-request-${refId}`}
       >
-        <form
-          action={action}
-          className="mt-5 space-y-4"
-          onSubmit={() => setOpen(false)}
-        >
+        <form action={action} className="mt-5 space-y-4">
           <input type="hidden" name="ref_id" value={refId} />
           {Object.entries(hiddenFields).map(([name, value]) => (
             <input key={name} type="hidden" name={name} value={value} />
@@ -108,9 +105,12 @@ export function RejectRequestButton({
             >
               Cancel
             </button>
-            <button type="submit" className={merged.submitClassName}>
+            <PendingSubmitButton
+              pendingLabel={`${merged.submit}…`}
+              className={merged.submitClassName}
+            >
               {merged.submit}
-            </button>
+            </PendingSubmitButton>
           </div>
         </form>
       </FormModal>

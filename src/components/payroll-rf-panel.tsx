@@ -1,5 +1,6 @@
 import { confirmPayrollCutoffAction } from "@/actions/hr";
 import { HrRecordsList } from "@/components/hr-records-list";
+import { PendingSubmitButton } from "@/components/pending-submit-button";
 import type { CutoffPeriod } from "@/lib/cutoff";
 import type { AttendanceRequest } from "@/lib/schema";
 
@@ -70,12 +71,12 @@ export function PayrollRfPanel({
           {requests.length > 0 ? (
             <form action={confirmPayrollCutoffAction}>
               <input type="hidden" name="period_id" value={selectedPeriodId} />
-              <button
-                type="submit"
+              <PendingSubmitButton
+                pendingLabel="Confirming…"
                 className={`${rfActionButtonClass} bg-brand-600 text-white hover:bg-brand-700`}
               >
                 Confirm
-              </button>
+              </PendingSubmitButton>
             </form>
           ) : (
             <button

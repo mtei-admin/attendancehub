@@ -8,8 +8,8 @@ import { queryEmployeeRecords, type RecordRequestFilters } from "@/lib/record-re
 import { parseViewedAt } from "@/lib/records-view-session";
 import { computeAvailableOtOffsetBalance } from "@/lib/ot-offset-balance";
 import { computeOtClaimedHoursForPlacement } from "@/lib/ot-claimed";
-import { getLastClosedCutoffPeriod } from "@/lib/cutoff";
-import { getActiveOtEligibleTypes, getPayrollCutoffRule } from "@/lib/ot-settings";
+import { getLastClosedCutoffPeriod, getEarliestAllowedIncidentDate } from "@/lib/cutoff";
+import { getActiveOtEligibleTypes, getPayrollCutoffRule, listPayrollCutoffRules } from "@/lib/ot-settings";
 import {
   buildEmployeeEmailLookup,
   buildEmployeeTypeLookup,
@@ -85,19 +85,29 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
   const activeSection = resolveSection(params.section);
   const activeRecordView = parseActiveRecordView(params);
 
-  const [companies, roster, viewedRecords, otEligibleTypes, selectedEmployee] = await Promise.all([
-    listCompanyNames(true),
-    listEmployees(true),
-    activeRecordView ? queryEmployeeRecords(activeRecordView.filters) : Promise.resolve([]),
-    getActiveOtEligibleTypes(),
-    activeRecordView
-      ? getEmployeeByPlacement(
-          activeRecordView.filters.company,
-          activeRecordView.filters.department,
-          activeRecordView.filters.employeeName,
-        )
-      : Promise.resolve(null),
-  ]);
+  const [companies, roster, viewedRecords, otEligibleTypes, selectedEmployee, cutoffRules] =
+    await Promise.all([
+      listCompanyNames(true),
+      listEmployees(true),
+      activeRecordView ? queryEmployeeRecords(activeRecordView.filters) : Promise.resolve([]),
+      getActiveOtEligibleTypes(),
+      activeRecordView
+        ? getEmployeeByPlacement(
+            activeRecordView.filters.company,
+            activeRecordView.filters.department,
+            activeRecordView.filters.employeeName,
+          )
+        : Promise.resolve(null),
+      listPayrollCutoffRules(),
+    ]);
+
+  const cutoffMinByEmployeeType: Record<string, string> = {};
+  for (const rule of cutoffRules) {
+    const earliest = getEarliestAllowedIncidentDate(rule);
+    if (earliest) {
+      cutoffMinByEmployeeType[rule.employeeType] = earliest;
+    }
+  }
 
   const availableOtOffsetBalance =
     selectedEmployee?.employeeType === "Confi" && activeRecordView
@@ -149,6 +159,7 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
             companies={companies}
             employeesByCompanyDepartment={employeesByCompanyDepartment}
             employeeTypeLookup={employeeTypeLookup}
+            cutoffMinByEmployeeType={cutoffMinByEmployeeType}
           />
         ) : (
           <MyRecordsSection

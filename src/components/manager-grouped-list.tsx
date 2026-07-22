@@ -22,6 +22,7 @@ import {
   formatManagerTime,
 } from "./manager-request-utils";
 import { RejectRequestButton } from "./reject-request-button";
+import { PendingSubmitButton } from "./pending-submit-button";
 
 type ManagerGroupedListProps = {
   grouped: ManagerGroupedRequests;
@@ -267,13 +268,14 @@ function RequestRow({
                     className={`${inputClassName} w-14 py-1.5 text-center`}
                   />
                 )}
-                <button
-                  type="submit"
+                <PendingSubmitButton
+                  pendingLabel="…"
+                  showSpinner={false}
                   className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-emerald-600 text-sm font-bold text-white hover:bg-emerald-700"
                   title="Approve"
                 >
                   ✓
-                </button>
+                </PendingSubmitButton>
               </form>
               <RejectRequestButton
                 refId={request.refId}

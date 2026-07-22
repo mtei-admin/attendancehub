@@ -32,11 +32,17 @@ export function RosterPanel({
   tab,
 }: RosterPanelProps) {
   const editing = editId ? employees.find((row) => row.id === editId) : null;
-  const rosterEmployees = activeOnly
-    ? employees.filter((employee) => employee.isActive)
-    : employees;
+  const rosterEmployees = (
+    activeOnly ? employees.filter((employee) => employee.isActive) : employees
+  ).slice()
+    .sort((a, b) => {
+      if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
+      return a.fullName.localeCompare(b.fullName);
+    });
   const showModal = showAdd || Boolean(editing);
   const rosterHref = `${basePath}?tab=${tab}`;
+  const activeCount = rosterEmployees.filter((employee) => employee.isActive).length;
+  const inactiveCount = rosterEmployees.length - activeCount;
 
   return (
     <>
@@ -51,9 +57,17 @@ export function RosterPanel({
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4">
-          <h2 className="text-lg font-semibold text-slate-900">
-            Employee roster ({rosterEmployees.length})
-          </h2>
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">
+              Employee roster ({rosterEmployees.length})
+            </h2>
+            {!activeOnly && (
+              <p className="mt-0.5 text-xs text-slate-500">
+                {activeCount} active
+                {inactiveCount > 0 ? ` · ${inactiveCount} inactive` : ""}
+              </p>
+            )}
+          </div>
           <Link
             href={`${rosterHref}&add=1`}
             className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
@@ -66,6 +80,7 @@ export function RosterPanel({
           employees={rosterEmployees}
           rosterHref={rosterHref}
           deleteAction={deleteAction}
+          showStatus={!activeOnly}
         />
       </section>
     </>

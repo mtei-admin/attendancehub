@@ -19,6 +19,7 @@ import { useCollapseGroupOptional } from "./collapsible-group";
 import { FormModal } from "./form-modal";
 import { OtHoursFields } from "./ot-hours-fields";
 import { formatManagerTime } from "./manager-request-utils";
+import { PendingSubmitButton } from "./pending-submit-button";
 
 export type SlipVisibility = {
   refId: string;
@@ -345,12 +346,12 @@ function HrBatchCheckReviewModal({
           >
             Cancel
           </button>
-          <button
-            type="submit"
+          <PendingSubmitButton
+            pendingLabel="Checking…"
             className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
           >
             Check {selectedRequests.length} slip{selectedRequests.length === 1 ? "" : "s"}
-          </button>
+          </PendingSubmitButton>
         </div>
       </form>
     </FormModal>

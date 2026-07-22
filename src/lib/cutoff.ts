@@ -125,6 +125,15 @@ export function getCurrentCutoffPeriod(
   return findCutoffPeriodForDate(rule, iso);
 }
 
+/** Earliest date_of_incident allowed for new employee slips (start of current cutoff). */
+export function getEarliestAllowedIncidentDate(
+  rule: PayrollCutoffRule | null | undefined,
+  refDate: Date = new Date(),
+): string | null {
+  if (!rule) return null;
+  return getCurrentCutoffPeriod(rule, refDate)?.startDate ?? null;
+}
+
 /** Most recent cutoff period whose end date is strictly before today (fully closed). */
 export function getLastClosedCutoffPeriod(
   rule: PayrollCutoffRule,

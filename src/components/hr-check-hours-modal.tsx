@@ -7,6 +7,7 @@ import type { AttendanceRequest } from "@/lib/schema";
 
 import { FormModal } from "./form-modal";
 import { OtHoursFields } from "./ot-hours-fields";
+import { PendingSubmitButton } from "./pending-submit-button";
 
 type HrCheckHoursModalProps = {
   open: boolean;
@@ -86,12 +87,12 @@ export function HrCheckHoursModal({ open, onClose, request }: HrCheckHoursModalP
           >
             Cancel
           </button>
-          <button
-            type="submit"
+          <PendingSubmitButton
+            pendingLabel="Checking…"
             className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
           >
             Mark as checked
-          </button>
+          </PendingSubmitButton>
         </div>
       </form>
     </FormModal>

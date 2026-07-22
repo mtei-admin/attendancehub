@@ -8,6 +8,7 @@ import { isOtOrHolidayWorkRequestType } from "@/lib/employee-portal";
 
 import { FormField, inputClassName } from "./form-field";
 import { OtHoursFields } from "./ot-hours-fields";
+import { PendingSubmitButton } from "./pending-submit-button";
 import { useOtHoursFromTimeRange } from "./use-ot-hours-from-time-range";
 
 type ManagerSlipFormProps = {
@@ -153,12 +154,12 @@ export function ManagerSlipForm({ company, department, employeeName }: ManagerSl
             </FormField>
           </div>
 
-          <button
-            type="submit"
+          <PendingSubmitButton
+            pendingLabel="Submitting…"
             className="w-full rounded-lg bg-brand-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-600"
           >
             Submit to HR
-          </button>
+          </PendingSubmitButton>
         </form>
       </div>
     </div>

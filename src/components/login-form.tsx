@@ -4,6 +4,7 @@ import { loginAction } from "@/actions/auth";
 import { PORTAL_CONFIG, type PortalSlug } from "@/lib/constants";
 
 import { FormField, inputClassName } from "./form-field";
+import { PendingSubmitButton } from "./pending-submit-button";
 
 type LoginFormProps = {
   portal: PortalSlug;
@@ -57,12 +58,12 @@ export function LoginForm({ portal, error }: LoginFormProps) {
             />
           </FormField>
 
-          <button
-            type="submit"
+          <PendingSubmitButton
+            pendingLabel="Signing in…"
             className="w-full rounded-lg bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700"
           >
             Sign in
-          </button>
+          </PendingSubmitButton>
         </form>
       </div>
     </div>

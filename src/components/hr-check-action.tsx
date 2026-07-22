@@ -7,6 +7,7 @@ import { needsCheckHoursOnHrCheck } from "@/lib/constants";
 import type { AttendanceRequest } from "@/lib/schema";
 
 import { HrCheckHoursModal } from "./hr-check-hours-modal";
+import { PendingSubmitButton } from "./pending-submit-button";
 import { HR_RETURN_BUTTON_LABELS, RejectRequestButton } from "./reject-request-button";
 
 type HrCheckActionProps = {
@@ -38,13 +39,14 @@ export function HrCheckAction({ request }: HrCheckActionProps) {
       ) : (
         <form action={checkRequestAction}>
           <input type="hidden" name="ref_id" value={request.refId} />
-          <button
-            type="submit"
+          <PendingSubmitButton
+            pendingLabel="…"
+            showSpinner={false}
             className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-sm font-bold text-white hover:bg-emerald-700"
             title="Mark as checked"
           >
             ✓
-          </button>
+          </PendingSubmitButton>
         </form>
       )}
       <RejectRequestButton

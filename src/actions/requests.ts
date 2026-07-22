@@ -15,7 +15,8 @@ import {
   formatInsufficientOtOffsetBalanceMessage,
   OT_OFFSET_REQUEST_TYPE,
 } from "@/lib/ot-offset-balance";
-import { getActiveOtEligibleTypes } from "@/lib/ot-settings";
+import { getActiveOtEligibleTypes, getPayrollCutoffRule } from "@/lib/ot-settings";
+import { getEarliestAllowedIncidentDate } from "@/lib/cutoff";
 import {
   employeePortalRequestTypes,
   isConfiEmployee,
@@ -68,6 +69,20 @@ export async function submitRequestAction(formData: FormData) {
   const allowedRequestTypes = employeePortalRequestTypes(employee.employeeType);
   if (!allowedRequestTypes.includes(requestType)) {
     redirect("/employee?error=This request type is not available for the selected employee.");
+  }
+
+  if (!dateOfIncident || !/^\d{4}-\d{2}-\d{2}$/.test(dateOfIncident)) {
+    redirect("/employee?error=Please select a valid date of application.");
+  }
+
+  const cutoffRule = await getPayrollCutoffRule(employee.employeeType);
+  const earliestIncidentDate = getEarliestAllowedIncidentDate(cutoffRule);
+  if (earliestIncidentDate && dateOfIncident < earliestIncidentDate) {
+    redirect(
+      `/employee?error=${encodeURIComponent(
+        `Date of application must be on or after ${earliestIncidentDate} (current cutoff period). Earlier cutoffs cannot be filed.`,
+      )}`,
+    );
   }
 
   const otFeatureError = validateEmployeePortalOtFeatures(

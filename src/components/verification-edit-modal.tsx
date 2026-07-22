@@ -10,6 +10,7 @@ import { isOwnSlip } from "@/lib/verification";
 
 import { FormField, inputClassName } from "./form-field";
 import { FormModal } from "./form-modal";
+import { PendingSubmitButton } from "./pending-submit-button";
 
 type VerificationEditModalProps = {
   open: boolean;
@@ -301,13 +302,13 @@ function VerificationEditForm({
         >
           Cancel
         </a>
-        <button
-          type="submit"
+        <PendingSubmitButton
+          pendingLabel="Verifying…"
           disabled={isOwnRequest}
           className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Verify request
-        </button>
+        </PendingSubmitButton>
       </div>
     </form>
   );

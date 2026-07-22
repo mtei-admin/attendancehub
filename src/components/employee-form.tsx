@@ -14,12 +14,15 @@ import { employeeLookupKey } from "@/lib/roster";
 
 import { FormField, inputClassName } from "./form-field";
 import { OtHoursFields } from "./ot-hours-fields";
+import { PendingSubmitButton } from "./pending-submit-button";
 import { useOtHoursFromTimeRange } from "./use-ot-hours-from-time-range";
 
 type EmployeeFormProps = {
   companies: string[];
   employeesByCompanyDepartment: EmployeesByCompanyDepartment;
   employeeTypeLookup: Record<string, string>;
+  /** Earliest allowed date_of_incident by payroll group (Confi / Rank & File). */
+  cutoffMinByEmployeeType: Record<string, string>;
 };
 
 function todayIso() {
@@ -30,6 +33,7 @@ export function EmployeeForm({
   companies,
   employeesByCompanyDepartment,
   employeeTypeLookup,
+  cutoffMinByEmployeeType,
 }: EmployeeFormProps) {
   const [company, setCompany] = useState("");
   const [department, setDepartment] = useState("");
@@ -37,6 +41,7 @@ export function EmployeeForm({
   const [requestType, setRequestType] = useState("");
   const [timeIn, setTimeIn] = useState("");
   const [timeOut, setTimeOut] = useState("");
+  const [dateOfIncident, setDateOfIncident] = useState(todayIso);
   const dateRequested = useMemo(() => todayIso(), []);
 
   const departments = useMemo(() => {
@@ -53,6 +58,16 @@ export function EmployeeForm({
     if (!company || !department || !employeeName) return null;
     return employeeTypeLookup[employeeLookupKey(company, department, employeeName)] ?? null;
   }, [company, department, employeeName, employeeTypeLookup]);
+
+  const earliestIncidentDate = employeeType
+    ? cutoffMinByEmployeeType[employeeType] ?? null
+    : null;
+
+  useEffect(() => {
+    if (earliestIncidentDate && dateOfIncident < earliestIncidentDate) {
+      setDateOfIncident(earliestIncidentDate);
+    }
+  }, [earliestIncidentDate, dateOfIncident]);
 
   const availableRequestTypes = useMemo(
     () => employeePortalRequestTypes(employeeType),
@@ -172,10 +187,18 @@ export function EmployeeForm({
           <input
             type="date"
             name="date_of_incident"
-            defaultValue={todayIso()}
+            value={dateOfIncident}
+            min={earliestIncidentDate ?? undefined}
+            onChange={(event) => setDateOfIncident(event.target.value)}
             required
             className={inputClassName}
           />
+          {earliestIncidentDate ? (
+            <p className="mt-1.5 text-xs text-slate-500">
+              Must be on or after {earliestIncidentDate} (current cutoff). Earlier cutoffs cannot be
+              filed.
+            </p>
+          ) : null}
         </FormField>
 
         {showTimeFields && (
@@ -245,12 +268,12 @@ export function EmployeeForm({
         </FormField>
       </div>
 
-      <button
-        type="submit"
+      <PendingSubmitButton
+        pendingLabel="Submitting…"
         className="w-full rounded-lg bg-brand-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-600"
       >
         Submit request
-      </button>
+      </PendingSubmitButton>
     </form>
   );
 }

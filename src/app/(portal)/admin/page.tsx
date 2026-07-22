@@ -99,10 +99,10 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       listCompanies(),
       listDepartments(),
       listEmployees(),
-      listUsersByRole("Manager", true),
-      listUsersByRole("Verifier", true),
-      listUsersByRole("HR", true),
-      listUsersByRole("Payroll Officer", true),
+      listUsersByRole("Manager"),
+      listUsersByRole("Verifier"),
+      listUsersByRole("HR"),
+      listUsersByRole("Payroll Officer"),
       listAllUsers(),
       getAllRequests(),
       listRecordRequestLogs(),
@@ -194,6 +194,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             deleteAction={deleteAdminEmployeeAction}
             editId={editId}
             showAdd={showAdd}
+            activeOnly={false}
             basePath="/admin"
             tab="employees"
           />

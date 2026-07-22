@@ -24,6 +24,7 @@ type RosterPanelTableProps = {
   rosterHref: string;
   deleteAction?: (formData: FormData) => Promise<void>;
   collapseStorageKey?: string;
+  showStatus?: boolean;
 };
 
 function matchesSearch(employee: EmployeeWithDepartment, query: string): boolean {
@@ -48,14 +49,22 @@ function RosterEmployeeRow({
   employee,
   rosterHref,
   deleteAction,
+  showStatus,
 }: {
   employee: EmployeeWithDepartment;
   rosterHref: string;
   deleteAction?: (formData: FormData) => Promise<void>;
+  showStatus?: boolean;
 }) {
   return (
-    <tr className="hover:bg-slate-50/60">
-      <td className="px-4 py-3 font-semibold text-slate-900">{employee.fullName}</td>
+    <tr className={`hover:bg-slate-50/60 ${employee.isActive ? "" : "bg-slate-50/40"}`}>
+      <td
+        className={`px-4 py-3 font-semibold ${
+          employee.isActive ? "text-slate-900" : "text-slate-500"
+        }`}
+      >
+        {employee.fullName}
+      </td>
       <td className="px-4 py-3 text-slate-700">
         {employee.biometricNo ?? <span className="text-slate-400">—</span>}
       </td>
@@ -69,6 +78,19 @@ function RosterEmployeeRow({
           {getEmployeeTypeLabel(employee.employeeType) || employee.employeeType}
         </span>
       </td>
+      {showStatus && (
+        <td className="px-4 py-3">
+          <span
+            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+              employee.isActive
+                ? "bg-emerald-100 text-emerald-700"
+                : "bg-slate-100 text-slate-500"
+            }`}
+          >
+            {employee.isActive ? "Active" : "Inactive"}
+          </span>
+        </td>
+      )}
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
           <Link
@@ -91,14 +113,24 @@ function RosterEmployeeRow({
 }
 
 const ROSTER_HEADERS = ["Name", "Biometric #", "Email", "Payroll group", "Actions"];
+const ROSTER_HEADERS_WITH_STATUS = [
+  "Name",
+  "Biometric #",
+  "Email",
+  "Payroll group",
+  "Status",
+  "Actions",
+];
 
 export function RosterPanelTable({
   employees,
   rosterHref,
   deleteAction,
   collapseStorageKey = "roster:employees",
+  showStatus = false,
 }: RosterPanelTableProps) {
   const [search, setSearch] = useState("");
+  const headers = showStatus ? ROSTER_HEADERS_WITH_STATUS : ROSTER_HEADERS;
 
   const filteredEmployees = useMemo(
     () => employees.filter((employee) => matchesSearch(employee, search)),
@@ -192,7 +224,7 @@ export function RosterPanelTable({
                           <table className="min-w-full text-sm">
                             <thead className="border-b border-slate-100 bg-slate-50/80">
                               <tr>
-                                {ROSTER_HEADERS.map((header) => (
+                                {headers.map((header) => (
                                   <th
                                     key={header}
                                     className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400"
@@ -209,6 +241,7 @@ export function RosterPanelTable({
                                   employee={employee}
                                   rosterHref={rosterHref}
                                   deleteAction={deleteAction}
+                                  showStatus={showStatus}
                                 />
                               ))}
                             </tbody>

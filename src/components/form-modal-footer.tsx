@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { PendingSubmitButton } from "./pending-submit-button";
+
 type FormModalFooterProps = {
   cancelHref: string;
 };
@@ -13,12 +15,12 @@ export function FormModalFooter({ cancelHref }: FormModalFooterProps) {
       >
         Cancel
       </Link>
-      <button
-        type="submit"
+      <PendingSubmitButton
+        pendingLabel="Saving…"
         className="rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700"
       >
         Save
-      </button>
+      </PendingSubmitButton>
     </div>
   );
 }

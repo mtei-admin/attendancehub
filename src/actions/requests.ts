@@ -18,13 +18,20 @@ import {
 import { getActiveOtEligibleTypes, getPayrollCutoffRule } from "@/lib/ot-settings";
 import { getEarliestAllowedIncidentDate } from "@/lib/cutoff";
 import {
+  applyEmployeePortalTimeDefaults,
   employeePortalRequestTypes,
   isConfiEmployee,
   isOtOrHolidayWorkRequestType,
   validateEmployeePortalOtFeatures,
   validateEmployeePortalTimeFields,
 } from "@/lib/employee-portal";
-import { addManagerOwnRequest, addRequest, getRequestByRefId, updateRequestStatus } from "@/lib/requests";
+import {
+  addManagerOwnRequest,
+  addRequest,
+  findDuplicateSlip,
+  getRequestByRefId,
+  updateRequestStatus,
+} from "@/lib/requests";
 import { shouldDirectHrConfiOwnSlipOnSubmit } from "@/lib/direct-hr-confi-slips";
 import { managerCanApproveEmployee, isEmployeeOnlyManager, getManagerAllowedEmployeeNames } from "@/lib/manager-approval-scope";
 import { getEmployeeByPlacement, verifyEmployeePlacement } from "@/lib/roster";
@@ -42,8 +49,8 @@ export async function submitRequestAction(formData: FormData) {
   const requestType = String(formData.get("request_type") ?? "");
   const dateRequested = String(formData.get("date_requested") ?? "");
   const dateOfIncident = String(formData.get("date_of_incident") ?? "");
-  const timeIn = String(formData.get("time_in") ?? "").trim();
-  const timeOut = String(formData.get("time_out") ?? "").trim();
+  const rawTimeIn = String(formData.get("time_in") ?? "").trim();
+  const rawTimeOut = String(formData.get("time_out") ?? "").trim();
   const otHours = readOtHoursFromFormData(formData, "ot_hours", "ot_minutes");
   const fileAsOtOffset = formData.get("file_as_ot_offset") === "on";
   let reason = String(formData.get("reason") ?? "").trim();
@@ -94,6 +101,7 @@ export async function submitRequestAction(formData: FormData) {
     redirect(`/employee?error=${encodeURIComponent(otFeatureError)}`);
   }
 
+  const { timeIn, timeOut } = applyEmployeePortalTimeDefaults(requestType, rawTimeIn, rawTimeOut);
   const timeFieldError = validateEmployeePortalTimeFields(requestType, timeIn, timeOut);
   if (timeFieldError) {
     redirect(`/employee?error=${encodeURIComponent(timeFieldError)}`);
@@ -145,8 +153,26 @@ export async function submitRequestAction(formData: FormData) {
     reason = `[OT offset credit] ${reason}`;
   }
 
+  const directToHr = shouldDirectHrConfiOwnSlipOnSubmit(employeeName);
+  const storedEmployeeName = directToHr ? employee.fullName : employeeName;
+  const duplicate = await findDuplicateSlip({
+    company,
+    department,
+    employeeName: storedEmployeeName,
+    requestType,
+    dateOfIncident,
+    timeIn: timeIn || null,
+    timeOut: timeOut || null,
+  });
+  if (duplicate) {
+    redirect(
+      `/employee?error=${encodeURIComponent(
+        `A slip with the same date, time, and request type already exists (${duplicate.refId}, ${duplicate.status}). Rejected slips can be refiled.`,
+      )}`,
+    );
+  }
+
   try {
-    const directToHr = shouldDirectHrConfiOwnSlipOnSubmit(employeeName);
     const refId = directToHr
       ? await addManagerOwnRequest({
           company,

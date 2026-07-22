@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNotNull, isNull, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
 
 import { MANAGER_NAME } from "./constants";
 import { getDb } from "./db";
@@ -81,6 +81,58 @@ export async function addRequest(input: {
   });
 
   return refId;
+}
+
+/**
+ * Finds an existing non-Rejected slip with the same employee, type, date, and times.
+ * Empty/null From/To are treated as equivalent.
+ */
+export async function findDuplicateSlip(input: {
+  company: string;
+  department: string;
+  employeeName: string;
+  requestType: string;
+  dateOfIncident: string;
+  timeIn?: string | null;
+  timeOut?: string | null;
+  excludeRefId?: string;
+}): Promise<AttendanceRequest | undefined> {
+  const db = getDb();
+  const timeIn = (input.timeIn ?? "").trim() || null;
+  const timeOut = (input.timeOut ?? "").trim() || null;
+
+  const timeInCondition =
+    timeIn === null
+      ? or(isNull(attendanceRequests.timeIn), eq(attendanceRequests.timeIn, ""))
+      : eq(attendanceRequests.timeIn, timeIn);
+  const timeOutCondition =
+    timeOut === null
+      ? or(isNull(attendanceRequests.timeOut), eq(attendanceRequests.timeOut, ""))
+      : eq(attendanceRequests.timeOut, timeOut);
+
+  const conditions = [
+    eq(attendanceRequests.company, input.company.trim()),
+    eq(attendanceRequests.department, input.department.trim()),
+    eq(attendanceRequests.employeeName, input.employeeName.trim()),
+    eq(attendanceRequests.requestType, input.requestType),
+    eq(attendanceRequests.dateOfIncident, input.dateOfIncident),
+    ne(attendanceRequests.status, "Rejected"),
+    timeInCondition,
+    timeOutCondition,
+  ];
+
+  if (input.excludeRefId) {
+    conditions.push(ne(attendanceRequests.refId, input.excludeRefId));
+  }
+
+  const [row] = await db
+    .select()
+    .from(attendanceRequests)
+    .where(and(...conditions))
+    .orderBy(desc(attendanceRequests.submittedAt))
+    .limit(1);
+
+  return row;
 }
 
 export async function addManagerOwnRequest(input: {

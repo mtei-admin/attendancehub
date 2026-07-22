@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { updateEmployeeRecordAction } from "@/actions/records";
 import {
   employeePortalRequestTypes,
+  isAbsentLeaveRequestType,
   isOtOrHolidayWorkRequestType,
   showEmployeePortalTimeFields,
   showOtOffsetCreditCheckbox,
@@ -92,6 +93,7 @@ function EmployeeRecordEditForm({
   }, [availableRequestTypes, requestType]);
 
   const showTimeFields = showEmployeePortalTimeFields(requestType);
+  const timesOptional = isAbsentLeaveRequestType(requestType);
   const isOtOrHolidayWork = isOtOrHolidayWorkRequestType(requestType);
   const showOtOffsetCheckbox = showOtOffsetCreditCheckbox(employeeType, requestType);
   const otHoursFromTime = useOtHoursFromTimeRange(timeIn, timeOut, isOtOrHolidayWork);
@@ -156,7 +158,7 @@ function EmployeeRecordEditForm({
               <input
                 type="time"
                 name="time_in"
-                required
+                required={!timesOptional}
                 value={timeIn}
                 onChange={(event) => setTimeIn(event.target.value)}
                 className={inputClassName}
@@ -167,12 +169,18 @@ function EmployeeRecordEditForm({
               <input
                 type="time"
                 name="time_out"
-                required
+                required={!timesOptional}
                 value={timeOut}
                 onChange={(event) => setTimeOut(event.target.value)}
                 className={inputClassName}
               />
             </FormField>
+            {timesOptional ? (
+              <p className="md:col-span-2 text-xs text-slate-500">
+                Optional for Absent/Leave. If left blank, full day 8:00 AM–5:00 PM is used on
+                save.
+              </p>
+            ) : null}
           </>
         )}
 

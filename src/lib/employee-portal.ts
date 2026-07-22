@@ -1,6 +1,10 @@
 import { REQUEST_TYPES } from "./constants";
 
 export const CONFI_EMPLOYEE_TYPE = "Confi";
+export const ABSENT_LEAVE_REQUEST_TYPE = "Absent/Leave";
+/** Full-day default when Absent/Leave From/To are left blank. */
+export const DEFAULT_FULL_DAY_TIME_IN = "08:00";
+export const DEFAULT_FULL_DAY_TIME_OUT = "17:00";
 
 export function isConfiEmployee(employeeType?: string | null): boolean {
   return employeeType === CONFI_EMPLOYEE_TYPE;
@@ -14,12 +18,35 @@ export function employeePortalRequestTypes(employeeType?: string | null): readon
   return REQUEST_TYPES.filter((type) => type !== "OT Offset");
 }
 
+export function isAbsentLeaveRequestType(requestType: string): boolean {
+  return requestType === ABSENT_LEAVE_REQUEST_TYPE;
+}
+
 export function isOtOrHolidayWorkRequestType(requestType: string): boolean {
   return requestType === "Overtime" || requestType === "Holiday/Rest Day Work";
 }
 
 export function showEmployeePortalTimeFields(requestType: string): boolean {
   return requestType !== "";
+}
+
+/**
+ * For Absent/Leave only: if both From and To are blank, use 08:00–17:00.
+ * Partial times are left unchanged so validation can require both.
+ */
+export function applyEmployeePortalTimeDefaults(
+  requestType: string,
+  timeIn: string,
+  timeOut: string,
+): { timeIn: string; timeOut: string } {
+  const trimmedIn = timeIn.trim();
+  const trimmedOut = timeOut.trim();
+
+  if (isAbsentLeaveRequestType(requestType) && !trimmedIn && !trimmedOut) {
+    return { timeIn: DEFAULT_FULL_DAY_TIME_IN, timeOut: DEFAULT_FULL_DAY_TIME_OUT };
+  }
+
+  return { timeIn: trimmedIn, timeOut: trimmedOut };
 }
 
 export function validateEmployeePortalTimeFields(

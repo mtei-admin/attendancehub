@@ -9,7 +9,7 @@ import { ROLE_ROUTES } from "@/lib/constants";
 import { isOtOrHolidayWorkRequestType } from "@/lib/employee-portal";
 import { managerCanFileOwnSlip } from "@/lib/manager-approval-scope";
 import { readOtHoursFromFormData } from "@/lib/ot-hours";
-import { addManagerOwnRequest } from "@/lib/requests";
+import { addManagerOwnRequest, findDuplicateSlip } from "@/lib/requests";
 import { getEmployeeByPlacement } from "@/lib/roster";
 
 function managerRedirect(params: { success?: string; error?: string } = {}): never {
@@ -89,6 +89,21 @@ export async function submitManagerSlipAction(formData: FormData) {
 
   if (fileAsOtOffset) {
     reason = `[OT offset credit] ${reason}`;
+  }
+
+  const duplicate = await findDuplicateSlip({
+    company,
+    department,
+    employeeName: employee.fullName,
+    requestType,
+    dateOfIncident,
+    timeIn: timeIn || null,
+    timeOut: timeOut || null,
+  });
+  if (duplicate) {
+    managerRedirect({
+      error: `A slip with the same date, time, and request type already exists (${duplicate.refId}, ${duplicate.status}). Rejected slips can be refiled.`,
+    });
   }
 
   try {

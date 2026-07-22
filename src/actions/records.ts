@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { isNextNavigationError } from "@/lib/action-auth";
 import { REQUEST_TYPES, STATUSES } from "@/lib/constants";
 import {
+  applyEmployeePortalTimeDefaults,
   employeePortalRequestTypes,
   isOtOrHolidayWorkRequestType,
   validateEmployeePortalOtFeatures,
@@ -283,8 +284,8 @@ export async function updateEmployeeRecordAction(formData: FormData) {
   const requestType = String(formData.get("request_type") ?? "").trim();
   const dateRequested = String(formData.get("date_requested") ?? "").trim();
   const dateOfIncident = String(formData.get("date_of_incident") ?? "").trim();
-  const timeIn = String(formData.get("time_in") ?? "").trim();
-  const timeOut = String(formData.get("time_out") ?? "").trim();
+  const rawTimeIn = String(formData.get("time_in") ?? "").trim();
+  const rawTimeOut = String(formData.get("time_out") ?? "").trim();
   const fileAsOtOffset = formData.get("file_as_ot_offset") === "on";
   let reason = String(formData.get("reason") ?? "").trim();
 
@@ -338,6 +339,7 @@ export async function updateEmployeeRecordAction(formData: FormData) {
     recordsRedirect({ filters: parsed, error: otFeatureError });
   }
 
+  const { timeIn, timeOut } = applyEmployeePortalTimeDefaults(requestType, rawTimeIn, rawTimeOut);
   const timeFieldError = validateEmployeePortalTimeFields(requestType, timeIn, timeOut);
   if (timeFieldError) {
     recordsRedirect({ filters: parsed, error: timeFieldError });

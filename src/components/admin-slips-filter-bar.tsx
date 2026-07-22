@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 
+import { REQUEST_TYPES } from "@/lib/constants";
 import type { EmployeesByCompanyDepartment } from "@/lib/roster";
 
 import { FormField, inputClassName } from "./form-field";
@@ -11,6 +12,9 @@ export type AdminSlipsFilters = {
   company: string;
   department: string;
   employee: string;
+  from: string;
+  to: string;
+  requestType: string;
 };
 
 type AdminSlipsFilterBarProps = {
@@ -31,6 +35,9 @@ export function AdminSlipsFilterBar({
   const [company, setCompany] = useState(filters.company);
   const [department, setDepartment] = useState(filters.department);
   const [employee, setEmployee] = useState(filters.employee);
+  const [from, setFrom] = useState(filters.from);
+  const [to, setTo] = useState(filters.to);
+  const [requestType, setRequestType] = useState(filters.requestType);
 
   const departments = useMemo(() => {
     if (!company) return [];
@@ -42,7 +49,14 @@ export function AdminSlipsFilterBar({
     return employeesByCompanyDepartment[company]?.[department] ?? [];
   }, [company, department, employeesByCompanyDepartment]);
 
-  const isFiltered = Boolean(filters.company || filters.department || filters.employee);
+  const isFiltered = Boolean(
+    filters.company ||
+      filters.department ||
+      filters.employee ||
+      filters.from ||
+      filters.to ||
+      filters.requestType,
+  );
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -104,6 +118,44 @@ export function AdminSlipsFilterBar({
               {employees.map((name) => (
                 <option key={name} value={name}>
                   {name}
+                </option>
+              ))}
+            </select>
+          </FormField>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <FormField label="Incident from">
+            <input
+              type="date"
+              name="from"
+              value={from}
+              onChange={(event) => setFrom(event.target.value)}
+              className={inputClassName}
+            />
+          </FormField>
+
+          <FormField label="Incident to">
+            <input
+              type="date"
+              name="to"
+              value={to}
+              onChange={(event) => setTo(event.target.value)}
+              className={inputClassName}
+            />
+          </FormField>
+
+          <FormField label="Type">
+            <select
+              name="request_type"
+              value={requestType}
+              onChange={(event) => setRequestType(event.target.value)}
+              className={inputClassName}
+            >
+              <option value="">Show all</option>
+              {REQUEST_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
                 </option>
               ))}
             </select>

@@ -43,6 +43,9 @@ function buildSlipsHref(filters: AdminSlipsFilters, editRefId?: string): string 
   if (filters.company) search.set("company", filters.company);
   if (filters.department) search.set("department", filters.department);
   if (filters.employee) search.set("employee", filters.employee);
+  if (filters.from) search.set("from", filters.from);
+  if (filters.to) search.set("to", filters.to);
+  if (filters.requestType) search.set("request_type", filters.requestType);
   if (editRefId) search.set("edit_ref", editRefId);
   return `/admin?${search.toString()}`;
 }
@@ -77,7 +80,7 @@ export function AdminSlipsPanel({
         </div>
 
         <AdminSlipsFilterBar
-          key={`${filters.company}|${filters.department}|${filters.employee}`}
+          key={`${filters.company}|${filters.department}|${filters.employee}|${filters.from}|${filters.to}|${filters.requestType}`}
           companies={companies}
           employeesByCompanyDepartment={employeesByCompanyDepartment}
           filters={filters}

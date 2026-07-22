@@ -48,6 +48,9 @@ type AdminPageProps = {
     company?: string;
     department?: string;
     employee?: string;
+    from?: string;
+    to?: string;
+    request_type?: string;
   }>;
 };
 
@@ -159,11 +162,17 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
           const company = params.company?.trim() ?? "";
           const department = params.department?.trim() ?? "";
           const employee = params.employee?.trim() ?? "";
-          const filters = { company, department, employee };
+          const from = params.from?.trim() ?? "";
+          const to = params.to?.trim() ?? "";
+          const requestType = params.request_type?.trim() ?? "";
+          const filters = { company, department, employee, from, to, requestType };
           const filteredRequests = allRequests.filter((request) => {
             if (company && request.company !== company) return false;
             if (department && request.department !== department) return false;
             if (employee && request.employeeName !== employee) return false;
+            if (from && request.dateOfIncident < from) return false;
+            if (to && request.dateOfIncident > to) return false;
+            if (requestType && request.requestType !== requestType) return false;
             return true;
           });
           const editRequest = editRefId

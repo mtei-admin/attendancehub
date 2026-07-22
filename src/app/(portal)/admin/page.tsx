@@ -103,7 +103,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       listUsersByRole("Verifier", true),
       listUsersByRole("HR", true),
       listUsersByRole("Payroll Officer", true),
-      listAllUsers(true),
+      listAllUsers(),
       getAllRequests(),
       listRecordRequestLogs(),
     ]);

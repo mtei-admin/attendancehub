@@ -34,6 +34,10 @@ function toCsv(rows: ReturnType<typeof toDisplayRow>[]): string {
   return lines.join("\n");
 }
 
+function isIsoDate(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
 export async function GET(request: NextRequest) {
   const session = await getSession();
   if (!session || !canAccessHrPortal(session.role)) {
@@ -42,6 +46,9 @@ export async function GET(request: NextRequest) {
 
   const group = request.nextUrl.searchParams.get("group")?.trim() ?? "";
   const periodId = request.nextUrl.searchParams.get("period")?.trim() ?? "";
+  const fromDate = request.nextUrl.searchParams.get("from")?.trim() ?? "";
+  const toDate = request.nextUrl.searchParams.get("to")?.trim() ?? "";
+  const mode = request.nextUrl.searchParams.get("mode")?.trim() ?? "all";
 
   const [roster, approved, archived] = await Promise.all([
     listEmployees(true),
@@ -50,7 +57,12 @@ export async function GET(request: NextRequest) {
   ]);
   const employeeTypeLookup = buildEmployeeTypeLookup(roster);
 
-  let scoped = filterRequestsForHrPortal(approved, employeeTypeLookup, session, "all");
+  let scoped = filterRequestsForHrPortal(
+    mode === "checked" ? archived : approved,
+    employeeTypeLookup,
+    session,
+    mode === "checked" ? "checked" : "all",
+  );
 
   if (isPayrollOfficerRole(session.role) && group === "rf") {
     const parsedPeriod = parseCutoffPeriodId(periodId);
@@ -66,6 +78,11 @@ export async function GET(request: NextRequest) {
     );
   } else if (isPayrollOfficerRole(session.role) && group === "confi") {
     scoped = filterPayrollOfficerConfiRequests(approved, employeeTypeLookup, "all");
+  } else if (fromDate || toDate) {
+    if (!isIsoDate(fromDate) || !isIsoDate(toDate) || fromDate > toDate) {
+      return new Response("Invalid date range.", { status: 400 });
+    }
+    scoped = filterRequestsByIncidentCutoff(scoped, fromDate, toDate);
   } else if (periodId) {
     const parsedPeriod = parseCutoffPeriodId(periodId);
     if (!parsedPeriod) {
@@ -79,12 +96,15 @@ export async function GET(request: NextRequest) {
   }
 
   const csv = toCsv(scoped.map(toDisplayRow));
-  const safePeriod = periodId.replace(/[^\d|]/g, "").slice(0, 24);
+  const safeRange =
+    fromDate && toDate
+      ? `${fromDate}_to_${toDate}`.replace(/[^\d_to-]/g, "").slice(0, 40)
+      : periodId.replace(/[^\d|]/g, "").slice(0, 24).replace("|", "_to_");
   const filename =
-    (group === "rf" || (!group && session.hrScope === "R&F only")) && safePeriod
-      ? `rf_payroll_${safePeriod.replace("|", "_to_")}.csv`
-      : safePeriod
-        ? `payroll_${safePeriod.replace("|", "_to_")}.csv`
+    (group === "rf" || (!group && session.hrScope === "R&F only")) && safeRange
+      ? `rf_payroll_${mode === "checked" ? "checked_" : ""}${safeRange}.csv`
+      : safeRange
+        ? `payroll_${safeRange}.csv`
         : "approved_attendance_records.csv";
 
   return new Response(csv, {

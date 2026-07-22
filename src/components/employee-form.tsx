@@ -37,6 +37,7 @@ export function EmployeeForm({
   const [requestType, setRequestType] = useState("");
   const [timeIn, setTimeIn] = useState("");
   const [timeOut, setTimeOut] = useState("");
+  const dateRequested = useMemo(() => todayIso(), []);
 
   const departments = useMemo(() => {
     if (!company) return [];
@@ -120,12 +121,13 @@ export function EmployeeForm({
         </FormField>
 
         <FormField label="Date requested">
+          <input type="hidden" name="date_requested" value={dateRequested} />
           <input
             type="date"
-            name="date_requested"
-            defaultValue={todayIso()}
-            required
-            className={inputClassName}
+            value={dateRequested}
+            disabled
+            aria-disabled="true"
+            className={`${inputClassName} cursor-not-allowed opacity-60`}
           />
         </FormField>
 

@@ -8,8 +8,9 @@ type HrTabsProps = {
   checkedCount: number;
   allCount: number;
   companyCount: number;
-  /** Preserve cutoff period when switching tabs (All records filter). */
-  periodId?: string;
+  /** Preserve date range when switching between Checked / All records. */
+  fromDate?: string;
+  toDate?: string;
 };
 
 export function HrTabs({
@@ -18,7 +19,8 @@ export function HrTabs({
   checkedCount,
   allCount,
   companyCount,
-  periodId,
+  fromDate,
+  toDate,
 }: HrTabsProps) {
   const tabs: {
     id: HrTab;
@@ -59,8 +61,9 @@ export function HrTabs({
 
   function tabHref(tab: HrTab): string {
     const params = new URLSearchParams({ tab });
-    if (periodId && tab === "all") {
-      params.set("period", periodId);
+    if (fromDate && toDate && (tab === "all" || tab === "checked")) {
+      params.set("from", fromDate);
+      params.set("to", toDate);
     }
     return `/hr?${params.toString()}`;
   }

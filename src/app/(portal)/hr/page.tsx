@@ -8,7 +8,7 @@ import {
 } from "@/actions/hr";
 import { FlashMessage } from "@/components/flash-message";
 import { CompanyPanel } from "@/components/company-panel";
-import { HrAllRecordsCutoffBar } from "@/components/hr-all-records-cutoff-bar";
+import { HrPayrollDateRangeBar } from "@/components/hr-payroll-date-range-bar";
 import { HrRecordsList } from "@/components/hr-records-list";
 import { HrSlipEditModal } from "@/components/hr-slip-edit-modal";
 import { PayrollOfficerTabs } from "@/components/payroll-officer-tabs";
@@ -70,6 +70,8 @@ type HrPageProps = {
   searchParams: Promise<{
     tab?: string;
     period?: string;
+    from?: string;
+    to?: string;
     edit?: string;
     add?: string;
     success?: string;
@@ -90,10 +92,19 @@ type HrPageProps = {
   }>;
 };
 
-function buildHrTabHref(tab: string, period?: string, editRef?: string): string {
+function isIsoDate(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function buildHrTabHref(
+  tab: string,
+  extras?: { period?: string; from?: string; to?: string; editRef?: string },
+): string {
   const search = new URLSearchParams({ tab });
-  if (period) search.set("period", period);
-  if (editRef) search.set("edit_ref", editRef);
+  if (extras?.period) search.set("period", extras.period);
+  if (extras?.from) search.set("from", extras.from);
+  if (extras?.to) search.set("to", extras.to);
+  if (extras?.editRef) search.set("edit_ref", extras.editRef);
   return `/hr?${search.toString()}`;
 }
 
@@ -208,38 +219,59 @@ export default async function HrPage({ searchParams }: HrPageProps) {
   const pendingRequests = isPayrollOfficer
     ? confiPendingRequests
     : filterRequestsForHrPortal(pendingRaw, employeeTypeLookup, session, "pending");
-  const checkedRequests = isPayrollOfficer
+  const checkedRequestsRaw = isPayrollOfficer
     ? confiCheckedRequests
     : filterRequestsForHrPortal(checkedRaw, employeeTypeLookup, session, "checked");
   const allRequestsRaw = isPayrollOfficer
     ? confiAllRequests
     : filterRequestsForHrPortal(allRaw, employeeTypeLookup, session, "all");
 
-  const isHrRfAllCutoff = !isPayrollOfficer && session.hrScope === "R&F only";
-  const hrAllCutoffRule = isHrRfAllCutoff ? await getPayrollCutoffRule("Rank & File") : null;
-  const hrAllPeriodOptions = hrAllCutoffRule ? listCutoffPeriods(hrAllCutoffRule) : [];
-  const defaultHrAllPeriod =
-    (isHrRfAllCutoff && params.period && parseCutoffPeriodId(params.period)
-      ? params.period
-      : null) ??
-    (hrAllCutoffRule ? getCurrentCutoffPeriod(hrAllCutoffRule)?.id : null) ??
-    hrAllPeriodOptions[0]?.id ??
-    "";
-  const parsedHrAllPeriod = defaultHrAllPeriod ? parseCutoffPeriodId(defaultHrAllPeriod) : null;
+  const isHrRfPayrollExport = !isPayrollOfficer && session.hrScope === "R&F only";
+  const hrRangeCutoffRule = isHrRfPayrollExport
+    ? await getPayrollCutoffRule("Rank & File")
+    : null;
+  const currentHrCutoff = hrRangeCutoffRule
+    ? getCurrentCutoffPeriod(hrRangeCutoffRule)
+    : null;
+  const paramFrom = params.from?.trim() ?? "";
+  const paramTo = params.to?.trim() ?? "";
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const fallbackFrom = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const hrFromDate =
+    isHrRfPayrollExport && isIsoDate(paramFrom)
+      ? paramFrom
+      : (currentHrCutoff?.startDate ?? (isHrRfPayrollExport ? fallbackFrom : ""));
+  const hrToDate =
+    isHrRfPayrollExport && isIsoDate(paramTo)
+      ? paramTo
+      : (currentHrCutoff?.endDate ?? (isHrRfPayrollExport ? todayIso : ""));
+  const hrDateRangeValid =
+    Boolean(hrFromDate && hrToDate) && isIsoDate(hrFromDate) && isIsoDate(hrToDate) && hrFromDate <= hrToDate;
+
+  const checkedRequests =
+    isHrRfPayrollExport && hrDateRangeValid
+      ? filterRequestsByIncidentCutoff(checkedRequestsRaw, hrFromDate, hrToDate)
+      : checkedRequestsRaw;
   const allRequests =
-    isHrRfAllCutoff && parsedHrAllPeriod
-      ? filterRequestsByIncidentCutoff(
-          allRequestsRaw,
-          parsedHrAllPeriod.startDate,
-          parsedHrAllPeriod.endDate,
-        )
+    isHrRfPayrollExport && hrDateRangeValid
+      ? filterRequestsByIncidentCutoff(allRequestsRaw, hrFromDate, hrToDate)
       : allRequestsRaw;
-  const selectedHrAllPeriodLabel =
-    hrAllPeriodOptions.find((period) => period.id === defaultHrAllPeriod)?.label ??
-    defaultHrAllPeriod;
-  const hrAllExportHref = defaultHrAllPeriod
-    ? `/api/export/csv?period=${encodeURIComponent(defaultHrAllPeriod)}`
-    : "/api/export/csv";
+
+  const hrCheckedExportHref =
+    hrDateRangeValid
+      ? `/api/export/csv?mode=checked&from=${encodeURIComponent(hrFromDate)}&to=${encodeURIComponent(hrToDate)}`
+      : "/api/export/csv?mode=checked";
+  const hrAllExportHref =
+    hrDateRangeValid
+      ? `/api/export/csv?mode=all&from=${encodeURIComponent(hrFromDate)}&to=${encodeURIComponent(hrToDate)}`
+      : "/api/export/csv";
+
+  const hrRangeExtras =
+    isHrRfPayrollExport && hrDateRangeValid
+      ? { from: hrFromDate, to: hrToDate }
+      : undefined;
 
   const confiView = isPayrollOfficer && payrollOfficerTab ? payrollOfficerConfiView(payrollOfficerTab) : null;
 
@@ -257,20 +289,22 @@ export default async function HrPage({ searchParams }: HrPageProps) {
   const hrPanelHref = buildHrTabHref(
     typeof hrListTab === "string" ? hrListTab : "pending",
     isPayrollOfficer && payrollOfficerTab === "rf"
-      ? defaultRfPeriod
-      : isHrRfAllCutoff && (activeTab as HrTab) === "all"
-        ? defaultHrAllPeriod
+      ? { period: defaultRfPeriod }
+      : (activeTab === "checked" || activeTab === "all") && hrRangeExtras
+        ? hrRangeExtras
         : undefined,
   );
   const getHrEditHref = (refId: string) =>
     buildHrTabHref(
       typeof hrListTab === "string" ? hrListTab : "pending",
-      isPayrollOfficer && payrollOfficerTab === "rf"
-        ? defaultRfPeriod
-        : isHrRfAllCutoff && (activeTab as HrTab) === "all"
-          ? defaultHrAllPeriod
-          : undefined,
-      refId,
+      {
+        ...(isPayrollOfficer && payrollOfficerTab === "rf"
+          ? { period: defaultRfPeriod }
+          : (activeTab === "checked" || activeTab === "all") && hrRangeExtras
+            ? hrRangeExtras
+            : {}),
+        editRef: refId,
+      },
     );
 
   const editablePendingRefIds = buildEditableRefIds(
@@ -464,10 +498,19 @@ export default async function HrPage({ searchParams }: HrPageProps) {
         <HrTabs
           activeTab={activeTab as HrTab}
           pendingCount={pendingRequests.length}
-          checkedCount={checkedRequests.length}
-          allCount={isHrRfAllCutoff ? allRequests.length : allRequestsRaw.length}
+          checkedCount={
+            isHrRfPayrollExport && (activeTab as HrTab) === "checked"
+              ? checkedRequests.length
+              : checkedRequestsRaw.length
+          }
+          allCount={
+            isHrRfPayrollExport && (activeTab as HrTab) === "all"
+              ? allRequests.length
+              : allRequestsRaw.length
+          }
           companyCount={activeCompanies.length}
-          periodId={isHrRfAllCutoff ? defaultHrAllPeriod || undefined : undefined}
+          fromDate={hrRangeExtras?.from}
+          toDate={hrRangeExtras?.to}
         />
       )}
 
@@ -481,11 +524,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
           employeeType={editingEmployeeType}
           returnTab={typeof hrListTab === "string" ? hrListTab : "pending"}
           returnPeriod={
-            isPayrollOfficer && payrollOfficerTab === "rf"
-              ? defaultRfPeriod
-              : isHrRfAllCutoff && (activeTab as HrTab) === "all"
-                ? defaultHrAllPeriod
-                : undefined
+            isPayrollOfficer && payrollOfficerTab === "rf" ? defaultRfPeriod : undefined
           }
         />
 
@@ -573,6 +612,16 @@ export default async function HrPage({ searchParams }: HrPageProps) {
 
         {!isPayrollOfficer && activeTab === "checked" && (
           <section className="space-y-4">
+            {isHrRfPayrollExport && hrDateRangeValid ? (
+              <HrPayrollDateRangeBar
+                title="Checked"
+                tab="checked"
+                fromDate={hrFromDate}
+                toDate={hrToDate}
+                filteredCount={checkedRequests.length}
+                exportHref={hrCheckedExportHref}
+              />
+            ) : null}
             <HrRecordsList
               requests={checkedRequests}
               employeeTypeLookup={employeeTypeLookup}
@@ -581,18 +630,23 @@ export default async function HrPage({ searchParams }: HrPageProps) {
               collapseStorageKey={`hr:${session.hrScope ?? "all"}:checked`}
               editableRefIds={editableCheckedRefIds}
               getEditHref={getHrEditHref}
-              emptyMessage="No checked records yet."
+              emptyMessage={
+                isHrRfPayrollExport
+                  ? "No checked records in the selected date range."
+                  : "No checked records yet."
+              }
             />
           </section>
         )}
 
         {!isPayrollOfficer && activeTab === "all" && (
           <section className="space-y-4">
-            {isHrRfAllCutoff && hrAllPeriodOptions.length > 0 && defaultHrAllPeriod ? (
-              <HrAllRecordsCutoffBar
-                periodOptions={hrAllPeriodOptions}
-                selectedPeriodId={defaultHrAllPeriod}
-                selectedPeriodLabel={selectedHrAllPeriodLabel}
+            {isHrRfPayrollExport && hrDateRangeValid ? (
+              <HrPayrollDateRangeBar
+                title="All records"
+                tab="all"
+                fromDate={hrFromDate}
+                toDate={hrToDate}
                 filteredCount={allRequests.length}
                 exportHref={hrAllExportHref}
               />
@@ -613,8 +667,8 @@ export default async function HrPage({ searchParams }: HrPageProps) {
               employeeTypeLookup={employeeTypeLookup}
               mode="all"
               emptyMessage={
-                isHrRfAllCutoff
-                  ? "No records in the selected cutoff period."
+                isHrRfPayrollExport
+                  ? "No records in the selected date range."
                   : "No records to display."
               }
             />

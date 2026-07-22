@@ -1,4 +1,5 @@
 import { WelcomePortalCard } from "@/components/welcome-portal-card";
+import { PwaInstallTip } from "@/components/pwa-install-tip";
 import { PORTAL_SLUGS } from "@/lib/constants";
 
 type WelcomePageProps = {
@@ -30,6 +31,8 @@ export default async function WelcomePage({ searchParams }: WelcomePageProps) {
             <WelcomePortalCard key={portal} portal={portal} />
           ))}
         </div>
+
+        <PwaInstallTip />
       </div>
     </div>
   );

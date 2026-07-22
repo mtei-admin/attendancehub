@@ -12,7 +12,8 @@
     "db:push": "drizzle-kit push",
     "db:seed": "tsx --env-file=.env.local scripts/seed.ts",
     "db:seed:users": "tsx --env-file=.env.local scripts/seed-users.ts",
-    "db:seed:roster": "tsx --env-file=.env.local scripts/seed-roster.ts"
+    "db:seed:roster": "tsx --env-file=.env.local scripts/seed-roster.ts",
+    "pwa:icons": "node scripts/generate-pwa-icons.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
@@ -33,6 +34,7 @@
     "eslint": "^9.17.0",
     "eslint-config-next": "^15.1.0",
     "postcss": "^8.4.49",
+    "sharp": "^0.35.3",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"

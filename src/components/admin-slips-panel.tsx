@@ -1,7 +1,12 @@
 import Link from "next/link";
 
 import type { AttendanceRequest } from "@/lib/schema";
+import type { EmployeesByCompanyDepartment } from "@/lib/roster";
 
+import {
+  AdminSlipsFilterBar,
+  type AdminSlipsFilters,
+} from "./admin-slips-filter-bar";
 import { AdminSlipEditModal } from "./admin-slip-edit-modal";
 import {
   formatManagerSubmittedDate,
@@ -10,9 +15,11 @@ import {
 
 type AdminSlipsPanelProps = {
   requests: AttendanceRequest[];
+  totalCount: number;
   companies: string[];
-  employeesByCompanyDepartment: import("@/lib/roster").EmployeesByCompanyDepartment;
-  editRefId?: string;
+  employeesByCompanyDepartment: EmployeesByCompanyDepartment;
+  filters: AdminSlipsFilters;
+  editRequest?: AttendanceRequest | null;
 };
 
 function workflowLabel(request: AttendanceRequest): string {
@@ -31,22 +38,32 @@ function workflowClass(request: AttendanceRequest): string {
   return "bg-cyan-100 text-cyan-700";
 }
 
+function buildSlipsHref(filters: AdminSlipsFilters, editRefId?: string): string {
+  const search = new URLSearchParams({ tab: "slips" });
+  if (filters.company) search.set("company", filters.company);
+  if (filters.department) search.set("department", filters.department);
+  if (filters.employee) search.set("employee", filters.employee);
+  if (editRefId) search.set("edit_ref", editRefId);
+  return `/admin?${search.toString()}`;
+}
+
 export function AdminSlipsPanel({
   requests,
+  totalCount,
   companies,
   employeesByCompanyDepartment,
-  editRefId,
+  filters,
+  editRequest = null,
 }: AdminSlipsPanelProps) {
-  const panelHref = "/admin?tab=slips";
-  const editing = editRefId ? requests.find((row) => row.refId === editRefId) : null;
-  const showModal = Boolean(editing);
+  const panelHref = buildSlipsHref(filters);
+  const showModal = Boolean(editRequest);
 
   return (
     <>
       <AdminSlipEditModal
         open={showModal}
         cancelHref={panelHref}
-        request={editing ?? null}
+        request={editRequest}
         companies={companies}
         employeesByCompanyDepartment={employeesByCompanyDepartment}
       />
@@ -58,6 +75,15 @@ export function AdminSlipsPanel({
             View and correct any encoded slip regardless of workflow stage.
           </p>
         </div>
+
+        <AdminSlipsFilterBar
+          key={`${filters.company}|${filters.department}|${filters.employee}`}
+          companies={companies}
+          employeesByCompanyDepartment={employeesByCompanyDepartment}
+          filters={filters}
+          resultCount={requests.length}
+          totalCount={totalCount}
+        />
 
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           <table className="min-w-full text-sm">
@@ -85,7 +111,9 @@ export function AdminSlipsPanel({
               {requests.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
-                    No slips encoded yet.
+                    {totalCount === 0
+                      ? "No slips encoded yet."
+                      : "No slips match the selected filters."}
                   </td>
                 </tr>
               ) : (
@@ -122,7 +150,7 @@ export function AdminSlipsPanel({
                     </td>
                     <td className="px-4 py-4">
                       <Link
-                        href={`${panelHref}&edit_ref=${encodeURIComponent(request.refId)}`}
+                        href={buildSlipsHref(filters, request.refId)}
                         className="rounded-lg border border-brand-200 px-3 py-1.5 text-sm font-medium text-brand-600 transition hover:bg-brand-50"
                       >
                         Edit

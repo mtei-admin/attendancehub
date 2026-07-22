@@ -45,6 +45,9 @@ type AdminPageProps = {
     success?: string;
     error?: string;
     view?: string;
+    company?: string;
+    department?: string;
+    employee?: string;
   }>;
 };
 
@@ -152,14 +155,32 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
           />
         )}
 
-        {activeTab === "slips" && (
-          <AdminSlipsPanel
-            requests={allRequests}
-            companies={companyNames}
-            employeesByCompanyDepartment={employeesByCompanyDepartment}
-            editRefId={editRefId}
-          />
-        )}
+        {activeTab === "slips" && (() => {
+          const company = params.company?.trim() ?? "";
+          const department = params.department?.trim() ?? "";
+          const employee = params.employee?.trim() ?? "";
+          const filters = { company, department, employee };
+          const filteredRequests = allRequests.filter((request) => {
+            if (company && request.company !== company) return false;
+            if (department && request.department !== department) return false;
+            if (employee && request.employeeName !== employee) return false;
+            return true;
+          });
+          const editRequest = editRefId
+            ? allRequests.find((row) => row.refId === editRefId) ?? null
+            : null;
+
+          return (
+            <AdminSlipsPanel
+              requests={filteredRequests}
+              totalCount={allRequests.length}
+              companies={companyNames}
+              employeesByCompanyDepartment={employeesByCompanyDepartment}
+              filters={filters}
+              editRequest={editRequest}
+            />
+          );
+        })()}
 
         {activeTab === "companies" && (
           <CompanyPanel

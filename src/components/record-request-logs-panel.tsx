@@ -15,13 +15,13 @@ const SCROLL_VIEWPORT_CLASS = "max-h-[28rem] overflow-auto";
 const COLUMNS = [
   { label: "When", className: "w-[12%]" },
   { label: "Action", className: "w-[7%]" },
-  { label: "Employee", className: "w-[26%]" },
-  { label: "Email / detail", className: "w-[14%]" },
-  { label: "Submitted range", className: "w-[13%]" },
-  { label: "Type", className: "w-[8%]" },
+  { label: "Employee", className: "w-[20%]" },
+  { label: "Email / detail", className: "w-[11%]" },
+  { label: "Submitted range", className: "w-[14%]" },
+  { label: "Type", className: "w-[10%]" },
   { label: "Status", className: "w-[7%]" },
   { label: "Rows", className: "w-[4%]" },
-  { label: "IP", className: "w-[9%]" },
+  { label: "IP", className: "w-[15%]" },
 ] as const;
 
 export function RecordRequestLogsPanel({ logs }: RecordRequestLogsPanelProps) {
@@ -89,17 +89,27 @@ export function RecordRequestLogsPanel({ logs }: RecordRequestLogsPanelProps) {
                         ? log.recordRefId
                         : log.emailSentTo || "—"}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3 text-slate-700">
-                      {log.submittedFrom} – {log.submittedTo}
+                    <td className="px-3 py-3 text-slate-700">
+                      <div
+                        className="leading-snug"
+                        title={`${log.submittedFrom} – ${log.submittedTo}`}
+                      >
+                        <div className="truncate">{log.submittedFrom}</div>
+                        <div className="truncate text-xs text-slate-500">
+                          to {log.submittedTo}
+                        </div>
+                      </div>
                     </td>
-                    <td className="truncate px-3 py-3 text-slate-700">
+                    <td className="truncate px-3 py-3 text-slate-700" title={log.requestTypeFilter ?? "All"}>
                       {log.requestTypeFilter ?? "All"}
                     </td>
                     <td className="truncate px-3 py-3 text-slate-700">
                       {log.statusFilter ?? "All"}
                     </td>
                     <td className="px-3 py-3 text-slate-700">{log.rowCount}</td>
-                    <td className="truncate px-3 py-3 text-slate-500">{log.ipAddress ?? "—"}</td>
+                    <td className="whitespace-nowrap px-3 py-3 font-mono text-xs text-slate-500">
+                      {log.ipAddress ?? "—"}
+                    </td>
                   </tr>
                 ))
               )}

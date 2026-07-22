@@ -72,10 +72,13 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const isWelcomeOrLogin = pathname === "/" || pathname.startsWith("/login");
+  const isWelcomeOrLogin =
+    pathname === "/" ||
+    pathname.startsWith("/login") ||
+    pathname === "/offline";
 
   if (isWelcomeOrLogin) {
-    if (session) {
+    if (session && pathname !== "/offline") {
       return NextResponse.redirect(new URL(routeForRole(session.role), request.url));
     }
     return NextResponse.next();
@@ -105,5 +108,7 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|icons/|sw\\.js|workbox|swe-worker|fallback|apple-touch-icon\\.png|manifest\\.webmanifest|manifest\\.json).*)",
+  ],
 };

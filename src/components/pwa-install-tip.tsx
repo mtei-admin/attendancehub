@@ -4,7 +4,7 @@ export function PwaInstallTip() {
       <p className="font-medium text-slate-800">Install AttendanceHub on your phone</p>
       <p className="mt-1 text-xs leading-relaxed text-slate-500">
         On iPhone: Safari → Share → Add to Home Screen. On Android: Chrome menu → Install app
-        or Add to Home screen.
+        or Add to Home screen. An internet connection is required to use AttendanceHub.
       </p>
     </div>
   );

@@ -139,6 +139,24 @@ CREATE TABLE IF NOT EXISTS ot_manual_overrides (
 );
 `;
 
+const CREATE_OT_OFFSET_BALANCE_OVERRIDES_TABLE = `
+CREATE TABLE IF NOT EXISTS ot_offset_balance_overrides (
+  id serial PRIMARY KEY,
+  company text NOT NULL,
+  department text NOT NULL,
+  employee_name text NOT NULL,
+  hours text NOT NULL,
+  note text,
+  created_by text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+`;
+
+const CREATE_OT_OFFSET_BALANCE_OVERRIDES_INDEX = `
+CREATE INDEX IF NOT EXISTS ot_offset_balance_overrides_employee_idx
+ON ot_offset_balance_overrides (company, department, employee_name);
+`;
+
 const RECORD_REQUEST_LOGS_ALTER = [
   `ALTER TABLE record_request_logs ADD COLUMN IF NOT EXISTS action text NOT NULL DEFAULT 'email'`,
   `ALTER TABLE record_request_logs ADD COLUMN IF NOT EXISTS record_ref_id text`,
@@ -391,6 +409,12 @@ async function main() {
 
   await sql(OT_MANUAL_OVERRIDE_INDEX);
   console.log("OK: ot_manual_overrides unique index ready");
+
+  await sql(CREATE_OT_OFFSET_BALANCE_OVERRIDES_TABLE);
+  console.log("OK: ot_offset_balance_overrides table ready");
+
+  await sql(CREATE_OT_OFFSET_BALANCE_OVERRIDES_INDEX);
+  console.log("OK: ot_offset_balance_overrides employee index ready");
 
   for (const statement of RECORD_REQUEST_LOGS_ALTER) {
     await sql(statement);

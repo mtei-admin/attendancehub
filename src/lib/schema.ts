@@ -191,3 +191,19 @@ export const otManualOverrides = pgTable(
 
 export type OtManualOverride = typeof otManualOverrides.$inferSelect;
 export type NewOtManualOverride = typeof otManualOverrides.$inferInsert;
+
+/** Lifetime manual adjustments to Available OT Offset Balance (append-only ledger). */
+export const otOffsetBalanceOverrides = pgTable("ot_offset_balance_overrides", {
+  id: serial("id").primaryKey(),
+  company: text("company").notNull(),
+  department: text("department").notNull(),
+  employeeName: text("employee_name").notNull(),
+  /** Signed hours: positive = add to balance, negative = deduct. */
+  hours: text("hours").notNull(),
+  note: text("note"),
+  createdBy: text("created_by").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type OtOffsetBalanceOverride = typeof otOffsetBalanceOverrides.$inferSelect;
+export type NewOtOffsetBalanceOverride = typeof otOffsetBalanceOverrides.$inferInsert;

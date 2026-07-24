@@ -1014,6 +1014,103 @@ export async function saveOtManualOverrideAction(formData: FormData) {
   }
 }
 
+export async function saveOtOffsetBalanceOverrideAction(formData: FormData) {
+  const session = await requireHrPortalAccess();
+  const redirectParams = buildOtSummaryRedirectParams(formData);
+
+  const payrollGroup = String(formData.get("ot_group") ?? "").trim();
+  const company = String(formData.get("ot_company") ?? "").trim();
+  const department = String(formData.get("ot_department") ?? "").trim();
+  const employeeName = String(formData.get("ot_employee") ?? "").trim();
+  const overrideHours = readOtHoursFromFormData(formData, "override_hours", "override_minutes", {
+    required: true,
+  });
+  const note = String(formData.get("note") ?? "").trim();
+  const overrideType = String(formData.get("override_type") ?? "add").trim();
+  const isDeduct = overrideType === "deduct";
+
+  if (payrollGroup !== "Confi") {
+    hrRedirect({
+      ...redirectParams,
+      error: "Offset balance overrides are available for Confi only.",
+    });
+  }
+
+  if (!company || !department || !employeeName) {
+    hrRedirect({
+      ...redirectParams,
+      error: "Select company, department, and employee before saving an offset balance override.",
+    });
+  }
+
+  if (!overrideHours.valid || overrideHours.totalHours <= 0) {
+    hrRedirect({
+      ...redirectParams,
+      error: overrideHours.error ?? "Enter a valid amount greater than zero.",
+    });
+  }
+
+  if (overrideType !== "add" && overrideType !== "deduct") {
+    hrRedirect({ ...redirectParams, error: "Invalid override type." });
+  }
+
+  if (!note) {
+    hrRedirect({ ...redirectParams, error: "Remarks / notes are required." });
+  }
+
+  const { verifyEmployeePlacement, listEmployees } = await import("@/lib/roster");
+  const validEmployee = await verifyEmployeePlacement(company, department, employeeName);
+  if (!validEmployee) {
+    hrRedirect({
+      ...redirectParams,
+      error: "Selected employee does not match the chosen company and department.",
+    });
+  }
+
+  const roster = await listEmployees(true);
+  const employee = roster.find(
+    (row) =>
+      row.companyName === company &&
+      row.departmentName === department &&
+      row.fullName === employeeName,
+  );
+  if (!employee || employee.employeeType !== "Confi") {
+    hrRedirect({
+      ...redirectParams,
+      error: "Offset balance overrides are limited to Confi employees on the roster.",
+    });
+  }
+
+  const signedHours = isDeduct ? -overrideHours.totalHours : overrideHours.totalHours;
+
+  try {
+    const { addOtOffsetBalanceOverrideHours } = await import("@/lib/ot-offset-balance-overrides");
+    await addOtOffsetBalanceOverrideHours({
+      company,
+      department,
+      employeeName,
+      hoursToAdd: signedHours,
+      note,
+      savedBy: session.fullName,
+    });
+
+    revalidatePath("/hr");
+    revalidatePath("/employee");
+    hrRedirect({
+      ...redirectParams,
+      success: isDeduct
+        ? `Deducted ${formatOtHoursLabel(overrideHours.totalHours)} from OT offset balance for ${employeeName}.`
+        : `Added ${formatOtHoursLabel(overrideHours.totalHours)} to OT offset balance for ${employeeName}.`,
+    });
+  } catch (error) {
+    if (isNextNavigationError(error)) throw error;
+    hrRedirect({
+      ...redirectParams,
+      error: `Unable to save offset balance override. ${String(error)}`,
+    });
+  }
+}
+
 export async function saveHrCompanyAction(formData: FormData) {
   await requireHrPortalAccess();
   const id = Number(formData.get("id") ?? 0);

@@ -14,6 +14,7 @@ import type { PayrollCutoffRule } from "@/lib/schema";
 
 import { FormField, inputClassName } from "./form-field";
 import { OtManualOverrideModal } from "./ot-manual-override-modal";
+import { OtOffsetBalanceOverrideModal } from "./ot-offset-balance-override-modal";
 import { OtSummarySettings } from "./ot-summary-settings";
 
 export type OtSummaryListRow = {
@@ -451,6 +452,7 @@ function OtSummaryDetail({
   const [employeeName, setEmployeeName] = useState(filters.employeeName);
   const [useCustomRange, setUseCustomRange] = useState(filters.useCustomRange);
   const [overrideOpen, setOverrideOpen] = useState(false);
+  const [offsetBalanceOverrideOpen, setOffsetBalanceOverrideOpen] = useState(false);
 
   const periodOptions = useMemo(
     () => periodsForPayrollGroup(cutoffRules, payrollGroup),
@@ -506,6 +508,10 @@ function OtSummaryDetail({
       department &&
       employeeName &&
       canExport,
+  );
+
+  const canOffsetBalanceOverride = Boolean(
+    payrollGroup === "Confi" && company && department && employeeName,
   );
 
   const slipHoursTotal = useMemo(() => {
@@ -766,6 +772,23 @@ function OtSummaryDetail({
         }}
       />
 
+      <OtOffsetBalanceOverrideModal
+        open={offsetBalanceOverrideOpen}
+        onClose={() => setOffsetBalanceOverrideOpen(false)}
+        employeeName={employeeName || filters.employeeName}
+        currentBalance={availableOtOffsetBalance ?? 0}
+        contextFields={{
+          payrollGroup,
+          exportBasis: filters.exportBasis,
+          periodId,
+          startDate: filters.startDate,
+          endDate: filters.endDate,
+          useCustomRange,
+          company,
+          department,
+        }}
+      />
+
       {report && (
         <section className="space-y-4">
           {report.invalidOtWarnings.length > 0 && (
@@ -810,9 +833,26 @@ function OtSummaryDetail({
                 {highlightTitle}
               </p>
               <p className="mt-1 text-xs text-brand-600/80">{highlightSubtitle}</p>
-              <p className="mt-1 text-2xl font-semibold text-brand-900">
-                {highlightValue !== null ? highlightValue.toFixed(2) : "—"}
-              </p>
+              <div className="mt-2 flex flex-wrap items-end justify-between gap-2">
+                <p className="text-2xl font-semibold text-brand-900">
+                  {highlightValue !== null ? highlightValue.toFixed(2) : "—"}
+                </p>
+                {!isRf ? (
+                  <button
+                    type="button"
+                    disabled={!canOffsetBalanceOverride}
+                    onClick={() => setOffsetBalanceOverrideOpen(true)}
+                    title={
+                      canOffsetBalanceOverride
+                        ? "Add or deduct hours from Available OT Offset Balance"
+                        : "Select Confi company, department, and employee"
+                    }
+                    className="rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 text-xs font-semibold text-violet-700 transition hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Manual override
+                  </button>
+                ) : null}
+              </div>
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Employees</p>

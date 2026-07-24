@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 
-import { saveOtManualOverrideAction } from "@/actions/hr";
+import { saveOtOffsetBalanceOverrideAction } from "@/actions/hr";
 import { formatOtHoursLabel } from "@/lib/ot-hours";
 import { FormField, inputClassName } from "./form-field";
 import { FormModal } from "./form-modal";
@@ -10,12 +10,11 @@ import { OtHoursFields } from "./ot-hours-fields";
 
 type OverrideType = "add" | "deduct";
 
-type OtManualOverrideModalProps = {
+type OtOffsetBalanceOverrideModalProps = {
   open: boolean;
   onClose: () => void;
   employeeName: string;
-  slipHoursTotal: number;
-  existingOverrideHours: number;
+  currentBalance: number;
   contextFields: {
     payrollGroup: string;
     exportBasis: string;
@@ -45,20 +44,19 @@ function parsePositiveHours(hoursRaw: string, minutesRaw: string): number | null
   return hoursValue + minutesValue / 60;
 }
 
-export function OtManualOverrideModal({
+export function OtOffsetBalanceOverrideModal({
   open,
   onClose,
   employeeName,
-  slipHoursTotal,
-  existingOverrideHours,
+  currentBalance,
   contextFields,
-}: OtManualOverrideModalProps) {
+}: OtOffsetBalanceOverrideModalProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const allowSubmitRef = useRef(false);
   const [overrideType, setOverrideType] = useState<OverrideType>("add");
   const [confirmDeduct, setConfirmDeduct] = useState(false);
   const [deductHours, setDeductHours] = useState(0);
-  const [projectedTotal, setProjectedTotal] = useState(0);
+  const [projectedBalance, setProjectedBalance] = useState(0);
   const [clientError, setClientError] = useState<string | null>(null);
 
   if (!open) return null;
@@ -67,7 +65,7 @@ export function OtManualOverrideModal({
     allowSubmitRef.current = false;
     setConfirmDeduct(false);
     setDeductHours(0);
-    setProjectedTotal(0);
+    setProjectedBalance(0);
     setClientError(null);
   }
 
@@ -93,14 +91,21 @@ export function OtManualOverrideModal({
         setClientError("Enter hours and/or minutes greater than zero.");
         return;
       }
+      const note = String(formData.get("note") ?? "").trim();
+      if (!note) {
+        event.preventDefault();
+        setClientError("Remarks / notes are required.");
+        return;
+      }
       return;
     }
 
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    const hoursRaw = String(formData.get("override_hours") ?? "");
-    const minutesRaw = String(formData.get("override_minutes") ?? "");
-    const amount = parsePositiveHours(hoursRaw, minutesRaw);
+    const amount = parsePositiveHours(
+      String(formData.get("override_hours") ?? ""),
+      String(formData.get("override_minutes") ?? ""),
+    );
 
     if (amount === null || amount <= 0) {
       setClientError("Enter hours and/or minutes greater than zero.");
@@ -113,10 +118,9 @@ export function OtManualOverrideModal({
       return;
     }
 
-    const currentTotal = slipHoursTotal + existingOverrideHours;
     setClientError(null);
     setDeductHours(amount);
-    setProjectedTotal(currentTotal - amount);
+    setProjectedBalance(currentBalance - amount);
     setConfirmDeduct(true);
   }
 
@@ -129,13 +133,13 @@ export function OtManualOverrideModal({
     <FormModal
       open={open}
       onClose={handleClose}
-      title={`Manual OT override — ${employeeName}`}
-      titleId="ot-manual-override-modal-title"
+      title={`Offset balance override — ${employeeName}`}
+      titleId="ot-offset-balance-override-modal-title"
       size="md"
     >
       <p className="mt-2 text-sm text-slate-500">
-        Adjust this employee&apos;s total OT for the selected Confi cutoff period. HR-checked export
-        only.
+        Adjust this employee&apos;s lifetime Available OT Offset Balance. This is separate from
+        period OT hours.
       </p>
 
       {confirmDeduct ? (
@@ -144,23 +148,18 @@ export function OtManualOverrideModal({
             <p className="font-semibold">Confirm deduction</p>
             <p className="mt-2">
               Deduct <strong>{formatOtHoursLabel(deductHours)}</strong> from{" "}
-              <strong>{employeeName}</strong>?
+              <strong>{employeeName}</strong>&apos;s offset balance?
             </p>
             <ul className="mt-3 space-y-1 text-amber-800">
-              <li>Slip total: {slipHoursTotal.toFixed(2)} hrs</li>
-              <li>Existing override balance: {existingOverrideHours.toFixed(2)} hrs</li>
+              <li>Current balance: {currentBalance.toFixed(2)} hrs</li>
               <li>
-                Projected total OT:{" "}
-                <strong className={projectedTotal < 0 ? "text-red-700" : ""}>
-                  {projectedTotal.toFixed(2)} hrs
+                Projected balance:{" "}
+                <strong className={projectedBalance < 0 ? "text-red-700" : ""}>
+                  {Math.max(0, projectedBalance).toFixed(2)} hrs
                 </strong>
+                {projectedBalance < 0 ? " (floored at 0 for available balance)" : ""}
               </li>
             </ul>
-            {projectedTotal < 0 && (
-              <p className="mt-2 font-medium text-red-700">
-                This will make total OT hours negative. Confirm only if that is intended.
-              </p>
-            )}
           </div>
 
           <div className="flex flex-wrap justify-end gap-3 border-t border-slate-100 pt-4">
@@ -184,7 +183,7 @@ export function OtManualOverrideModal({
 
       <form
         ref={formRef}
-        action={saveOtManualOverrideAction}
+        action={saveOtOffsetBalanceOverrideAction}
         className={`mt-5 space-y-4 ${confirmDeduct ? "sr-only" : ""}`}
         onSubmit={handleSubmit}
         aria-hidden={confirmDeduct}
@@ -232,7 +231,7 @@ export function OtManualOverrideModal({
             </label>
           </div>
           <p className="mt-2 text-xs text-slate-500">
-            Add increases total OT hours. Deduct subtracts from total OT hours for this cutoff.
+            Changes lifetime Available OT Offset Balance (credits − OT Offset), not period OT.
           </p>
         </FormField>
 
@@ -248,14 +247,13 @@ export function OtManualOverrideModal({
             name="note"
             rows={3}
             required
-            placeholder="Reason for manual override..."
+            placeholder="Reason for offset balance override..."
             className={inputClassName}
           />
         </FormField>
 
         <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
-          <p>Slip total: {slipHoursTotal.toFixed(2)} hrs</p>
-          <p className="mt-1">Existing override balance: {existingOverrideHours.toFixed(2)} hrs</p>
+          <p>Current Available OT Offset Balance: {currentBalance.toFixed(2)} hrs</p>
         </div>
 
         {clientError ? <p className="text-sm text-red-600">{clientError}</p> : null}

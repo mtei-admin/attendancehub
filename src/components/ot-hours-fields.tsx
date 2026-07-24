@@ -48,7 +48,6 @@ export function OtHoursFields({
             onChange={onHoursChange ? (event) => onHoursChange(event.target.value) : undefined}
             placeholder="0"
             readOnly={readOnly}
-            required={required}
             className={`${inputClassName} ${readOnly ? "cursor-not-allowed bg-slate-100 text-slate-700" : ""}`}
           />
         </div>
@@ -64,7 +63,6 @@ export function OtHoursFields({
             onChange={onMinutesChange ? (event) => onMinutesChange(event.target.value) : undefined}
             placeholder="0"
             readOnly={readOnly}
-            required={required}
             className={`${inputClassName} ${readOnly ? "cursor-not-allowed bg-slate-100 text-slate-700" : ""}`}
           />
         </div>

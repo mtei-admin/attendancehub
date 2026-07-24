@@ -172,6 +172,7 @@ export function resolveOtOffsetDebitHours(request: AttendanceRequest): number {
 export function computeAvailableOtOffsetBalanceFromRecords(
   records: AttendanceRequest[],
   otEligibleTypes: readonly string[],
+  manualAdjustmentHours = 0,
 ): number {
   const eligibleCreditTypes = new Set(
     otEligibleTypes.filter((type) => type !== OT_OFFSET_REQUEST_TYPE),
@@ -194,7 +195,7 @@ export function computeAvailableOtOffsetBalanceFromRecords(
     }
   }
 
-  return Math.max(0, balance);
+  return Math.max(0, balance + manualAdjustmentHours);
 }
 
 export type EmployeePlacement = {
@@ -239,7 +240,13 @@ export async function computeAvailableOtOffsetBalance(
   otEligibleTypes: readonly string[],
 ): Promise<number> {
   const records = await listEmployeeCheckedRequests(placement);
-  return computeAvailableOtOffsetBalanceFromRecords(records, otEligibleTypes);
+  const { sumOtOffsetBalanceOverrideHours } = await import("./ot-offset-balance-overrides");
+  const manualAdjustmentHours = await sumOtOffsetBalanceOverrideHours(placement);
+  return computeAvailableOtOffsetBalanceFromRecords(
+    records,
+    otEligibleTypes,
+    manualAdjustmentHours,
+  );
 }
 
 export type OtOffsetBalanceListRow = EmployeePlacement & {
@@ -295,18 +302,25 @@ export async function listOtOffsetBalancesByPayrollGroup(input: {
     }
   }
 
+  const { sumOtOffsetBalanceOverridesByPlacement } = await import(
+    "./ot-offset-balance-overrides"
+  );
+  const manualAdjustments = await sumOtOffsetBalanceOverridesByPlacement();
+
   const rows: OtOffsetBalanceListRow[] = employees.map((employee) => {
     const placement: EmployeePlacement = {
       company: employee.companyName,
       department: employee.departmentName,
       employeeName: employee.fullName,
     };
-    const records = recordsByEmployee.get(employeePlacementKey(placement)) ?? [];
+    const key = employeePlacementKey(placement);
+    const records = recordsByEmployee.get(key) ?? [];
     return {
       ...placement,
       availableBalance: computeAvailableOtOffsetBalanceFromRecords(
         records,
         input.otEligibleTypes,
+        manualAdjustments.get(key) ?? 0,
       ),
     };
   });

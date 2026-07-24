@@ -146,6 +146,10 @@ export async function processHrBatchCheck(input: {
   const requestByRefId = new Map(input.requests.map((request) => [request.refId, request]));
   const processingOrder = sortBatchCheckProcessingOrder(input.orderedRefIds, requestByRefId);
   const runningBalanceByEmployee = new Map<string, number>();
+  const { sumOtOffsetBalanceOverridesByPlacement } = await import(
+    "@/lib/ot-offset-balance-overrides"
+  );
+  const manualAdjustments = await sumOtOffsetBalanceOverridesByPlacement();
 
   for (const request of input.requests) {
     const key = employeePlacementKey(resolveEmployeePlacement(request));
@@ -155,7 +159,11 @@ export async function processHrBatchCheck(input: {
       );
       runningBalanceByEmployee.set(
         key,
-        computeAvailableOtOffsetBalanceFromRecords(employeeRecords, input.otEligibleTypes),
+        computeAvailableOtOffsetBalanceFromRecords(
+          employeeRecords,
+          input.otEligibleTypes,
+          manualAdjustments.get(key) ?? 0,
+        ),
       );
     }
   }

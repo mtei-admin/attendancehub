@@ -720,46 +720,30 @@ function OtSummaryDetail({
             </FormField>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="submit"
-                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
-              >
-                Preview summary
-              </button>
-              <a
-                href={canExport ? exportUrl : "#"}
-                aria-disabled={!canExport}
-                className={`rounded-lg border px-4 py-2 text-sm font-semibold ${
-                  canExport
-                    ? "border-brand-200 bg-brand-50 text-brand-700 hover:bg-brand-100"
-                    : "pointer-events-none border-slate-200 text-slate-400"
-                }`}
-              >
-                Download CSV
-              </a>
-              <a
-                href={`${backHref}&settings=1`}
-                className="text-sm font-medium text-slate-500 hover:text-slate-700"
-              >
-                Cutoff &amp; OT type settings
-              </a>
-            </div>
-
+          <div className="flex flex-wrap items-center gap-3">
             <button
-              type="button"
-              disabled={!canManualOverride}
-              onClick={() => setOverrideOpen(true)}
-              title={
-                canManualOverride
-                  ? "Add or deduct manual OT hours for the selected Confi employee"
-                  : "Select Confi, HR-checked, company, department, employee, and period"
-              }
-              className="rounded-lg border border-violet-200 bg-violet-50 px-4 py-2 text-sm font-semibold text-violet-700 transition hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-50"
+              type="submit"
+              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
             >
-              Manual override
+              Preview summary
             </button>
+            <a
+              href={canExport ? exportUrl : "#"}
+              aria-disabled={!canExport}
+              className={`rounded-lg border px-4 py-2 text-sm font-semibold ${
+                canExport
+                  ? "border-brand-200 bg-brand-50 text-brand-700 hover:bg-brand-100"
+                  : "pointer-events-none border-slate-200 text-slate-400"
+              }`}
+            >
+              Download CSV
+            </a>
+            <a
+              href={`${backHref}&settings=1`}
+              className="text-sm font-medium text-slate-500 hover:text-slate-700"
+            >
+              Cutoff &amp; OT type settings
+            </a>
           </div>
         </form>
       </section>
@@ -802,9 +786,24 @@ function OtSummaryDetail({
                 Period OT hours
               </p>
               <p className="mt-1 text-xs text-slate-500">Selected cutoff only</p>
-              <p className="mt-1 text-2xl font-semibold text-slate-900">
-                {report.grandTotalHours.toFixed(2)}
-              </p>
+              <div className="mt-2 flex flex-wrap items-end justify-between gap-2">
+                <p className="text-2xl font-semibold text-slate-900">
+                  {report.grandTotalHours.toFixed(2)}
+                </p>
+                <button
+                  type="button"
+                  disabled={!canManualOverride}
+                  onClick={() => setOverrideOpen(true)}
+                  title={
+                    canManualOverride
+                      ? "Add or deduct manual OT hours for the selected Confi employee"
+                      : "Select Confi, HR-checked, company, department, employee, and period"
+                  }
+                  className="rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 text-xs font-semibold text-violet-700 transition hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Manual override
+                </button>
+              </div>
             </div>
             <div className="rounded-xl border border-brand-200 bg-brand-50/40 p-4 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">

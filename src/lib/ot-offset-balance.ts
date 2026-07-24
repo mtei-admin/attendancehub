@@ -6,6 +6,10 @@ import { attendanceRequests, type AttendanceRequest } from "./schema";
 
 export const OT_OFFSET_REQUEST_TYPE = "OT Offset";
 
+/** Lunch break deducted from OT Offset when clock span is longer than a standard 8-hour day. */
+export const OT_OFFSET_LUNCH_BREAK_HOURS = 1;
+export const OT_OFFSET_LUNCH_THRESHOLD_HOURS = 8;
+
 export type TimeRangeParseResult = {
   totalHours: number;
   storedValue: string;
@@ -108,6 +112,35 @@ export function computeHoursFromTimeRange(
   };
 }
 
+/**
+ * OT Offset hours from From/To. Spans longer than 8 hours deduct 1 hour lunch
+ * (e.g. 08:00–17:00 → 8.00 hours).
+ */
+export function applyOtOffsetLunchDeduction(totalHours: number): number {
+  if (totalHours > OT_OFFSET_LUNCH_THRESHOLD_HOURS) {
+    return Math.max(0, totalHours - OT_OFFSET_LUNCH_BREAK_HOURS);
+  }
+  return totalHours;
+}
+
+export function computeOtOffsetHoursFromTimeRange(
+  timeIn: string | null | undefined,
+  timeOut: string | null | undefined,
+  options?: { required?: boolean },
+): TimeRangeParseResult {
+  const base = computeHoursFromTimeRange(timeIn, timeOut, options);
+  if (!base.valid || base.empty) {
+    return base;
+  }
+
+  const totalHours = applyOtOffsetLunchDeduction(base.totalHours);
+  return {
+    ...base,
+    totalHours,
+    storedValue: totalHours.toFixed(2),
+  };
+}
+
 /** HR-confirmed hours stored on checked slips (`otHrs` after HR check). */
 export function resolveHrConfirmedOtHours(request: AttendanceRequest): number {
   if (!request.archived || request.status !== "Approved") {
@@ -132,7 +165,7 @@ export function resolveOtOffsetDebitHours(request: AttendanceRequest): number {
     return stored.hours;
   }
 
-  const fromTimes = computeHoursFromTimeRange(request.timeIn, request.timeOut);
+  const fromTimes = computeOtOffsetHoursFromTimeRange(request.timeIn, request.timeOut);
   return fromTimes.valid ? fromTimes.totalHours : 0;
 }
 

@@ -6,7 +6,7 @@ import { parseOtHours } from "@/lib/ot-summary";
 import type { OtHoursFieldParseResult } from "@/lib/ot-hours";
 import {
   computeAvailableOtOffsetBalanceFromRecords,
-  computeHoursFromTimeRange,
+  computeOtOffsetHoursFromTimeRange,
   employeePlacementKey,
   formatInsufficientOtOffsetBalanceMessage,
   OT_OFFSET_REQUEST_TYPE,
@@ -49,7 +49,7 @@ export function resolveCheckedOtHrsForRequest(
   }
 
   if (request.requestType === OT_OFFSET_REQUEST_TYPE) {
-    const timeRange = computeHoursFromTimeRange(request.timeIn, request.timeOut, {
+    const timeRange = computeOtOffsetHoursFromTimeRange(request.timeIn, request.timeOut, {
       required: true,
     });
 

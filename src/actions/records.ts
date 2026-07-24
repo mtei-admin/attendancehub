@@ -15,6 +15,7 @@ import {
 import {
   computeAvailableOtOffsetBalance,
   computeHoursFromTimeRange,
+  computeOtOffsetHoursFromTimeRange,
   formatInsufficientOtOffsetBalanceMessage,
   OT_OFFSET_REQUEST_TYPE,
 } from "@/lib/ot-offset-balance";
@@ -345,7 +346,10 @@ export async function updateEmployeeRecordAction(formData: FormData) {
     recordsRedirect({ filters: parsed, error: timeFieldError });
   }
 
-  const timeRange = computeHoursFromTimeRange(timeIn, timeOut);
+  const timeRange =
+    requestType === OT_OFFSET_REQUEST_TYPE
+      ? computeOtOffsetHoursFromTimeRange(timeIn, timeOut)
+      : computeHoursFromTimeRange(timeIn, timeOut);
   if (!timeRange.valid) {
     recordsRedirect({
       filters: parsed,

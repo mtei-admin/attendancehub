@@ -50,7 +50,7 @@ import {
 } from "@/lib/hr-batch-check";
 import {
   computeAvailableOtOffsetBalance,
-  computeHoursFromTimeRange,
+  computeOtOffsetHoursFromTimeRange,
   formatInsufficientOtOffsetBalanceMessage,
   listCheckedRequestsForPlacements,
   OT_OFFSET_REQUEST_TYPE,
@@ -159,7 +159,7 @@ export async function checkRequestAction(formData: FormData) {
 
     checkedOtHrs = approvedOtHours.storedValue;
   } else if (request.requestType === OT_OFFSET_REQUEST_TYPE) {
-    const timeRange = computeHoursFromTimeRange(request.timeIn, request.timeOut, {
+    const timeRange = computeOtOffsetHoursFromTimeRange(request.timeIn, request.timeOut, {
       required: true,
     });
 

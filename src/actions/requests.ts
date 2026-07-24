@@ -12,6 +12,7 @@ import { readOtHoursFromFormData } from "@/lib/ot-hours";
 import {
   computeAvailableOtOffsetBalance,
   computeHoursFromTimeRange,
+  computeOtOffsetHoursFromTimeRange,
   formatInsufficientOtOffsetBalanceMessage,
   OT_OFFSET_REQUEST_TYPE,
 } from "@/lib/ot-offset-balance";
@@ -107,7 +108,10 @@ export async function submitRequestAction(formData: FormData) {
     redirect(`/employee?error=${encodeURIComponent(timeFieldError)}`);
   }
 
-  const timeRange = computeHoursFromTimeRange(timeIn, timeOut);
+  const timeRange =
+    requestType === OT_OFFSET_REQUEST_TYPE
+      ? computeOtOffsetHoursFromTimeRange(timeIn, timeOut)
+      : computeHoursFromTimeRange(timeIn, timeOut);
   if (!timeRange.valid) {
     redirect(`/employee?error=${encodeURIComponent(timeRange.error ?? "Invalid From/To times.")}`);
   }

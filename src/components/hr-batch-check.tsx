@@ -11,7 +11,7 @@ import {
 
 import { batchCheckRequestsAction } from "@/actions/hr";
 import { needsCheckHoursOnHrCheck } from "@/lib/constants";
-import { computeHoursFromTimeRange, OT_OFFSET_REQUEST_TYPE } from "@/lib/ot-offset-balance";
+import { computeOtOffsetHoursFromTimeRange, OT_OFFSET_REQUEST_TYPE } from "@/lib/ot-offset-balance";
 import { splitStoredOtHours } from "@/lib/ot-hours";
 import type { AttendanceRequest } from "@/lib/schema";
 
@@ -291,7 +291,7 @@ function HrBatchCheckReviewModal({
             const isOtOffset = request.requestType === OT_OFFSET_REQUEST_TYPE;
             const approvedDefaults = splitStoredOtHours(request.otHrs ?? request.requestedOtHrs);
             const offsetDuration = isOtOffset
-              ? computeHoursFromTimeRange(request.timeIn, request.timeOut)
+              ? computeOtOffsetHoursFromTimeRange(request.timeIn, request.timeOut)
               : null;
 
             return (

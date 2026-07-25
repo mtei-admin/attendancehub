@@ -10,6 +10,7 @@ type PayrollOfficerTabsProps = {
   confiAllCount: number;
   companyCount: number;
   rfPeriodId?: string;
+  includeArchivedPeriods?: boolean;
 };
 
 const UTILITY_TABS: { id: PayrollOfficerTab; label: string }[] = [
@@ -21,10 +22,17 @@ const UTILITY_TABS: { id: PayrollOfficerTab; label: string }[] = [
   { id: "record-logs", label: "Record logs" },
 ];
 
-function buildHref(tab: PayrollOfficerTab, rfPeriodId?: string): string {
+function buildHref(
+  tab: PayrollOfficerTab,
+  rfPeriodId?: string,
+  includeArchivedPeriods = false,
+): string {
   const params = new URLSearchParams({ tab });
   if (tab === "rf" && rfPeriodId) {
     params.set("period", rfPeriodId);
+  }
+  if (includeArchivedPeriods) {
+    params.set("include_archived_periods", "1");
   }
   return `/hr?${params.toString()}`;
 }
@@ -37,6 +45,7 @@ export function PayrollOfficerTabs({
   confiAllCount,
   companyCount,
   rfPeriodId,
+  includeArchivedPeriods = false,
 }: PayrollOfficerTabsProps) {
   const confiActive =
     activeTab === "confi-pending" || activeTab === "confi-checked" || activeTab === "confi-all";
@@ -72,7 +81,7 @@ export function PayrollOfficerTabs({
       <nav className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl gap-6 overflow-x-auto px-4 md:px-6">
           <Link
-            href={buildHref("rf", rfPeriodId)}
+            href={buildHref("rf", rfPeriodId, includeArchivedPeriods)}
             className={`relative flex shrink-0 items-center gap-2 py-4 text-sm font-medium transition ${
               activeTab === "rf" ? "text-brand-600" : "text-slate-500 hover:text-slate-700"
             }`}
@@ -87,7 +96,7 @@ export function PayrollOfficerTabs({
           </Link>
 
           <Link
-            href={buildHref("confi-pending")}
+            href={buildHref("confi-pending", undefined, includeArchivedPeriods)}
             className={`relative flex shrink-0 items-center gap-2 py-4 text-sm font-medium transition ${
               confiActive ? "text-brand-600" : "text-slate-500 hover:text-slate-700"
             }`}
@@ -108,7 +117,7 @@ export function PayrollOfficerTabs({
             return (
               <Link
                 key={tab.id}
-                href={buildHref(tab.id)}
+                href={buildHref(tab.id, undefined, includeArchivedPeriods)}
                 className={`relative flex shrink-0 items-center gap-2 py-4 text-sm font-medium transition ${
                   isActive ? "text-brand-600" : "text-slate-500 hover:text-slate-700"
                 }`}
@@ -136,7 +145,7 @@ export function PayrollOfficerTabs({
               return (
                 <Link
                   key={tab.id}
-                  href={buildHref(tab.id)}
+                  href={buildHref(tab.id, undefined, includeArchivedPeriods)}
                   className={`relative flex shrink-0 items-center gap-2 py-3 text-sm font-medium transition ${
                     isActive ? "text-brand-600" : "text-slate-500 hover:text-slate-700"
                   }`}

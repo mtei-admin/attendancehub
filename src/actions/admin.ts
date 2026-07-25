@@ -667,3 +667,80 @@ async function savePortalUserAction(
     });
   }
 }
+
+export async function archiveCutoffPeriodAction(formData: FormData) {
+  const session = await requireRoles(["Admin"]);
+  const periodChoice = String(formData.get("period_choice") ?? "").trim();
+  const note = String(formData.get("note") ?? "").trim();
+
+  const [payrollGroup, periodId] = periodChoice.split("::");
+  const { parseCutoffPeriodId } = await import("@/lib/cutoff");
+  const parsed = parseCutoffPeriodId(periodId ?? "");
+  if (!payrollGroup || !parsed) {
+    adminRedirect({ tab: "slips", error: "Select a valid cutoff period to archive." });
+  }
+
+  try {
+    const { archiveCutoffPeriod } = await import("@/lib/archived-cutoff-periods");
+    await archiveCutoffPeriod({
+      payrollGroup,
+      periodStart: parsed.startDate,
+      periodEnd: parsed.endDate,
+      archivedBy: session.fullName,
+      note,
+    });
+
+    revalidatePath("/admin");
+    revalidatePath("/hr");
+    revalidatePath("/manager");
+    revalidatePath("/verification");
+    adminRedirect({
+      tab: "slips",
+      success: `Archived ${payrollGroup} cutoff ${parsed.startDate} – ${parsed.endDate}.`,
+    });
+  } catch (error) {
+    if (isNextNavigationError(error)) throw error;
+    adminRedirect({
+      tab: "slips",
+      error: `Unable to archive cutoff period. ${String(error)}`,
+    });
+  }
+}
+
+export async function unarchiveCutoffPeriodAction(formData: FormData) {
+  await requireRoles(["Admin"]);
+  const payrollGroup = String(formData.get("payroll_group") ?? "").trim();
+  const periodStart = String(formData.get("period_start") ?? "").trim();
+  const periodEnd = String(formData.get("period_end") ?? "").trim();
+
+  if (!payrollGroup || !periodStart || !periodEnd) {
+    adminRedirect({ tab: "slips", error: "Missing cutoff period to unarchive." });
+  }
+
+  try {
+    const { unarchiveCutoffPeriod } = await import("@/lib/archived-cutoff-periods");
+    const removed = await unarchiveCutoffPeriod({
+      payrollGroup,
+      periodStart,
+      periodEnd,
+    });
+    if (!removed) {
+      adminRedirect({ tab: "slips", error: "Archived cutoff period not found." });
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/hr");
+    revalidatePath("/manager");
+    revalidatePath("/verification");
+    adminRedirect({
+      tab: "slips",
+      success: `Restored ${payrollGroup} cutoff ${periodStart} – ${periodEnd} to active queues.`,
+    });
+  } catch (error) {
+    if (isNextNavigationError(error)) throw error;
+    adminRedirect({
+      tab: "slips",
+      error: `Unable to unarchive cutoff period. ${String(error)}`,
+    });
+  }
+}

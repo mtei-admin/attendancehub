@@ -7,13 +7,19 @@ import type { ManagerTab } from "./manager-tabs";
 type ManagerCutoffFilterProps = {
   activeTab: Exclude<ManagerTab, "file">;
   range: ManagerCutoffRange;
+  includeArchivedPeriods?: boolean;
 };
 
-export function ManagerCutoffFilter({ activeTab, range }: ManagerCutoffFilterProps) {
+export function ManagerCutoffFilter({
+  activeTab,
+  range,
+  includeArchivedPeriods = false,
+}: ManagerCutoffFilterProps) {
   const options: { id: ManagerCutoffRange; label: string }[] = [
     { id: "current", label: "Current cutoff" },
     { id: "all", label: "All cutoffs" },
   ];
+  const archiveQuery = includeArchivedPeriods ? "&include_archived_periods=1" : "";
 
   return (
     <div className="flex flex-wrap items-center gap-2 py-4">
@@ -25,7 +31,7 @@ export function ManagerCutoffFilter({ activeTab, range }: ManagerCutoffFilterPro
         return (
           <Link
             key={option.id}
-            href={`/manager?tab=${activeTab}&range=${option.id}`}
+            href={`/manager?tab=${activeTab}&range=${option.id}${archiveQuery}`}
             className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
               isActive
                 ? "bg-brand-600 text-white"

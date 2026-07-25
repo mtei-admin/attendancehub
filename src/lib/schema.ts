@@ -207,3 +207,30 @@ export const otOffsetBalanceOverrides = pgTable("ot_offset_balance_overrides", {
 
 export type OtOffsetBalanceOverride = typeof otOffsetBalanceOverrides.$inferSelect;
 export type NewOtOffsetBalanceOverride = typeof otOffsetBalanceOverrides.$inferInsert;
+
+/**
+ * Soft-archived cutoff periods (hide from default queues).
+ * Separate from attendance_requests.archived (HR-checked).
+ */
+export const archivedCutoffPeriods = pgTable(
+  "archived_cutoff_periods",
+  {
+    id: serial("id").primaryKey(),
+    payrollGroup: text("payroll_group").notNull(),
+    periodStart: date("period_start").notNull(),
+    periodEnd: date("period_end").notNull(),
+    note: text("note"),
+    archivedBy: text("archived_by").notNull(),
+    archivedAt: timestamp("archived_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    periodUnique: uniqueIndex("archived_cutoff_periods_group_period_unique").on(
+      table.payrollGroup,
+      table.periodStart,
+      table.periodEnd,
+    ),
+  }),
+);
+
+export type ArchivedCutoffPeriod = typeof archivedCutoffPeriods.$inferSelect;
+export type NewArchivedCutoffPeriod = typeof archivedCutoffPeriods.$inferInsert;

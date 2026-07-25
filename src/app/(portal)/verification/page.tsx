@@ -1,10 +1,17 @@
 import { FlashMessage } from "@/components/flash-message";
+import { IncludeArchivedPeriodsToggle } from "@/components/include-archived-periods-toggle";
 import { VerificationEditModal } from "@/components/verification-edit-modal";
 import { VerificationPendingList } from "@/components/verification-pending-list";
 import { VerificationTabs } from "@/components/verification-tabs";
 import { VerificationVerifiedList } from "@/components/verification-verified-list";
 import { getSession } from "@/lib/auth";
+import {
+  buildCutoffRulesByEmployeeType,
+  filterRequestsExcludingArchivedCutoffPeriods,
+  listArchivedCutoffPeriodKeys,
+} from "@/lib/archived-cutoff-periods";
 import { listCompanies } from "@/lib/companies";
+import { listPayrollCutoffRules } from "@/lib/ot-settings";
 import {
   getRequestByRefId,
   getUnverifiedPendingRequests,
@@ -24,12 +31,14 @@ type VerificationPageProps = {
     edit?: string;
     success?: string;
     error?: string;
+    include_archived_periods?: string;
   }>;
 };
 
 export default async function VerificationPage({ searchParams }: VerificationPageProps) {
   const params = await searchParams;
   const activeTab = params.tab === "verified" ? "verified" : "pending";
+  const includeArchivedPeriods = params.include_archived_periods === "1";
 
   const session = await getSession();
   if (!session || session.role !== "Verifier") {
@@ -45,19 +54,38 @@ export default async function VerificationPage({ searchParams }: VerificationPag
     );
   }
 
-  const panelHref = `/verification?tab=${activeTab}`;
+  const panelHref = includeArchivedPeriods
+    ? `/verification?tab=${activeTab}&include_archived_periods=1`
+    : `/verification?tab=${activeTab}`;
   const editRefId = params.edit?.trim();
 
-  const [unverifiedRequests, verifiedRequests, roster, companies] = await Promise.all([
-    getUnverifiedPendingRequests(scope),
-    getVerifiedPendingRequests(scope),
-    listEmployees(true),
-    listCompanies(),
-  ]);
+  const [unverifiedRaw, verifiedRaw, roster, companies, cutoffRules, archivedPeriodKeys] =
+    await Promise.all([
+      getUnverifiedPendingRequests(scope),
+      getVerifiedPendingRequests(scope),
+      listEmployees(true),
+      listCompanies(),
+      listPayrollCutoffRules(),
+      listArchivedCutoffPeriodKeys(),
+    ]);
 
   const employeeTypeLookup = buildEmployeeTypeLookup(roster);
   const employeesByCompanyDepartment = buildEmployeesByCompanyDepartment(roster);
   const companyNames = companies.filter((row) => row.isActive).map((row) => row.name);
+  const cutoffRulesByEmployeeType = buildCutoffRulesByEmployeeType(cutoffRules);
+
+  const unverifiedRequests = filterRequestsExcludingArchivedCutoffPeriods(unverifiedRaw, {
+    includeArchivedPeriods,
+    employeeTypeLookup,
+    cutoffRulesByEmployeeType,
+    archivedPeriodKeys,
+  });
+  const verifiedRequests = filterRequestsExcludingArchivedCutoffPeriods(verifiedRaw, {
+    includeArchivedPeriods,
+    employeeTypeLookup,
+    cutoffRulesByEmployeeType,
+    archivedPeriodKeys,
+  });
 
   const editingRequest = editRefId ? await getRequestByRefId(editRefId) : undefined;
   const showEditModal = Boolean(
@@ -74,12 +102,18 @@ export default async function VerificationPage({ searchParams }: VerificationPag
         activeTab={activeTab}
         pendingCount={unverifiedRequests.length}
         verifiedCount={verifiedRequests.length}
+        includeArchivedPeriods={includeArchivedPeriods}
       />
 
-      <div className="mx-auto max-w-6xl px-4 md:px-6">
+      <div className="mx-auto max-w-6xl space-y-3 px-4 md:px-6">
         <div className="py-2">
           <FlashMessage success={params.success} error={params.error} />
         </div>
+
+        <IncludeArchivedPeriodsToggle
+          baseHref={`/verification?tab=${activeTab}`}
+          includeArchivedPeriods={includeArchivedPeriods}
+        />
 
         {activeTab === "pending" ? (
           <VerificationPendingList

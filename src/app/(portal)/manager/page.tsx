@@ -1,9 +1,15 @@
 import { FlashMessage } from "@/components/flash-message";
+import { IncludeArchivedPeriodsToggle } from "@/components/include-archived-periods-toggle";
 import { ManagerCutoffFilter } from "@/components/manager-cutoff-filter";
 import { ManagerGroupedList } from "@/components/manager-grouped-list";
 import { ManagerSlipForm } from "@/components/manager-slip-form";
 import { ManagerTabs, type ManagerTab } from "@/components/manager-tabs";
 import { getSession } from "@/lib/auth";
+import {
+  buildCutoffRulesByEmployeeType,
+  filterRequestsExcludingArchivedCutoffPeriods,
+  listArchivedCutoffPeriodKeys,
+} from "@/lib/archived-cutoff-periods";
 import {
   filterRequestsForManagerEmployeeScope,
   formatManagerEmployeeScopeLabel,
@@ -27,6 +33,7 @@ type ManagerPageProps = {
     range?: string;
     success?: string;
     error?: string;
+    include_archived_periods?: string;
   }>;
 };
 
@@ -56,6 +63,7 @@ export default async function ManagerPage({ searchParams }: ManagerPageProps) {
   const range = parseManagerCutoffRange(params.range);
   const employeeOnlyManager = isEmployeeOnlyManager(managerName);
   const allowedEmployeeNames = getManagerAllowedEmployeeNames(managerName);
+  const includeArchivedPeriods = params.include_archived_periods === "1";
 
   // Employee-scoped managers only load allowlisted employees (never other slips).
   const departmentFilter =
@@ -69,9 +77,9 @@ export default async function ManagerPage({ searchParams }: ManagerPageProps) {
         : undefined
       : undefined;
 
-  const [pendingRequestsRaw, historyRequestsRaw, roster, cutoffRules, managerRosterEntry] =
+  const [pendingRequestsRaw, historyRequestsRaw, roster, cutoffRules, managerRosterEntry, archivedPeriodKeys] =
     session.role === "Manager" && !company
-      ? [[], [], [], [], null]
+      ? [[], [], [], [], null, new Set<string>()]
       : await Promise.all([
           getPendingRequests(departmentFilter),
           getHistoryRequests(departmentFilter),
@@ -80,18 +88,32 @@ export default async function ManagerPage({ searchParams }: ManagerPageProps) {
           company && department && managerName
             ? getEmployeeByPlacement(company, department, managerName)
             : Promise.resolve(null),
+          listArchivedCutoffPeriodKeys(),
         ]);
 
-  const pendingRequests = filterRequestsForManagerEmployeeScope(
+  const pendingScoped = filterRequestsForManagerEmployeeScope(
     managerName,
     pendingRequestsRaw,
   );
-  const historyRequests = filterRequestsForManagerEmployeeScope(
+  const historyScoped = filterRequestsForManagerEmployeeScope(
     managerName,
     historyRequestsRaw,
   );
 
   const employeeTypeLookup = buildEmployeeTypeLookup(roster);
+  const cutoffRulesByEmployeeType = buildCutoffRulesByEmployeeType(cutoffRules);
+  const pendingRequests = filterRequestsExcludingArchivedCutoffPeriods(pendingScoped, {
+    includeArchivedPeriods,
+    employeeTypeLookup,
+    cutoffRulesByEmployeeType,
+    archivedPeriodKeys,
+  });
+  const historyRequests = filterRequestsExcludingArchivedCutoffPeriods(historyScoped, {
+    includeArchivedPeriods,
+    employeeTypeLookup,
+    cutoffRulesByEmployeeType,
+    archivedPeriodKeys,
+  });
 
   const visiblePending = filterRequestsForManagerRange(
     pendingRequests,
@@ -144,6 +166,7 @@ export default async function ManagerPage({ searchParams }: ManagerPageProps) {
         pendingCount={visiblePending.length}
         historyCount={visibleHistory.length}
         showFileTab={canFileOwnSlipByPolicy}
+        includeArchivedPeriods={includeArchivedPeriods}
       />
 
       {activeTab === "file" ? (
@@ -180,10 +203,18 @@ export default async function ManagerPage({ searchParams }: ManagerPageProps) {
             </div>
           )}
 
-          <ManagerCutoffFilter activeTab={activeTab} range={range} />
+          <ManagerCutoffFilter
+            activeTab={activeTab}
+            range={range}
+            includeArchivedPeriods={includeArchivedPeriods}
+          />
 
-          <div className="py-2">
+          <div className="space-y-3 py-2">
             <FlashMessage success={params.success} error={params.error} />
+            <IncludeArchivedPeriodsToggle
+              baseHref={`/manager?tab=${activeTab}&range=${range}`}
+              includeArchivedPeriods={includeArchivedPeriods}
+            />
           </div>
 
           {activeTab === "pending" ? (

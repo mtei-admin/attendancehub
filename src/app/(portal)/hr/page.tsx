@@ -11,6 +11,7 @@ import { CompanyPanel } from "@/components/company-panel";
 import { HrPayrollDateRangeBar } from "@/components/hr-payroll-date-range-bar";
 import { HrRecordsList } from "@/components/hr-records-list";
 import { HrSlipEditModal } from "@/components/hr-slip-edit-modal";
+import { IncludeArchivedPeriodsToggle } from "@/components/include-archived-periods-toggle";
 import { PayrollOfficerTabs } from "@/components/payroll-officer-tabs";
 import { PayrollRfPanel } from "@/components/payroll-rf-panel";
 import { OtSummaryPanel } from "@/components/ot-summary-panel";
@@ -18,6 +19,11 @@ import { RecordRequestLogsPanel } from "@/components/record-request-logs-panel";
 import { PortalUserPanel } from "@/components/portal-user-panel";
 import { RosterPanel } from "@/components/roster-panel";
 import { getSession } from "@/lib/auth";
+import {
+  buildCutoffRulesByEmployeeType,
+  filterRequestsExcludingArchivedCutoffPeriods,
+  listArchivedCutoffPeriodKeys,
+} from "@/lib/archived-cutoff-periods";
 import { listCompanies } from "@/lib/companies";
 import { HrTabs, type HrTab } from "@/components/hr-tabs";
 import { getCurrentCutoffPeriod, getLastClosedCutoffPeriod, listCutoffPeriods, parseCutoffPeriodId } from "@/lib/cutoff";
@@ -89,6 +95,7 @@ type HrPageProps = {
     ot_view?: string;
     ot_show_all?: string;
     edit_ref?: string;
+    include_archived_periods?: string;
   }>;
 };
 
@@ -98,13 +105,20 @@ function isIsoDate(value: string): boolean {
 
 function buildHrTabHref(
   tab: string,
-  extras?: { period?: string; from?: string; to?: string; editRef?: string },
+  extras?: {
+    period?: string;
+    from?: string;
+    to?: string;
+    editRef?: string;
+    includeArchivedPeriods?: boolean;
+  },
 ): string {
   const search = new URLSearchParams({ tab });
   if (extras?.period) search.set("period", extras.period);
   if (extras?.from) search.set("from", extras.from);
   if (extras?.to) search.set("to", extras.to);
   if (extras?.editRef) search.set("edit_ref", extras.editRef);
+  if (extras?.includeArchivedPeriods) search.set("include_archived_periods", "1");
   return `/hr?${search.toString()}`;
 }
 
@@ -149,6 +163,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
   const payrollOfficerTab = isPayrollOfficer ? resolvePayrollOfficerTab(params.tab) : null;
   const activeTab = isPayrollOfficer ? payrollOfficerTab! : resolveTab(params.tab);
   const editId = params.edit ? Number(params.edit) : undefined;
+  const includeArchivedPeriods = params.include_archived_periods === "1";
 
   const payrollGroups = allowedPayrollGroups(session.role, session.hrScope);
 
@@ -165,6 +180,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
     cutoffRules,
     eligibleTypes,
     recordRequestLogs,
+    archivedPeriodKeys,
   ] = await Promise.all([
     getApprovedRequests(),
     getArchivedRequests(),
@@ -178,6 +194,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
     listPayrollCutoffRules(),
     listOtEligibleTypes(),
     listRecordRequestLogs(),
+    listArchivedCutoffPeriodKeys(),
   ]);
 
   const activeCompanies = companies.filter((company) => company.isActive);
@@ -185,15 +202,30 @@ export default async function HrPage({ searchParams }: HrPageProps) {
 
   const employeeTypeLookup = buildEmployeeTypeLookup(roster);
   const employeesByCompanyDepartment = buildEmployeesByCompanyDepartment(roster);
+  const cutoffRulesByEmployeeType = buildCutoffRulesByEmployeeType(cutoffRules);
+
+  const applyArchivedPeriodFilter = (requests: AttendanceRequest[]) =>
+    filterRequestsExcludingArchivedCutoffPeriods(requests, {
+      includeArchivedPeriods,
+      employeeTypeLookup,
+      cutoffRulesByEmployeeType,
+      archivedPeriodKeys,
+    });
 
   const confiPendingRequests = isPayrollOfficer
-    ? filterPayrollOfficerConfiRequests(pendingRaw, employeeTypeLookup, "pending")
+    ? applyArchivedPeriodFilter(
+        filterPayrollOfficerConfiRequests(pendingRaw, employeeTypeLookup, "pending"),
+      )
     : [];
   const confiCheckedRequests = isPayrollOfficer
-    ? filterPayrollOfficerConfiRequests(checkedRaw, employeeTypeLookup, "checked")
+    ? applyArchivedPeriodFilter(
+        filterPayrollOfficerConfiRequests(checkedRaw, employeeTypeLookup, "checked"),
+      )
     : [];
   const confiAllRequests = isPayrollOfficer
-    ? filterPayrollOfficerConfiRequests(allRaw, employeeTypeLookup, "all")
+    ? applyArchivedPeriodFilter(
+        filterPayrollOfficerConfiRequests(allRaw, employeeTypeLookup, "all"),
+      )
     : [];
 
   const rfCutoffRule = isPayrollOfficer ? await getPayrollCutoffRule("Rank & File") : null;
@@ -218,13 +250,19 @@ export default async function HrPage({ searchParams }: HrPageProps) {
 
   const pendingRequests = isPayrollOfficer
     ? confiPendingRequests
-    : filterRequestsForHrPortal(pendingRaw, employeeTypeLookup, session, "pending");
+    : applyArchivedPeriodFilter(
+        filterRequestsForHrPortal(pendingRaw, employeeTypeLookup, session, "pending"),
+      );
   const checkedRequestsRaw = isPayrollOfficer
     ? confiCheckedRequests
-    : filterRequestsForHrPortal(checkedRaw, employeeTypeLookup, session, "checked");
+    : applyArchivedPeriodFilter(
+        filterRequestsForHrPortal(checkedRaw, employeeTypeLookup, session, "checked"),
+      );
   const allRequestsRaw = isPayrollOfficer
     ? confiAllRequests
-    : filterRequestsForHrPortal(allRaw, employeeTypeLookup, session, "all");
+    : applyArchivedPeriodFilter(
+        filterRequestsForHrPortal(allRaw, employeeTypeLookup, session, "all"),
+      );
 
   const isHrRfPayrollExport = !isPayrollOfficer && session.hrScope === "R&F only";
   const hrRangeCutoffRule = isHrRfPayrollExport
@@ -288,11 +326,14 @@ export default async function HrPage({ searchParams }: HrPageProps) {
   const editRefId = params.edit_ref?.trim() ?? "";
   const hrPanelHref = buildHrTabHref(
     typeof hrListTab === "string" ? hrListTab : "pending",
-    isPayrollOfficer && payrollOfficerTab === "rf"
-      ? { period: defaultRfPeriod }
-      : (activeTab === "checked" || activeTab === "all") && hrRangeExtras
-        ? hrRangeExtras
-        : undefined,
+    {
+      ...(isPayrollOfficer && payrollOfficerTab === "rf"
+        ? { period: defaultRfPeriod }
+        : (activeTab === "checked" || activeTab === "all") && hrRangeExtras
+          ? hrRangeExtras
+          : {}),
+      includeArchivedPeriods,
+    },
   );
   const getHrEditHref = (refId: string) =>
     buildHrTabHref(
@@ -304,8 +345,14 @@ export default async function HrPage({ searchParams }: HrPageProps) {
             ? hrRangeExtras
             : {}),
         editRef: refId,
+        includeArchivedPeriods,
       },
     );
+
+  const showArchivedPeriodsToggle =
+    (!isPayrollOfficer &&
+      (activeTab === "pending" || activeTab === "checked" || activeTab === "all")) ||
+    Boolean(confiView);
 
   const editablePendingRefIds = buildEditableRefIds(
     isPayrollOfficer ? confiPendingRequests : pendingRequests,
@@ -493,6 +540,7 @@ export default async function HrPage({ searchParams }: HrPageProps) {
           confiAllCount={confiAllRequests.length}
           companyCount={activeCompanies.length}
           rfPeriodId={defaultRfPeriod || undefined}
+          includeArchivedPeriods={includeArchivedPeriods}
         />
       ) : (
         <HrTabs
@@ -511,12 +559,19 @@ export default async function HrPage({ searchParams }: HrPageProps) {
           companyCount={activeCompanies.length}
           fromDate={hrRangeExtras?.from}
           toDate={hrRangeExtras?.to}
+          includeArchivedPeriods={includeArchivedPeriods}
         />
       )}
 
       <div className="mx-auto max-w-6xl space-y-8 px-4 py-8 md:px-6">
         <FlashMessage success={params.success} error={params.error} />
 
+        {showArchivedPeriodsToggle ? (
+          <IncludeArchivedPeriodsToggle
+            baseHref={hrPanelHref}
+            includeArchivedPeriods={includeArchivedPeriods}
+          />
+        ) : null}
         <HrSlipEditModal
           open={showHrEditModal}
           cancelHref={hrPanelHref}

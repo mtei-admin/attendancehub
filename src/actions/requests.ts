@@ -157,7 +157,10 @@ export async function submitRequestAction(formData: FormData) {
     reason = `[OT offset credit] ${reason}`;
   }
 
-  const directToHr = shouldDirectHrConfiOwnSlipOnSubmit(employeeName);
+  const directToHr = await shouldDirectHrConfiOwnSlipOnSubmit(employeeName, {
+    company,
+    department,
+  });
   const storedEmployeeName = directToHr ? employee.fullName : employeeName;
   const duplicate = await findDuplicateSlip({
     company,

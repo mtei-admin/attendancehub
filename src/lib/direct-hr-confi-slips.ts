@@ -1,6 +1,10 @@
 import type { AttendanceRequest } from "./schema";
+import { findActiveManagerByName } from "./users";
 
-/** Employees whose own slips skip verification/manager approval and go to HR Confi pending. */
+/**
+ * Legacy allowlist (e.g. Bruce). Prefer Manager-account detection for new submissions.
+ * Kept so older slips without submittedBy still classify as Confi.
+ */
 export const DIRECT_HR_CONFI_OWN_EMPLOYEE_NAMES = [
   "BAGASBAS, BRUCE PETER MENAC",
 ] as const;
@@ -41,18 +45,34 @@ export function isDirectHrConfiOwnSlip(request: AttendanceRequest): boolean {
   return isDirectHrConfiOwnEmployeeName(submittedBy);
 }
 
-export function shouldDirectHrConfiOwnSlipOnSubmit(
+/**
+ * Employee-portal (and similar) submit: manager own slips skip Verifier/Manager
+ * and go straight to HR Confi pending — same path as Manager → File.
+ */
+export async function shouldDirectHrConfiOwnSlipOnSubmit(
   employeeName: string,
-  submittedBy?: string | null,
-): boolean {
-  if (!isDirectHrConfiOwnEmployeeName(employeeName)) {
+  options?: {
+    submittedBy?: string | null;
+    company?: string | null;
+    department?: string | null;
+  },
+): Promise<boolean> {
+  const name = employeeName.trim();
+  if (!name) return false;
+
+  const filer = options?.submittedBy?.trim();
+  if (filer && normalizePersonName(filer) !== normalizePersonName(name)) {
     return false;
   }
 
-  const filer = submittedBy?.trim();
-  if (!filer) {
+  if (isDirectHrConfiOwnEmployeeName(name)) {
     return true;
   }
 
-  return normalizePersonName(filer) === normalizePersonName(employeeName);
+  const manager = await findActiveManagerByName(name, {
+    company: options?.company,
+    department: options?.department,
+  });
+
+  return Boolean(manager);
 }

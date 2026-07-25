@@ -4,17 +4,20 @@ type VerificationTabsProps = {
   activeTab: "pending" | "verified";
   pendingCount: number;
   verifiedCount: number;
+  includeArchivedPeriods?: boolean;
 };
 
 export function VerificationTabs({
   activeTab,
   pendingCount,
   verifiedCount,
+  includeArchivedPeriods = false,
 }: VerificationTabsProps) {
   const tabs = [
     { id: "pending" as const, label: "Pending verification", count: pendingCount },
     { id: "verified" as const, label: "Verified", count: verifiedCount },
   ];
+  const archiveQuery = includeArchivedPeriods ? "&include_archived_periods=1" : "";
 
   return (
     <nav className="border-b border-slate-200 bg-white">
@@ -24,7 +27,7 @@ export function VerificationTabs({
           return (
             <Link
               key={tab.id}
-              href={`/verification?tab=${tab.id}`}
+              href={`/verification?tab=${tab.id}${archiveQuery}`}
               className={`relative flex items-center gap-2 py-4 text-sm font-medium transition ${
                 isActive ? "text-brand-600" : "text-slate-500 hover:text-slate-700"
               }`}

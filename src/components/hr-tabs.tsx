@@ -11,6 +11,8 @@ type HrTabsProps = {
   /** Preserve date range when switching between Checked / All records. */
   fromDate?: string;
   toDate?: string;
+  /** Preserve soft period-archive queue visibility when switching tabs. */
+  includeArchivedPeriods?: boolean;
 };
 
 export function HrTabs({
@@ -21,6 +23,7 @@ export function HrTabs({
   companyCount,
   fromDate,
   toDate,
+  includeArchivedPeriods = false,
 }: HrTabsProps) {
   const tabs: {
     id: HrTab;
@@ -64,6 +67,9 @@ export function HrTabs({
     if (fromDate && toDate && (tab === "all" || tab === "checked")) {
       params.set("from", fromDate);
       params.set("to", toDate);
+    }
+    if (includeArchivedPeriods) {
+      params.set("include_archived_periods", "1");
     }
     return `/hr?${params.toString()}`;
   }

@@ -157,6 +157,23 @@ CREATE INDEX IF NOT EXISTS ot_offset_balance_overrides_employee_idx
 ON ot_offset_balance_overrides (company, department, employee_name);
 `;
 
+const CREATE_ARCHIVED_CUTOFF_PERIODS_TABLE = `
+CREATE TABLE IF NOT EXISTS archived_cutoff_periods (
+  id serial PRIMARY KEY,
+  payroll_group text NOT NULL,
+  period_start date NOT NULL,
+  period_end date NOT NULL,
+  note text,
+  archived_by text NOT NULL,
+  archived_at timestamptz NOT NULL DEFAULT now()
+);
+`;
+
+const CREATE_ARCHIVED_CUTOFF_PERIODS_INDEX = `
+CREATE UNIQUE INDEX IF NOT EXISTS archived_cutoff_periods_group_period_unique
+ON archived_cutoff_periods (payroll_group, period_start, period_end);
+`;
+
 const RECORD_REQUEST_LOGS_ALTER = [
   `ALTER TABLE record_request_logs ADD COLUMN IF NOT EXISTS action text NOT NULL DEFAULT 'email'`,
   `ALTER TABLE record_request_logs ADD COLUMN IF NOT EXISTS record_ref_id text`,
@@ -415,6 +432,12 @@ async function main() {
 
   await sql(CREATE_OT_OFFSET_BALANCE_OVERRIDES_INDEX);
   console.log("OK: ot_offset_balance_overrides employee index ready");
+
+  await sql(CREATE_ARCHIVED_CUTOFF_PERIODS_TABLE);
+  console.log("OK: archived_cutoff_periods table ready");
+
+  await sql(CREATE_ARCHIVED_CUTOFF_PERIODS_INDEX);
+  console.log("OK: archived_cutoff_periods unique index ready");
 
   for (const statement of RECORD_REQUEST_LOGS_ALTER) {
     await sql(statement);

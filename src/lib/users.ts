@@ -47,6 +47,53 @@ export async function deactivateUser(id: number): Promise<User | null> {
   return updateUser(id, { isActive: false });
 }
 
+/** Active Manager account whose full name matches (optional company/department). */
+export async function findActiveManagerByName(
+  fullName: string,
+  options?: { company?: string | null; department?: string | null },
+): Promise<User | undefined> {
+  const db = getDb();
+  const normalizedName = fullName.trim().toLowerCase();
+  if (!normalizedName) return undefined;
+
+  const company = options?.company?.trim() || null;
+  const department = options?.department?.trim() || null;
+
+  const rows = await db
+    .select()
+    .from(users)
+    .where(
+      and(
+        eq(users.role, "Manager"),
+        eq(users.isActive, true),
+        sql`lower(trim(${users.fullName})) = ${normalizedName}`,
+      ),
+    )
+    .orderBy(asc(users.id));
+
+  if (rows.length === 0) return undefined;
+
+  if (company) {
+    const companyMatches = rows.filter(
+      (row) => !row.company?.trim() || row.company.trim().toLowerCase() === company.toLowerCase(),
+    );
+    const pool = companyMatches.length > 0 ? companyMatches : rows;
+
+    if (department) {
+      const departmentMatch = pool.find(
+        (row) =>
+          !row.department?.trim() ||
+          row.department.trim().toLowerCase() === department.toLowerCase(),
+      );
+      if (departmentMatch) return departmentMatch;
+    }
+
+    return pool[0];
+  }
+
+  return rows[0];
+}
+
 export async function findPortalRoleConflict(
   fullName: string,
   company: string,

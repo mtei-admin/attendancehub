@@ -14,6 +14,7 @@ import {
 import { AdminDashboard } from "@/components/admin-dashboard";
 import { AdminSlipsPanel } from "@/components/admin-slips-panel";
 import { AdminTabs, type AdminTab } from "@/components/admin-tabs";
+import { ArchivedCutoffPeriodsPanel } from "@/components/archived-cutoff-periods-panel";
 import { CompanyPanel } from "@/components/company-panel";
 import { CredentialsPanel } from "@/components/credentials-panel";
 import { DepartmentPanel } from "@/components/department-panel";
@@ -29,8 +30,10 @@ import {
   groupRequestsByPlacement,
   type AdminDashboardView,
 } from "@/lib/admin-stats";
+import { listArchivedCutoffPeriods } from "@/lib/archived-cutoff-periods";
 import { listCompanies } from "@/lib/companies";
 import { listDepartments } from "@/lib/departments";
+import { listPayrollCutoffRules } from "@/lib/ot-settings";
 import { getAllRequests } from "@/lib/requests";
 import { listRecordRequestLogs } from "@/lib/record-requests";
 import { listEmployees, buildEmployeesByCompanyDepartment } from "@/lib/roster";
@@ -100,19 +103,33 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const editRefId = params.edit_ref?.trim() || undefined;
   const showAdd = params.add === "1";
 
-  const [companies, departments, employees, managers, verifiers, hrUsers, payrollOfficers, allUsers, allRequests, recordRequestLogs] =
-    await Promise.all([
-      listCompanies(),
-      listDepartments(),
-      listEmployees(),
-      listUsersByRole("Manager"),
-      listUsersByRole("Verifier"),
-      listUsersByRole("HR"),
-      listUsersByRole("Payroll Officer"),
-      listAllUsers(),
-      getAllRequests(),
-      listRecordRequestLogs(),
-    ]);
+  const [
+    companies,
+    departments,
+    employees,
+    managers,
+    verifiers,
+    hrUsers,
+    payrollOfficers,
+    allUsers,
+    allRequests,
+    recordRequestLogs,
+    archivedCutoffPeriods,
+    payrollCutoffRules,
+  ] = await Promise.all([
+    listCompanies(),
+    listDepartments(),
+    listEmployees(),
+    listUsersByRole("Manager"),
+    listUsersByRole("Verifier"),
+    listUsersByRole("HR"),
+    listUsersByRole("Payroll Officer"),
+    listAllUsers(),
+    getAllRequests(),
+    listRecordRequestLogs(),
+    listArchivedCutoffPeriods(),
+    listPayrollCutoffRules(),
+  ]);
 
   const activeEmployees = employees.filter((employee) => employee.isActive);
   const activeCompanies = companies.filter((company) => company.isActive);
@@ -180,14 +197,20 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             : null;
 
           return (
-            <AdminSlipsPanel
-              requests={filteredRequests}
-              totalCount={allRequests.length}
-              companies={companyNames}
-              employeesByCompanyDepartment={employeesByCompanyDepartment}
-              filters={filters}
-              editRequest={editRequest}
-            />
+            <div className="space-y-6">
+              <ArchivedCutoffPeriodsPanel
+                cutoffRules={payrollCutoffRules}
+                archivedPeriods={archivedCutoffPeriods}
+              />
+              <AdminSlipsPanel
+                requests={filteredRequests}
+                totalCount={allRequests.length}
+                companies={companyNames}
+                employeesByCompanyDepartment={employeesByCompanyDepartment}
+                filters={filters}
+                editRequest={editRequest}
+              />
+            </div>
           );
         })()}
 

@@ -10,6 +10,7 @@ type ManagerTabsProps = {
   pendingCount: number;
   historyCount: number;
   showFileTab?: boolean;
+  includeArchivedPeriods?: boolean;
 };
 
 export function ManagerTabs({
@@ -18,12 +19,15 @@ export function ManagerTabs({
   pendingCount,
   historyCount,
   showFileTab = true,
+  includeArchivedPeriods = false,
 }: ManagerTabsProps) {
   const tabs: { id: ManagerTab; label: string; count?: number }[] = [
     ...(showFileTab ? [{ id: "file" as const, label: "File a slip" }] : []),
     { id: "pending", label: "Pending", count: pendingCount },
     { id: "history", label: "History", count: historyCount },
   ];
+
+  const archiveQuery = includeArchivedPeriods ? "&include_archived_periods=1" : "";
 
   return (
     <nav className="border-b border-slate-200 bg-white">
@@ -32,8 +36,8 @@ export function ManagerTabs({
           const isActive = activeTab === tab.id;
           const href =
             tab.id === "file"
-              ? "/manager?tab=file"
-              : `/manager?tab=${tab.id}&range=${range}`;
+              ? `/manager?tab=file${archiveQuery}`
+              : `/manager?tab=${tab.id}&range=${range}${archiveQuery}`;
 
           return (
             <Link

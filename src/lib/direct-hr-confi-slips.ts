@@ -7,6 +7,7 @@ import { findActiveManagerByName } from "./users";
  */
 export const DIRECT_HR_CONFI_OWN_EMPLOYEE_NAMES = [
   "BAGASBAS, BRUCE PETER MENAC",
+  "FERNANDEZ, MYRTEL ROSE PLOYA",
 ] as const;
 
 function normalizePersonName(name: string): string {

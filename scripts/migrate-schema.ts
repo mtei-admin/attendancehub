@@ -121,6 +121,20 @@ WHERE LOWER(TRIM(employee_name)) = LOWER('BAGASBAS, BRUCE PETER MENAC')
   )
 `;
 
+/** Move all Myrthel Fernandez slips into HR Confi pending (Approved, not checked). */
+const MYRTEL_OWN_SLIP_BACKFILL = `
+UPDATE attendance_requests
+SET
+  status = 'Approved',
+  archived = false,
+  archived_at = NULL,
+  archived_by = NULL,
+  submitted_by = COALESCE(NULLIF(TRIM(submitted_by), ''), employee_name),
+  approved_by = COALESCE(NULLIF(TRIM(approved_by), ''), employee_name),
+  approved_on = COALESCE(approved_on, submitted_at, NOW())
+WHERE LOWER(TRIM(employee_name)) = LOWER('FERNANDEZ, MYRTEL ROSE PLOYA')
+`;
+
 const CREATE_OT_MANUAL_OVERRIDES_TABLE = `
 CREATE TABLE IF NOT EXISTS ot_manual_overrides (
   id serial PRIMARY KEY,
@@ -461,6 +475,9 @@ async function main() {
 
   await sql(BRUCE_OWN_SLIP_BACKFILL);
   console.log("OK: moved Bruce Bagasbas own pending slips to HR Confi pending");
+
+  await sql(MYRTEL_OWN_SLIP_BACKFILL);
+  console.log("OK: moved Myrthel Fernandez slips to HR Confi pending");
 
   console.log("Schema migration complete.");
 }

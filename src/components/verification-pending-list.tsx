@@ -53,6 +53,15 @@ function groupRequestsByEmployeeName(requests: AttendanceRequest[]): EmployeeGro
     .sort((left, right) => left.employeeName.localeCompare(right.employeeName));
 }
 
+function placementSubtitle(request: AttendanceRequest): string {
+  const company = request.company ? `${request.company} · ` : "";
+  return `${company}${request.department || "—"}`;
+}
+
+function slipCountLabel(count: number): string {
+  return `${count} slip${count === 1 ? "" : "s"}`;
+}
+
 export function VerificationPendingList({
   requests,
   employeeTypeLookup,
@@ -101,6 +110,7 @@ export function VerificationPendingList({
             const employeeType = employeeTypeLookup[requestEmployeeKey(sample)];
             const typeLabel = getEmployeeTypeLabel(employeeType);
             const ownSlip = isOwnSlip(verifierFullName, group.employeeName);
+            const typeBadgeClass = getEmployeeTypeBadgeClass(employeeType);
 
             return (
               <CollapsibleSection
@@ -112,7 +122,10 @@ export function VerificationPendingList({
                     <span>{group.employeeName}</span>
                     {typeLabel ? (
                       <span
-                        className={ounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide }
+                        className={
+                          "rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide " +
+                          typeBadgeClass
+                        }
                       >
                         {typeLabel}
                       </span>
@@ -124,10 +137,10 @@ export function VerificationPendingList({
                     ) : null}
                   </span>
                 }
-                subtitle={${sample.company ? ${sample.company} ·  : ""}}
+                subtitle={placementSubtitle(sample)}
                 badge={
                   <span className="rounded-full bg-slate-200/80 px-3 py-1 text-xs font-semibold text-slate-600">
-                    {group.requests.length} slip{group.requests.length === 1 ? "" : "s"}
+                    {slipCountLabel(group.requests.length)}
                   </span>
                 }
               >
@@ -150,12 +163,14 @@ export function VerificationPendingList({
                     <tbody className="divide-y divide-slate-100">
                       {group.requests.map((request) => {
                         const isEditing = editRefId === request.refId;
+                        const rowClass = isEditing
+                          ? "align-top hover:bg-slate-50/60 bg-cyan-50/40"
+                          : "align-top hover:bg-slate-50/60";
+                        const editHref =
+                          panelHref + "&edit=" + encodeURIComponent(request.refId);
 
                         return (
-                          <tr
-                            key={request.id}
-                            className={lign-top hover:bg-slate-50/60 }
-                          >
+                          <tr key={request.id} className={rowClass}>
                             <td className="px-4 py-4">
                               <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
                                 {request.requestType}
@@ -176,7 +191,7 @@ export function VerificationPendingList({
                                 <span className="text-xs text-slate-400">Cannot verify</span>
                               ) : (
                                 <Link
-                                  href={${panelHref}&edit=}
+                                  href={editHref}
                                   className="inline-flex rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-cyan-700"
                                 >
                                   Edit &amp; verify

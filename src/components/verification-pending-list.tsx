@@ -17,6 +17,7 @@ type VerificationPendingListProps = {
   verifierFullName: string;
   panelHref: string;
   editRefId?: string;
+  currentCutoffLabels?: string[];
 };
 
 export function VerificationPendingList({
@@ -25,18 +26,29 @@ export function VerificationPendingList({
   verifierFullName,
   panelHref,
   editRefId,
+  currentCutoffLabels = [],
 }: VerificationPendingListProps) {
   if (requests.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
         <div className="mb-3 text-2xl text-brand-500">✅</div>
-        <p className="text-sm text-slate-400">No requests awaiting verification</p>
+        <p className="text-sm text-slate-400">No requests awaiting verification in the current cutoff</p>
+        {currentCutoffLabels.length > 0 ? (
+          <p className="mt-2 max-w-lg text-xs text-slate-400">
+            Showing current cutoff only — {currentCutoffLabels.join(" · ")}
+          </p>
+        ) : null}
       </div>
     );
   }
 
   return (
     <div className="py-6">
+      {currentCutoffLabels.length > 0 ? (
+        <p className="mb-3 text-xs text-slate-500">
+          Showing current cutoff only — {currentCutoffLabels.join(" · ")}
+        </p>
+      ) : null}
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
         <table className="min-w-full text-sm">
           <thead className="border-b border-slate-200 bg-slate-50">

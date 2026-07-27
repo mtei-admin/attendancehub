@@ -11,6 +11,8 @@ import {
   listArchivedCutoffPeriodKeys,
 } from "@/lib/archived-cutoff-periods";
 import { listCompanies } from "@/lib/companies";
+import { getCurrentCutoffPeriod } from "@/lib/cutoff";
+import { filterRequestsForManagerRange } from "@/lib/manager-grouping";
 import { listPayrollCutoffRules } from "@/lib/ot-settings";
 import {
   getRequestByRefId,
@@ -74,7 +76,7 @@ export default async function VerificationPage({ searchParams }: VerificationPag
   const companyNames = companies.filter((row) => row.isActive).map((row) => row.name);
   const cutoffRulesByEmployeeType = buildCutoffRulesByEmployeeType(cutoffRules);
 
-  const unverifiedRequests = filterRequestsExcludingArchivedCutoffPeriods(unverifiedRaw, {
+  const unverifiedVisible = filterRequestsExcludingArchivedCutoffPeriods(unverifiedRaw, {
     includeArchivedPeriods,
     employeeTypeLookup,
     cutoffRulesByEmployeeType,
@@ -86,6 +88,21 @@ export default async function VerificationPage({ searchParams }: VerificationPag
     cutoffRulesByEmployeeType,
     archivedPeriodKeys,
   });
+
+  // Pending verification: current cutoff only (per employee payroll group).
+  const unverifiedRequests = filterRequestsForManagerRange(
+    unverifiedVisible,
+    "current",
+    cutoffRules,
+    employeeTypeLookup,
+  );
+
+  const currentCutoffLabels = cutoffRules
+    .map((rule) => {
+      const period = getCurrentCutoffPeriod(rule);
+      return period ? `${rule.employeeType}: ${period.label}` : null;
+    })
+    .filter((label): label is string => Boolean(label));
 
   const editingRequest = editRefId ? await getRequestByRefId(editRefId) : undefined;
   const showEditModal = Boolean(
@@ -122,6 +139,7 @@ export default async function VerificationPage({ searchParams }: VerificationPag
             verifierFullName={session.fullName}
             panelHref={panelHref}
             editRefId={editRefId}
+            currentCutoffLabels={currentCutoffLabels}
           />
         ) : (
           <VerificationVerifiedList

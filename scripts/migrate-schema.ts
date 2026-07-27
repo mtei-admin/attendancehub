@@ -329,8 +329,14 @@ async function seedPayrollAndOtSettings(
   `;
   await sql`
     INSERT INTO payroll_cutoff_rules (employee_type, cutoff_day_1, cutoff_day_2)
-    VALUES ('Rank & File', 14, 29)
+    VALUES ('Rank & File', 14, 28)
     ON CONFLICT (employee_type) DO NOTHING
+  `;
+  await sql`
+    UPDATE payroll_cutoff_rules
+    SET cutoff_day_1 = 14, cutoff_day_2 = 28
+    WHERE employee_type = 'Rank & File'
+      AND (cutoff_day_1 <> 14 OR cutoff_day_2 <> 28)
   `;
 
   const defaultActive = ["Overtime", "Holiday/Rest Day Work"];

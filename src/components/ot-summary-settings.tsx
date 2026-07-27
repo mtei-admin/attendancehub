@@ -41,6 +41,10 @@ export function OtSummarySettings({
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
           <h4 className="text-sm font-semibold text-slate-800">Payroll cutoff days</h4>
+          <p className="text-xs text-slate-500">
+            Changing days recalculates period boundaries for that payroll group. Prefer updates
+            between cutoffs. Rank &amp; File default is 14 and 28; Confi stays on its own days.
+          </p>
           {cutoffRules.map((rule) => (
             <form key={rule.employeeType} action={saveCutoffRulesAction} className="space-y-3 rounded-lg border border-slate-200 p-4">
               <input type="hidden" name="employee_type" value={rule.employeeType} />

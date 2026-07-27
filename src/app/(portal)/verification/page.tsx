@@ -145,6 +145,7 @@ export default async function VerificationPage({ searchParams }: VerificationPag
           <VerificationVerifiedList
             requests={verifiedRequests}
             employeeTypeLookup={employeeTypeLookup}
+            cutoffRules={cutoffRules}
           />
         )}
       </div>

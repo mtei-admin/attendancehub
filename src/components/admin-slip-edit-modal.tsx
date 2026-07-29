@@ -4,9 +4,13 @@ import { useMemo, useState } from "react";
 
 import { saveAdminSlipAction } from "@/actions/admin";
 import { REQUEST_TYPES } from "@/lib/constants";
+import { isConfiEmployee } from "@/lib/employee-portal";
 import { splitStoredOtHours } from "@/lib/ot-hours";
 import type { AttendanceRequest } from "@/lib/schema";
-import type { EmployeesByCompanyDepartment } from "@/lib/roster";
+import {
+  employeeLookupKey,
+  type EmployeesByCompanyDepartment,
+} from "@/lib/roster";
 
 import { FormField, inputClassName } from "./form-field";
 import { FormModal } from "./form-modal";
@@ -19,6 +23,7 @@ type AdminSlipEditModalProps = {
   request: AttendanceRequest | null;
   companies: string[];
   employeesByCompanyDepartment: EmployeesByCompanyDepartment;
+  employeeTypeLookup: Record<string, string>;
 };
 
 function formatWorkflowStatus(request: AttendanceRequest): string {
@@ -35,6 +40,7 @@ export function AdminSlipEditModal({
   request,
   companies,
   employeesByCompanyDepartment,
+  employeeTypeLookup,
 }: AdminSlipEditModalProps) {
   if (!open || !request) return null;
 
@@ -57,6 +63,7 @@ export function AdminSlipEditModal({
         request={request}
         companies={companies}
         employeesByCompanyDepartment={employeesByCompanyDepartment}
+        employeeTypeLookup={employeeTypeLookup}
         reasonWithoutPrefix={reasonWithoutPrefix}
         isOtOffsetDefault={isOtOffset}
         otDefaults={otDefaults}
@@ -70,6 +77,7 @@ function AdminSlipEditForm({
   request,
   companies,
   employeesByCompanyDepartment,
+  employeeTypeLookup,
   reasonWithoutPrefix,
   isOtOffsetDefault,
   otDefaults,
@@ -78,6 +86,7 @@ function AdminSlipEditForm({
   request: AttendanceRequest;
   companies: string[];
   employeesByCompanyDepartment: EmployeesByCompanyDepartment;
+  employeeTypeLookup: Record<string, string>;
   reasonWithoutPrefix: string;
   isOtOffsetDefault: boolean;
   otDefaults: { hours: string; minutes: string };
@@ -85,6 +94,7 @@ function AdminSlipEditForm({
 }) {
   const [company, setCompany] = useState(request.company ?? companies[0] ?? "");
   const [department, setDepartment] = useState(request.department ?? "");
+  const [employeeName, setEmployeeName] = useState(request.employeeName);
   const [requestType, setRequestType] = useState(request.requestType);
 
   const departments = useMemo(() => {
@@ -96,6 +106,10 @@ function AdminSlipEditForm({
     if (!company || !department) return [];
     return employeesByCompanyDepartment[company]?.[department] ?? [];
   }, [company, department, employeesByCompanyDepartment]);
+
+  const employeeType =
+    employeeTypeLookup[employeeLookupKey(company, department, employeeName)] ?? null;
+  const showOtOffsetOption = isConfiEmployee(employeeType);
 
   const isSimpleLayout =
     requestType === "Absent/Leave" || requestType === "OT Offset";
@@ -127,6 +141,7 @@ function AdminSlipEditForm({
             onChange={(event) => {
               setCompany(event.target.value);
               setDepartment("");
+              setEmployeeName("");
             }}
             className={inputClassName}
           >
@@ -147,7 +162,10 @@ function AdminSlipEditForm({
             required
             value={department}
             disabled={!company}
-            onChange={(event) => setDepartment(event.target.value)}
+            onChange={(event) => {
+              setDepartment(event.target.value);
+              setEmployeeName("");
+            }}
             className={`${inputClassName} disabled:cursor-not-allowed disabled:opacity-60`}
           >
             <option value="">— Select department —</option>
@@ -166,8 +184,9 @@ function AdminSlipEditForm({
           <select
             name="employee_name"
             required
-            defaultValue={request.employeeName}
+            value={employeeName}
             disabled={!department}
+            onChange={(event) => setEmployeeName(event.target.value)}
             className={`${inputClassName} disabled:cursor-not-allowed disabled:opacity-60`}
           >
             <option value="">
@@ -243,17 +262,19 @@ function AdminSlipEditForm({
 
         {isOtOrHolidayWork && (
           <>
-            <div className="md:col-span-2">
-              <label className="flex items-center gap-3 rounded-lg border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  name="file_as_ot_offset"
-                  defaultChecked={isOtOffsetDefault}
-                  className="rounded border-slate-300 text-brand-600"
-                />
-                File as OT offset credit for future use
-              </label>
-            </div>
+            {showOtOffsetOption ? (
+              <div className="md:col-span-2">
+                <label className="flex items-center gap-3 rounded-lg border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    name="file_as_ot_offset"
+                    defaultChecked={isOtOffsetDefault}
+                    className="rounded border-slate-300 text-brand-600"
+                  />
+                  File as OT offset credit for future use
+                </label>
+              </div>
+            ) : null}
 
             <OtHoursFields
               label="OT hours"
@@ -271,7 +292,7 @@ function AdminSlipEditForm({
             name="reason"
             rows={3}
             required
-            defaultValue={reasonWithoutPrefix}
+            defaultValue={showOtOffsetOption ? reasonWithoutPrefix : (request.reason ?? "")}
             className={inputClassName}
           />
         </FormField>

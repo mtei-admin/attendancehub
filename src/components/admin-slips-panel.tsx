@@ -18,6 +18,7 @@ type AdminSlipsPanelProps = {
   totalCount: number;
   companies: string[];
   employeesByCompanyDepartment: EmployeesByCompanyDepartment;
+  employeeTypeLookup: Record<string, string>;
   filters: AdminSlipsFilters;
   editRequest?: AttendanceRequest | null;
 };
@@ -55,6 +56,7 @@ export function AdminSlipsPanel({
   totalCount,
   companies,
   employeesByCompanyDepartment,
+  employeeTypeLookup,
   filters,
   editRequest = null,
 }: AdminSlipsPanelProps) {
@@ -69,6 +71,7 @@ export function AdminSlipsPanel({
         request={editRequest}
         companies={companies}
         employeesByCompanyDepartment={employeesByCompanyDepartment}
+        employeeTypeLookup={employeeTypeLookup}
       />
 
       <section className="space-y-4">

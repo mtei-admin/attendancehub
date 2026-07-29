@@ -36,7 +36,7 @@ import { listDepartments } from "@/lib/departments";
 import { listPayrollCutoffRules } from "@/lib/ot-settings";
 import { getAllRequests } from "@/lib/requests";
 import { listRecordRequestLogs } from "@/lib/record-requests";
-import { listEmployees, buildEmployeesByCompanyDepartment } from "@/lib/roster";
+import { listEmployees, buildEmployeesByCompanyDepartment, buildEmployeeTypeLookup } from "@/lib/roster";
 import { listAllUsers, listUsersByRole } from "@/lib/users";
 
 type AdminPageProps = {
@@ -136,6 +136,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const activeDepartments = departments.filter((department) => department.isActive);
   const companyNames = activeCompanies.map((company) => company.name);
   const employeesByCompanyDepartment = buildEmployeesByCompanyDepartment(employees);
+  const employeeTypeLookup = buildEmployeeTypeLookup(employees);
   const dashboardStats = buildAdminDashboardStats(allRequests, activeEmployees.length);
   const dashboardView = resolveDashboardView(params.view);
   const filteredRequests = dashboardView
@@ -207,6 +208,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                 totalCount={allRequests.length}
                 companies={companyNames}
                 employeesByCompanyDepartment={employeesByCompanyDepartment}
+                employeeTypeLookup={employeeTypeLookup}
                 filters={filters}
                 editRequest={editRequest}
               />

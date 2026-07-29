@@ -12,12 +12,12 @@ import { EMPLOYEE_TYPES, HR_SCOPES, REQUEST_TYPES, normalizeManagerDepartment } 
 import { isValidEmail, normalizeEmail } from "@/lib/email";
 import { createCompany, isActiveCompany, updateCompany } from "@/lib/companies";
 import { createDepartment, updateDepartment } from "@/lib/departments";
-import { createEmployee, updateEmployee, isBiometricNoTaken } from "@/lib/roster";
+import { createEmployee, updateEmployee, isBiometricNoTaken, getEmployeeByPlacement, verifyEmployeePlacement } from "@/lib/roster";
 import { parseOptionalBiometricNo } from "@/lib/biometric";
 import { createUser, deactivateUser, getUserById, getUserByUsername, findPortalRoleConflict, updateUser } from "@/lib/users";
 import { readOtHoursFromFormData } from "@/lib/ot-hours";
 import { adminUpdateRequest } from "@/lib/requests";
-import { verifyEmployeePlacement } from "@/lib/roster";
+import { isConfiEmployee } from "@/lib/employee-portal";
 
 function adminRedirect(params: {
   tab?: string;
@@ -258,8 +258,11 @@ export async function saveAdminSlipAction(formData: FormData) {
     });
   }
 
-  if (fileAsOtOffset && !reason.startsWith("[OT offset credit]")) {
-    reason = `[OT offset credit] ${reason}`;
+  const employee = await getEmployeeByPlacement(company, department, employeeName);
+  if (fileAsOtOffset && isConfiEmployee(employee?.employeeType)) {
+    if (!reason.startsWith("[OT offset credit]")) {
+      reason = `[OT offset credit] ${reason}`;
+    }
   }
 
   try {

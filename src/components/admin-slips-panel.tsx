@@ -135,7 +135,14 @@ export function AdminSlipsPanel({
                         {request.requestType}
                       </span>
                     </td>
-                    <td className="px-4 py-4 text-slate-700">{request.dateOfIncident}</td>
+                    <td className="px-4 py-4 text-slate-700">
+                      {request.dateOfIncident}
+                      {(request.timeIn || request.timeOut) && (
+                        <p className="mt-1 text-xs text-slate-500">
+                          {formatManagerTime(request.timeIn)} – {formatManagerTime(request.timeOut)}
+                        </p>
+                      )}
+                    </td>
                     <td className="px-4 py-4">
                       <span
                         className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${workflowClass(request)}`}
@@ -145,11 +152,6 @@ export function AdminSlipsPanel({
                     </td>
                     <td className="px-4 py-4 text-slate-600">
                       {formatManagerSubmittedDate(request.submittedAt)}
-                      {(request.timeIn || request.timeOut) && (
-                        <p className="mt-1 text-xs text-slate-500">
-                          {formatManagerTime(request.timeIn)} – {formatManagerTime(request.timeOut)}
-                        </p>
-                      )}
                     </td>
                     <td className="px-4 py-4">
                       <Link

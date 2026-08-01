@@ -9,6 +9,7 @@
     "lint": "next lint",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file=.env.local scripts/migrate-schema.ts",
+    "db:merge:finance-importation": "tsx --env-file=.env.local scripts/merge-finance-importation.ts",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx --env-file=.env.local scripts/seed.ts",
     "db:seed:users": "tsx --env-file=.env.local scripts/seed-users.ts",

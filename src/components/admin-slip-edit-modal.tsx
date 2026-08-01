@@ -111,11 +111,13 @@ function AdminSlipEditForm({
     employeeTypeLookup[employeeLookupKey(company, department, employeeName)] ?? null;
   const showOtOffsetOption = isConfiEmployee(employeeType);
 
-  const isSimpleLayout =
-    requestType === "Absent/Leave" || requestType === "OT Offset";
   const isOtOrHolidayWork =
     requestType === "Overtime" || requestType === "Holiday/Rest Day Work";
-  const showTimeFields = !isSimpleLayout;
+  const isOtOffsetRequest = requestType === "OT Offset";
+  // Absent/Leave stays date-only; OT Offset shows From/To like the employee portal.
+  const showTimeFields = requestType !== "Absent/Leave";
+  const timeInLabel = isOtOffsetRequest ? "From" : "Actual time in";
+  const timeOutLabel = isOtOffsetRequest ? "To" : "Actual time out";
 
   return (
     <form action={saveAdminSlipAction} className="mt-5 space-y-4">
@@ -240,7 +242,7 @@ function AdminSlipEditForm({
 
         {showTimeFields && (
           <>
-            <FormField label="Actual time in">
+            <FormField label={timeInLabel}>
               <input
                 type="time"
                 name="time_in"
@@ -249,7 +251,7 @@ function AdminSlipEditForm({
               />
             </FormField>
 
-            <FormField label="Actual time out">
+            <FormField label={timeOutLabel}>
               <input
                 type="time"
                 name="time_out"

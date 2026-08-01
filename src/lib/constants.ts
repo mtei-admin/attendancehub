@@ -55,7 +55,7 @@ export const DEPARTMENTS = [
   "Sales & Marketing",
   "Logistics",
   "Engineering",
-  "Finance",
+  "Finance & Importation",
 ] as const;
 
 export type Department = (typeof DEPARTMENTS)[number];
@@ -66,7 +66,7 @@ export const EMPLOYEES_BY_DEPARTMENT: Record<Department, readonly string[]> = {
   "Sales & Marketing": ["Mark Villanueva"],
   Logistics: ["Ryan Ocampo"],
   Engineering: [],
-  Finance: ["Grace Tan"],
+  "Finance & Importation": ["Grace Tan"],
 };
 
 export const EMPLOYEE_NAMES = [

@@ -106,7 +106,7 @@ export function CollapseGroupProvider({
   );
 }
 
-export function CollapseGroupToolbar() {
+export function CollapseGroupToolbar({ trailing }: { trailing?: ReactNode } = {}) {
   const { expandAll, collapseAll } = useCollapseGroup();
 
   return (
@@ -128,6 +128,7 @@ export function CollapseGroupToolbar() {
       >
         Collapse all
       </button>
+      {trailing ? <div className="ml-auto flex flex-wrap items-center gap-2">{trailing}</div> : null}
     </div>
   );
 }

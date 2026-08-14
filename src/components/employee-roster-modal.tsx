@@ -60,8 +60,9 @@ export function EmployeeRosterModal({
       cancelHref={cancelHref}
       title={isEditing ? "Edit employee" : "Add employee"}
       titleId="employee-roster-modal-title"
+      size="lg"
     >
-      <form action={saveAction} className="mt-5 space-y-4">
+      <form action={saveAction} className="space-y-4">
         {isEditing && editing && <input type="hidden" name="id" value={editing.id} />}
 
         <FormField label="Full name">

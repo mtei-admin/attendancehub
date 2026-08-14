@@ -71,14 +71,19 @@ export function FormModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`relative w-full rounded-xl border border-slate-200 bg-white p-6 shadow-xl ${
+        className={`relative flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl ${
           size === "xl" ? "max-w-3xl" : size === "lg" ? "max-w-lg" : "max-w-md"
         }`}
       >
-        <h3 id={titleId} className="text-lg font-semibold text-slate-900">
+        <h3
+          id={titleId}
+          className="shrink-0 border-b border-slate-100 px-6 py-4 text-lg font-semibold text-slate-900"
+        >
           {title}
         </h3>
-        {children}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5">
+          {children}
+        </div>
       </div>
     </div>
   );

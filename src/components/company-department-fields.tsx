@@ -17,6 +17,7 @@ type CompanyDepartmentFieldsProps = {
   requireCompany?: boolean;
   requireDepartment?: boolean;
   allowAllDepartments?: boolean;
+  onCompanyChange?: (company: string) => void;
 };
 
 export function CompanyDepartmentFields({
@@ -29,6 +30,7 @@ export function CompanyDepartmentFields({
   requireCompany = true,
   requireDepartment = true,
   allowAllDepartments = false,
+  onCompanyChange,
 }: CompanyDepartmentFieldsProps) {
   const activeDepartments = departments.filter((row) => row.isActive);
   const [company, setCompany] = useState(defaultCompany);
@@ -50,7 +52,11 @@ export function CompanyDepartmentFields({
           name="company"
           required={requireCompany}
           value={company}
-          onChange={(event) => setCompany(event.target.value)}
+          onChange={(event) => {
+            const next = event.target.value;
+            setCompany(next);
+            onCompanyChange?.(next);
+          }}
           className={inputClassName}
         >
           <option value="">— Select —</option>

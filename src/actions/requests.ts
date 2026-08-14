@@ -185,6 +185,7 @@ export async function submitRequestAction(formData: FormData) {
           company,
           department,
           employeeName: employee.fullName,
+          employeeId: employee.id,
           managerName: employee.fullName,
           requestType,
           dateRequested,
@@ -198,6 +199,7 @@ export async function submitRequestAction(formData: FormData) {
           company,
           department,
           employeeName,
+          employeeId: employee.id,
           requestType,
           dateRequested,
           dateOfIncident,
@@ -205,6 +207,7 @@ export async function submitRequestAction(formData: FormData) {
           timeIn: timeIn || null,
           timeOut: timeOut || null,
           otHrs: otStoredValue,
+          skipVerification: employee.skipVerification,
         });
 
     // Company Campfire only — not special scoped managers (e.g. Dominic).
@@ -225,7 +228,9 @@ export async function submitRequestAction(formData: FormData) {
     redirect(
       directToHr
         ? `/employee?success=Request ${refId} submitted and sent to HR Confi pending.`
-        : `/employee?success=Request ${refId} submitted successfully and is pending verification and manager review.`,
+        : employee.skipVerification
+          ? `/employee?success=Request ${refId} submitted successfully and is pending manager review.`
+          : `/employee?success=Request ${refId} submitted successfully and is pending verification and manager review.`,
     );
   } catch (error) {
     if (isNextNavigationError(error)) throw error;

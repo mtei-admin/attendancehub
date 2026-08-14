@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import type { VerifierOption } from "@/lib/employee-verifiers";
 import type { Department } from "@/lib/schema";
 import type { EmployeeWithDepartment } from "@/lib/roster";
 
@@ -10,6 +11,8 @@ type RosterPanelProps = {
   employees: EmployeeWithDepartment[];
   departments: Department[];
   companies: string[];
+  verifiers: VerifierOption[];
+  assignedVerifierUserIdsByEmployeeId?: Record<number, number[]>;
   saveAction: (formData: FormData) => Promise<void>;
   deleteAction?: (formData: FormData) => Promise<void>;
   editId?: number;
@@ -23,6 +26,8 @@ export function RosterPanel({
   employees,
   departments,
   companies,
+  verifiers,
+  assignedVerifierUserIdsByEmployeeId = {},
   saveAction,
   deleteAction,
   editId,
@@ -34,7 +39,8 @@ export function RosterPanel({
   const editing = editId ? employees.find((row) => row.id === editId) : null;
   const rosterEmployees = (
     activeOnly ? employees.filter((employee) => employee.isActive) : employees
-  ).slice()
+  )
+    .slice()
     .sort((a, b) => {
       if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
       return a.fullName.localeCompare(b.fullName);
@@ -52,6 +58,10 @@ export function RosterPanel({
         saveAction={saveAction}
         departments={departments}
         companies={companies}
+        verifiers={verifiers}
+        assignedVerifierUserIds={
+          editing ? (assignedVerifierUserIdsByEmployeeId[editing.id] ?? []) : []
+        }
         editing={editing}
       />
 

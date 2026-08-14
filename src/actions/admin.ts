@@ -11,9 +11,13 @@ import {
 import { EMPLOYEE_TYPES, HR_SCOPES, REQUEST_TYPES, normalizeManagerDepartment } from "@/lib/constants";
 import { isValidEmail, normalizeEmail } from "@/lib/email";
 import { createCompany, isActiveCompany, updateCompany } from "@/lib/companies";
-import { createDepartment, updateDepartment } from "@/lib/departments";
+import { createDepartment, listDepartments, updateDepartment } from "@/lib/departments";
 import { createEmployee, updateEmployee, isBiometricNoTaken, getEmployeeByPlacement, verifyEmployeePlacement } from "@/lib/roster";
 import { parseOptionalBiometricNo } from "@/lib/biometric";
+import {
+  parseVerifierUserIdsFromFormData,
+  replaceEmployeeVerifierAssignments,
+} from "@/lib/employee-verifiers";
 import { createUser, deactivateUser, getUserById, getUserByUsername, findPortalRoleConflict, updateUser } from "@/lib/users";
 import { readOtHoursFromFormData } from "@/lib/ot-hours";
 import { adminUpdateRequest } from "@/lib/requests";
@@ -96,6 +100,8 @@ export async function saveAdminEmployeeAction(formData: FormData) {
   const departmentId = Number(formData.get("department_id") ?? 0);
   const employeeType = String(formData.get("employee_type") ?? "").trim();
   const isActive = formData.get("is_active") === "on";
+  const skipVerification = formData.get("skip_verification") === "on";
+  const verifierUserIds = parseVerifierUserIdsFromFormData(formData);
   const emailRaw = String(formData.get("email") ?? "").trim();
   const email = emailRaw ? normalizeEmail(emailRaw) : null;
   const biometricParsed = parseOptionalBiometricNo(String(formData.get("biometric_no") ?? ""));
@@ -116,6 +122,12 @@ export async function saveAdminEmployeeAction(formData: FormData) {
     adminRedirect({ tab: "employees", error: "Invalid employee type." });
   }
 
+  const departments = await listDepartments(true);
+  const department = departments.find((row) => row.id === departmentId);
+  if (!department) {
+    adminRedirect({ tab: "employees", error: "Selected department is not available." });
+  }
+
   if (biometricParsed.value != null && (await isBiometricNoTaken(biometricParsed.value, id > 0 ? id : undefined))) {
     adminRedirect({
       tab: "employees",
@@ -131,27 +143,43 @@ export async function saveAdminEmployeeAction(formData: FormData) {
         employeeType,
         email,
         biometricNo: biometricParsed.value,
+        skipVerification,
         isActive,
       });
       if (!updated) {
         adminRedirect({ tab: "employees", error: "Employee not found." });
       }
+      await replaceEmployeeVerifierAssignments({
+        employeeId: id,
+        company: department.company,
+        skipVerification,
+        verifierUserIds,
+      });
       revalidatePath("/admin");
       revalidatePath("/hr");
       revalidatePath("/employee");
+      revalidatePath("/verification");
       adminRedirect({ tab: "employees", success: `Updated employee ${fullName}.` });
     }
 
-    await createEmployee({
+    const created = await createEmployee({
       fullName,
       departmentId,
       employeeType,
       email,
       biometricNo: biometricParsed.value,
+      skipVerification,
+    });
+    await replaceEmployeeVerifierAssignments({
+      employeeId: created.id,
+      company: department.company,
+      skipVerification,
+      verifierUserIds,
     });
     revalidatePath("/admin");
     revalidatePath("/hr");
     revalidatePath("/employee");
+    revalidatePath("/verification");
     adminRedirect({ tab: "employees", success: `Added employee ${fullName}.` });
   } catch (error) {
     if (isNextNavigationError(error)) throw error;
@@ -265,6 +293,14 @@ export async function saveAdminSlipAction(formData: FormData) {
     }
   }
 
+  if (!employee) {
+    adminRedirect({
+      tab: "slips",
+      edit_ref: refId,
+      error: "Selected employee does not match the chosen company and department.",
+    });
+  }
+
   try {
     const updated = await adminUpdateRequest(
       refId,
@@ -272,6 +308,7 @@ export async function saveAdminSlipAction(formData: FormData) {
         company,
         department,
         employeeName,
+        employeeId: employee.id,
         requestType,
         dateRequested,
         dateOfIncident,

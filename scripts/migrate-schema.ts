@@ -75,7 +75,37 @@ const EMPLOYEE_ALTER_STATEMENTS = [
   `ALTER TABLE employees ADD COLUMN IF NOT EXISTS email text`,
   `ALTER TABLE employees ADD COLUMN IF NOT EXISTS biometric_no integer`,
   `CREATE UNIQUE INDEX IF NOT EXISTS employees_biometric_no_unique ON employees (biometric_no)`,
+  `ALTER TABLE employees ADD COLUMN IF NOT EXISTS skip_verification boolean NOT NULL DEFAULT false`,
 ];
+
+const CREATE_EMPLOYEE_VERIFIERS_TABLE = `
+CREATE TABLE IF NOT EXISTS employee_verifiers (
+  id serial PRIMARY KEY,
+  employee_id integer NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  verifier_user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+`;
+
+const CREATE_EMPLOYEE_VERIFIERS_INDEX = `
+CREATE UNIQUE INDEX IF NOT EXISTS employee_verifiers_employee_verifier_unique
+ON employee_verifiers (employee_id, verifier_user_id);
+`;
+
+const ATTENDANCE_EMPLOYEE_ID_ALTER = [
+  `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS employee_id integer REFERENCES employees(id)`,
+];
+
+const BACKFILL_ATTENDANCE_EMPLOYEE_ID = `
+UPDATE attendance_requests AS ar
+SET employee_id = e.id
+FROM employees e
+INNER JOIN departments d ON d.id = e.department_id
+WHERE ar.employee_id IS NULL
+  AND LOWER(TRIM(ar.company)) = LOWER(TRIM(d.company))
+  AND LOWER(TRIM(ar.department)) = LOWER(TRIM(d.name))
+  AND LOWER(TRIM(ar.employee_name)) = LOWER(TRIM(e.full_name))
+`;
 
 const ATTENDANCE_ALTER_EXTRA = [
   `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS requested_ot_hrs text`,
@@ -484,6 +514,20 @@ async function main() {
 
   await sql(MYRTEL_OWN_SLIP_BACKFILL);
   console.log("OK: moved Myrthel Fernandez slips to HR Confi pending");
+
+  await sql(CREATE_EMPLOYEE_VERIFIERS_TABLE);
+  console.log("OK: employee_verifiers table ready");
+
+  await sql(CREATE_EMPLOYEE_VERIFIERS_INDEX);
+  console.log("OK: employee_verifiers unique index ready");
+
+  for (const statement of ATTENDANCE_EMPLOYEE_ID_ALTER) {
+    await sql(statement);
+    console.log(`OK: ${statement}`);
+  }
+
+  await sql(BACKFILL_ATTENDANCE_EMPLOYEE_ID);
+  console.log("OK: backfilled attendance_requests.employee_id from roster placement");
 
   console.log("Schema migration complete.");
 }

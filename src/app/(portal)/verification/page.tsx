@@ -24,6 +24,7 @@ import {
   buildEmployeesByCompanyDepartment,
   listEmployees,
 } from "@/lib/roster";
+import { listEmployeeIdsVisibleToVerifier } from "@/lib/employee-verifiers";
 import { buildVerifierScope } from "@/lib/verification";
 import { redirect } from "next/navigation";
 
@@ -47,7 +48,19 @@ export default async function VerificationPage({ searchParams }: VerificationPag
     redirect("/");
   }
 
-  const scope = buildVerifierScope(session.company, session.department);
+  if (!session.company) {
+    return (
+      <div className="mx-auto max-w-6xl px-4 py-16 text-center text-slate-600">
+        Your verifier account has no company assigned. Contact HR or Admin.
+      </div>
+    );
+  }
+
+  const visible = await listEmployeeIdsVisibleToVerifier({
+    verifierUserId: session.userId,
+    company: session.company,
+  });
+  const scope = buildVerifierScope(session.company, visible);
   if (!scope) {
     return (
       <div className="mx-auto max-w-6xl px-4 py-16 text-center text-slate-600">
@@ -105,12 +118,17 @@ export default async function VerificationPage({ searchParams }: VerificationPag
     .filter((label): label is string => Boolean(label));
 
   const editingRequest = editRefId ? await getRequestByRefId(editRefId) : undefined;
+  const editingInScope =
+    editingRequest &&
+    (editingRequest.employeeId != null
+      ? scope.employeeIds.includes(editingRequest.employeeId)
+      : scope.employeeNames.includes(editingRequest.employeeName));
   const showEditModal = Boolean(
     editingRequest &&
       editingRequest.status === "Pending" &&
       !editingRequest.verifiedOn &&
       editingRequest.company === scope.company &&
-      (!scope.department || editingRequest.department === scope.department),
+      editingInScope,
   );
 
   return (
@@ -158,7 +176,6 @@ export default async function VerificationPage({ searchParams }: VerificationPag
         companies={companyNames}
         employeesByCompanyDepartment={employeesByCompanyDepartment}
         scopeCompany={scope.company}
-        scopeDepartment={scope.department}
       />
     </>
   );

@@ -6,8 +6,9 @@ import { redirect } from "next/navigation";
 import { isNextNavigationError } from "@/lib/action-auth";
 import { ROLE_ROUTES } from "@/lib/constants";
 import { getSession } from "@/lib/auth";
+import { listEmployeeIdsVisibleToVerifier } from "@/lib/employee-verifiers";
 import { verifyRequest } from "@/lib/requests";
-import { verifyEmployeePlacement } from "@/lib/roster";
+import { getEmployeeByPlacement, verifyEmployeePlacement } from "@/lib/roster";
 import { buildVerifierScope, isOwnSlip } from "@/lib/verification";
 
 function revalidatePortalPaths() {
@@ -30,7 +31,15 @@ export async function verifyRequestAction(formData: FormData) {
     redirect("/verification?error=You are not authorized to verify requests.");
   }
 
-  const scope = buildVerifierScope(session.company, session.department);
+  if (!session.company) {
+    redirect("/verification?error=Your verifier account has no company assigned.");
+  }
+
+  const visible = await listEmployeeIdsVisibleToVerifier({
+    verifierUserId: session.userId,
+    company: session.company,
+  });
+  const scope = buildVerifierScope(session.company, visible);
   if (!scope) {
     redirect("/verification?error=Your verifier account has no company assigned.");
   }
@@ -64,22 +73,22 @@ export async function verifyRequestAction(formData: FormData) {
     verificationRedirect({ tab: "pending", error: "Request company is outside your verification scope." });
   }
 
-  if (scope.department && department !== scope.department) {
-    verificationRedirect({
-      tab: "pending",
-      error: "Request department is outside your verification scope.",
-    });
-  }
-
   if (isOwnSlip(session.fullName, employeeName)) {
     verificationRedirect({ tab: "pending", error: "You cannot verify your own request." });
   }
 
-  const validEmployee = await verifyEmployeePlacement(company, department, employeeName);
-  if (!validEmployee) {
+  const employee = await getEmployeeByPlacement(company, department, employeeName);
+  if (!employee || !(await verifyEmployeePlacement(company, department, employeeName))) {
     verificationRedirect({
       tab: "pending",
       error: "Selected employee does not match the chosen company and department.",
+    });
+  }
+
+  if (!scope.employeeIds.includes(employee.id)) {
+    verificationRedirect({
+      tab: "pending",
+      error: "This employee is outside your verification assignments.",
     });
   }
 
@@ -94,6 +103,7 @@ export async function verifyRequestAction(formData: FormData) {
         company,
         department,
         employeeName,
+        employeeId: employee.id,
         requestType,
         dateRequested,
         dateOfIncident,

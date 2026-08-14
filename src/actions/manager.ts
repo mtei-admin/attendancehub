@@ -111,6 +111,7 @@ export async function submitManagerSlipAction(formData: FormData) {
       company,
       department,
       employeeName: employee.fullName,
+      employeeId: employee.id,
       managerName: employee.fullName,
       requestType,
       dateRequested,

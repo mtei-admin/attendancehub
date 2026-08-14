@@ -36,6 +36,7 @@ export async function listEmployees(activeOnly = false): Promise<EmployeeWithDep
       employeeType: employees.employeeType,
       email: employees.email,
       biometricNo: employees.biometricNo,
+      skipVerification: employees.skipVerification,
       isActive: employees.isActive,
       createdAt: employees.createdAt,
       companyName: departments.company,
@@ -217,6 +218,7 @@ export async function createEmployee(input: {
   employeeType: string;
   email?: string | null;
   biometricNo?: number | null;
+  skipVerification?: boolean;
 }): Promise<Employee> {
   const db = getDb();
   const [row] = await db
@@ -227,6 +229,7 @@ export async function createEmployee(input: {
       employeeType: input.employeeType,
       email: input.email?.trim() || null,
       biometricNo: input.biometricNo ?? null,
+      skipVerification: Boolean(input.skipVerification),
     })
     .returning();
 
@@ -241,6 +244,7 @@ export async function updateEmployee(
     employeeType?: string;
     email?: string | null;
     biometricNo?: number | null;
+    skipVerification?: boolean;
     isActive?: boolean;
   },
 ): Promise<Employee | null> {
@@ -253,6 +257,9 @@ export async function updateEmployee(
       ...(input.employeeType !== undefined ? { employeeType: input.employeeType } : {}),
       ...(input.email !== undefined ? { email: input.email?.trim() || null } : {}),
       ...(input.biometricNo !== undefined ? { biometricNo: input.biometricNo ?? null } : {}),
+      ...(input.skipVerification !== undefined
+        ? { skipVerification: input.skipVerification }
+        : {}),
       ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
     })
     .where(eq(employees.id, id))

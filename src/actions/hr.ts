@@ -27,6 +27,10 @@ import {
 } from "@/lib/employee-portal";
 import { parseOptionalBiometricNo } from "@/lib/biometric";
 import {
+  parseVerifierUserIdsFromFormData,
+  replaceEmployeeVerifierAssignments,
+} from "@/lib/employee-verifiers";
+import {
   getPayrollCutoffRule,
   getActiveOtEligibleTypes,
   saveOtEligibleTypes,
@@ -494,6 +498,7 @@ export async function saveHrSlipAction(formData: FormData) {
         company: request.company ?? "",
         department: request.department ?? "",
         employeeName: request.employeeName,
+        employeeId: employee.id,
         requestType,
         dateRequested,
         dateOfIncident,
@@ -582,6 +587,8 @@ export async function saveEmployeeRosterAction(formData: FormData) {
   const departmentId = Number(formData.get("department_id") ?? 0);
   const employeeType = String(formData.get("employee_type") ?? "").trim();
   const isActive = formData.get("is_active") === "on";
+  const skipVerification = formData.get("skip_verification") === "on";
+  const verifierUserIds = parseVerifierUserIdsFromFormData(formData);
   const emailRaw = String(formData.get("email") ?? "").trim();
   const email = emailRaw ? normalizeEmail(emailRaw) : null;
   const biometricParsed = parseOptionalBiometricNo(String(formData.get("biometric_no") ?? ""));
@@ -623,27 +630,43 @@ export async function saveEmployeeRosterAction(formData: FormData) {
         employeeType,
         email,
         biometricNo: biometricParsed.value,
+        skipVerification,
         isActive,
       });
       if (!updated) {
         hrRedirect({ tab: "employees", error: "Employee not found." });
       }
+      await replaceEmployeeVerifierAssignments({
+        employeeId: id,
+        company: department.company,
+        skipVerification,
+        verifierUserIds,
+      });
       revalidatePath("/hr");
       revalidatePath("/admin");
       revalidatePath("/employee");
+      revalidatePath("/verification");
       hrRedirect({ tab: "employees", success: `Updated employee ${fullName}.` });
     }
 
-    await createEmployee({
+    const created = await createEmployee({
       fullName,
       departmentId,
       employeeType,
       email,
       biometricNo: biometricParsed.value,
+      skipVerification,
+    });
+    await replaceEmployeeVerifierAssignments({
+      employeeId: created.id,
+      company: department.company,
+      skipVerification,
+      verifierUserIds,
     });
     revalidatePath("/hr");
     revalidatePath("/admin");
     revalidatePath("/employee");
+    revalidatePath("/verification");
     hrRedirect({ tab: "employees", success: `Added employee ${fullName}.` });
   } catch (error) {
     if (isNextNavigationError(error)) throw error;

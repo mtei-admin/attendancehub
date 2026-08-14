@@ -9,6 +9,8 @@ export type RequestScope = {
   department?: string;
   /** When set, only these employee names are visible/actionable. */
   employeeNames?: string[];
+  /** Preferred PK filter (with name fallback for legacy slips missing employee_id). */
+  employeeIds?: number[];
 };
 
 async function generateRefId(): Promise<string> {
@@ -28,7 +30,12 @@ async function generateRefId(): Promise<string> {
 }
 
 function buildScopeConditions(scope?: RequestScope) {
-  if (!scope?.company && !scope?.department && !scope?.employeeNames?.length) {
+  if (
+    !scope?.company &&
+    !scope?.department &&
+    !scope?.employeeNames?.length &&
+    scope?.employeeIds === undefined
+  ) {
     return undefined;
   }
 
@@ -39,7 +46,27 @@ function buildScopeConditions(scope?: RequestScope) {
   if (scope.department) {
     parts.push(eq(attendanceRequests.department, scope.department));
   }
-  if (scope.employeeNames && scope.employeeNames.length > 0) {
+  if (scope.employeeIds !== undefined) {
+    if (scope.employeeIds.length === 0) {
+      // Explicit empty assignment set → no visible employees.
+      parts.push(eq(attendanceRequests.id, -1));
+    } else {
+      const byId = inArray(attendanceRequests.employeeId, scope.employeeIds);
+      if (scope.employeeNames && scope.employeeNames.length > 0) {
+        parts.push(
+          or(
+            byId,
+            and(
+              isNull(attendanceRequests.employeeId),
+              inArray(attendanceRequests.employeeName, scope.employeeNames),
+            ),
+          ),
+        );
+      } else {
+        parts.push(byId);
+      }
+    }
+  } else if (scope.employeeNames && scope.employeeNames.length > 0) {
     parts.push(inArray(attendanceRequests.employeeName, scope.employeeNames));
   }
 
@@ -51,6 +78,7 @@ export async function addRequest(input: {
   company: string;
   department: string;
   employeeName: string;
+  employeeId: number;
   requestType: string;
   dateRequested: string;
   dateOfIncident: string;
@@ -58,16 +86,21 @@ export async function addRequest(input: {
   timeIn?: string | null;
   timeOut?: string | null;
   otHrs?: string | null;
+  /** New slips only: skip verification and send straight to manager. */
+  skipVerification?: boolean;
 }): Promise<string> {
   const db = getDb();
   const refId = await generateRefId();
   const otValue = input.otHrs || null;
+  const now = new Date();
+  const skipVerification = Boolean(input.skipVerification);
 
   await db.insert(attendanceRequests).values({
     refId,
-    submittedAt: new Date(),
+    submittedAt: now,
     company: input.company,
     department: input.department,
+    employeeId: input.employeeId,
     employeeName: input.employeeName,
     requestType: input.requestType,
     dateRequested: input.dateRequested,
@@ -78,6 +111,12 @@ export async function addRequest(input: {
     requestedOtHrs: otValue,
     reason: input.reason,
     status: "Pending",
+    ...(skipVerification
+      ? {
+          verifiedBy: "No Verifier",
+          verifiedOn: now,
+        }
+      : {}),
   });
 
   return refId;
@@ -139,6 +178,7 @@ export async function addManagerOwnRequest(input: {
   company: string;
   department: string;
   employeeName: string;
+  employeeId: number;
   managerName: string;
   requestType: string;
   dateRequested: string;
@@ -165,6 +205,7 @@ export async function addManagerOwnRequest(input: {
     submittedBy: managerName,
     company: input.company,
     department: input.department,
+    employeeId: input.employeeId,
     employeeName,
     requestType: input.requestType,
     dateRequested: input.dateRequested,
@@ -398,6 +439,7 @@ export type VerificationRequestInput = {
   company: string;
   department: string;
   employeeName: string;
+  employeeId: number;
   requestType: string;
   dateRequested: string;
   dateOfIncident: string;
@@ -437,6 +479,7 @@ export async function verifyRequest(
     .set({
       company: input.company,
       department: input.department,
+      employeeId: input.employeeId,
       employeeName: input.employeeName,
       requestType: input.requestType,
       dateRequested: input.dateRequested || null,
@@ -570,6 +613,7 @@ export type AdminRequestInput = {
   company: string;
   department: string;
   employeeName: string;
+  employeeId: number;
   requestType: string;
   dateRequested: string;
   dateOfIncident: string;
@@ -597,6 +641,7 @@ export async function adminUpdateRequest(
     .set({
       company: input.company,
       department: input.department,
+      employeeId: input.employeeId,
       employeeName: input.employeeName,
       requestType: input.requestType,
       dateRequested: input.dateRequested || null,

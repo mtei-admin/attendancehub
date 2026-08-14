@@ -53,6 +53,8 @@ export const employees = pgTable(
     employeeType: text("employee_type").notNull().default("Rank & File"),
     email: text("email"),
     biometricNo: integer("biometric_no"),
+    /** When true, new slips skip verification and go straight to manager. */
+    skipVerification: boolean("skip_verification").notNull().default(false),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -81,6 +83,30 @@ export const users = pgTable("users", {
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 
+/** Which verifier user accounts may verify a given employee (empty = policy B: all company verifiers). */
+export const employeeVerifiers = pgTable(
+  "employee_verifiers",
+  {
+    id: serial("id").primaryKey(),
+    employeeId: integer("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    verifierUserId: integer("verifier_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    employeeVerifierUnique: uniqueIndex("employee_verifiers_employee_verifier_unique").on(
+      table.employeeId,
+      table.verifierUserId,
+    ),
+  }),
+);
+
+export type EmployeeVerifier = typeof employeeVerifiers.$inferSelect;
+export type NewEmployeeVerifier = typeof employeeVerifiers.$inferInsert;
+
 export const attendanceRequests = pgTable("attendance_requests", {
   id: serial("id").primaryKey(),
   refId: text("ref_id").notNull().unique(),
@@ -88,6 +114,7 @@ export const attendanceRequests = pgTable("attendance_requests", {
   submittedBy: text("submitted_by"),
   company: text("company"),
   department: text("department"),
+  employeeId: integer("employee_id").references(() => employees.id),
   employeeName: text("employee_name").notNull(),
   requestType: text("request_type").notNull(),
   dateRequested: date("date_requested"),

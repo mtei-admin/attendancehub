@@ -38,6 +38,10 @@ import { getAllRequests } from "@/lib/requests";
 import { listRecordRequestLogs } from "@/lib/record-requests";
 import { listEmployees, buildEmployeesByCompanyDepartment, buildEmployeeTypeLookup } from "@/lib/roster";
 import { listAllUsers, listUsersByRole } from "@/lib/users";
+import {
+  listVerifierAssignmentsByEmployeeIds,
+  toVerifierOptions,
+} from "@/lib/employee-verifiers";
 
 type AdminPageProps = {
   searchParams: Promise<{
@@ -137,6 +141,10 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const companyNames = activeCompanies.map((company) => company.name);
   const employeesByCompanyDepartment = buildEmployeesByCompanyDepartment(employees);
   const employeeTypeLookup = buildEmployeeTypeLookup(employees);
+  const assignedVerifierUserIdsByEmployeeId = await listVerifierAssignmentsByEmployeeIds(
+    employees.map((row) => row.id),
+  );
+  const verifierOptions = toVerifierOptions(verifiers);
   const dashboardStats = buildAdminDashboardStats(allRequests, activeEmployees.length);
   const dashboardView = resolveDashboardView(params.view);
   const filteredRequests = dashboardView
@@ -245,6 +253,8 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             employees={employees}
             departments={departments}
             companies={companyNames}
+            verifiers={verifierOptions}
+            assignedVerifierUserIdsByEmployeeId={assignedVerifierUserIdsByEmployeeId}
             saveAction={saveAdminEmployeeAction}
             deleteAction={deleteAdminEmployeeAction}
             editId={editId}

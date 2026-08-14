@@ -70,6 +70,10 @@ import {
   listEmployees,
 } from "@/lib/roster";
 import { listUsersByRole } from "@/lib/users";
+import {
+  listVerifierAssignmentsByEmployeeIds,
+  toVerifierOptions,
+} from "@/lib/employee-verifiers";
 import { redirect } from "next/navigation";
 
 type HrPageProps = {
@@ -203,6 +207,10 @@ export default async function HrPage({ searchParams }: HrPageProps) {
   const employeeTypeLookup = buildEmployeeTypeLookup(roster);
   const employeesByCompanyDepartment = buildEmployeesByCompanyDepartment(roster);
   const cutoffRulesByEmployeeType = buildCutoffRulesByEmployeeType(cutoffRules);
+  const assignedVerifierUserIdsByEmployeeId = await listVerifierAssignmentsByEmployeeIds(
+    employees.map((row) => row.id),
+  );
+  const verifierOptions = toVerifierOptions(verifiers);
 
   const applyArchivedPeriodFilter = (requests: AttendanceRequest[]) =>
     filterRequestsExcludingArchivedCutoffPeriods(requests, {
@@ -742,6 +750,8 @@ export default async function HrPage({ searchParams }: HrPageProps) {
               employees={employees}
               departments={departments}
               companies={companyNames}
+              verifiers={verifierOptions}
+              assignedVerifierUserIdsByEmployeeId={assignedVerifierUserIdsByEmployeeId}
               saveAction={saveEmployeeRosterAction}
               editId={editId}
               showAdd={params.add === "1"}

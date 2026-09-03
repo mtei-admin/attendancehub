@@ -72,6 +72,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Vercel Cron + optional Bearer CRON_SECRET (authorized inside the route).
+  if (pathname.startsWith("/api/cron/")) {
+    return NextResponse.next();
+  }
+
   const isWelcomeOrLogin =
     pathname === "/" ||
     pathname.startsWith("/login") ||

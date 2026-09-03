@@ -1,13 +1,26 @@
 "use server";
 
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { isNextNavigationError } from "@/lib/action-auth";
 import { ROLE_ROUTES } from "@/lib/constants";
 import { getSession } from "@/lib/auth";
+import { notifyManagersOfOtReapproval } from "@/lib/basecamp";
 import { listEmployeeIdsVisibleToVerifier } from "@/lib/employee-verifiers";
-import { verifyRequest } from "@/lib/requests";
+import { readOtHoursFromFormData } from "@/lib/ot-hours";
+import { computeHoursFromTimeRange } from "@/lib/ot-offset-balance";
+import {
+  COMPLETION_NEEDS_REAPPROVAL,
+  COMPLETION_WITHIN,
+  type CompletionOutcome,
+} from "@/lib/pre-approved-ot";
+import {
+  completePreApprovedOtRequest,
+  getRequestByRefId,
+  verifyRequest,
+} from "@/lib/requests";
 import { getEmployeeByPlacement, verifyEmployeePlacement } from "@/lib/roster";
 import { buildVerifierScope, isOwnSlip } from "@/lib/verification";
 
@@ -131,6 +144,124 @@ export async function verifyRequestAction(formData: FormData) {
     verificationRedirect({
       tab: "pending",
       error: `Unable to verify request: ${String(error)}`,
+    });
+  }
+}
+
+export async function completePreApprovedOtAction(formData: FormData) {
+  const session = await getSession();
+  if (!session || session.role !== "Verifier") {
+    redirect("/verification?error=You are not authorized to verify requests.");
+  }
+
+  if (!session.company) {
+    redirect("/verification?error=Your verifier account has no company assigned.");
+  }
+
+  const visible = await listEmployeeIdsVisibleToVerifier({
+    verifierUserId: session.userId,
+    company: session.company,
+  });
+  const scope = buildVerifierScope(session.company, visible);
+  if (!scope) {
+    redirect("/verification?error=Your verifier account has no company assigned.");
+  }
+
+  const refId = String(formData.get("ref_id") ?? "").trim();
+  const timeIn = String(formData.get("time_in") ?? "").trim();
+  const timeOut = String(formData.get("time_out") ?? "").trim();
+  const verificationNote = String(formData.get("verification_note") ?? "").trim();
+  const outcomeRaw = String(formData.get("completion_outcome") ?? "").trim();
+  const otHours = readOtHoursFromFormData(formData, "ot_hours", "ot_minutes");
+
+  if (!refId) {
+    verificationRedirect({ tab: "pending", error: "Invalid request reference." });
+  }
+
+  const outcome: CompletionOutcome | null =
+    outcomeRaw === COMPLETION_WITHIN || outcomeRaw === COMPLETION_NEEDS_REAPPROVAL
+      ? outcomeRaw
+      : null;
+  if (!outcome) {
+    verificationRedirect({
+      tab: "pending",
+      error: "Choose Within plan or Needs re-approval.",
+    });
+  }
+
+  if (!timeIn || !timeOut) {
+    verificationRedirect({ tab: "pending", error: "Actual From and To times are required." });
+  }
+
+  const timeRange = computeHoursFromTimeRange(timeIn, timeOut);
+  if (!timeRange.valid || timeRange.empty || timeRange.totalHours <= 0) {
+    verificationRedirect({
+      tab: "pending",
+      error: timeRange.error ?? "Enter valid actual From and To times.",
+    });
+  }
+
+  const storedOt =
+    otHours.valid && otHours.storedValue ? otHours.storedValue : timeRange.storedValue;
+
+  try {
+    const existing = await getRequestByRefId(refId);
+    const updated = await completePreApprovedOtRequest(
+      refId,
+      {
+        timeIn,
+        timeOut,
+        otHrs: storedOt,
+        outcome,
+        verificationNote: verificationNote || null,
+      },
+      session.fullName,
+      scope,
+    );
+
+    if (!updated) {
+      verificationRedirect({
+        tab: "pending",
+        error:
+          "Could not complete pre-approved OT. It may be outside your assignments or not ready yet.",
+      });
+    }
+
+    if (outcome === COMPLETION_NEEDS_REAPPROVAL && existing) {
+      const plannedSummary = [
+        existing.plannedTimeIn || "—",
+        "–",
+        existing.plannedTimeOut || "—",
+        existing.plannedOtHrs ? ` (${existing.plannedOtHrs} hrs)` : "",
+      ].join("");
+      const actualSummary = `${timeIn}–${timeOut} (${storedOt} hrs)`;
+      after(() =>
+        notifyManagersOfOtReapproval({
+          company: existing.company ?? "",
+          department: existing.department ?? "",
+          employeeName: existing.employeeName,
+          dateOfIncident: existing.dateOfIncident,
+          refId,
+          plannedSummary,
+          actualSummary,
+          preApprovedBy: existing.preApprovedBy,
+        }),
+      );
+    }
+
+    revalidatePortalPaths();
+    verificationRedirect({
+      tab: outcome === COMPLETION_WITHIN ? "verified" : "pending",
+      success:
+        outcome === COMPLETION_WITHIN
+          ? `Request ${refId} completed within plan and sent to HR.`
+          : `Request ${refId} marked for manager re-approval.`,
+    });
+  } catch (error) {
+    if (isNextNavigationError(error)) throw error;
+    verificationRedirect({
+      tab: "pending",
+      error: `Unable to complete pre-approved OT: ${String(error)}`,
     });
   }
 }

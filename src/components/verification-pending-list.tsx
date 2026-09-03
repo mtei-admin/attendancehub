@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useMemo } from "react";
@@ -168,6 +168,7 @@ export function VerificationPendingList({
                           : "align-top hover:bg-slate-50/60";
                         const editHref =
                           panelHref + "&edit=" + encodeURIComponent(request.refId);
+                        const isPreApprovedOt = Boolean(request.isPreApprovedOt);
 
                         return (
                           <tr key={request.id} className={rowClass}>
@@ -175,16 +176,36 @@ export function VerificationPendingList({
                               <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
                                 {request.requestType}
                               </span>
+                              {isPreApprovedOt ? (
+                                <span className="ml-1 inline-flex rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700">
+                                  Pre-approved OT
+                                </span>
+                              ) : null}
                               <p className="mt-1 text-xs text-slate-500">
                                 Filed {formatManagerSubmittedDate(request.submittedAt)}
                               </p>
+                              {isPreApprovedOt ? (
+                                <p className="mt-1 text-xs text-violet-700">
+                                  Planned {formatManagerTime(request.plannedTimeIn)}–
+                                  {formatManagerTime(request.plannedTimeOut)}
+                                  {request.plannedOtHrs ? ` · ${request.plannedOtHrs} hrs` : ""}
+                                </p>
+                              ) : null}
                             </td>
                             <td className="px-4 py-4 text-slate-700">{request.dateOfIncident}</td>
                             <td className="px-4 py-4 text-slate-700">
-                              {formatManagerTime(request.timeIn)}
+                              {formatManagerTime(
+                                isPreApprovedOt
+                                  ? request.plannedTimeIn ?? request.timeIn
+                                  : request.timeIn,
+                              )}
                             </td>
                             <td className="px-4 py-4 text-slate-700">
-                              {formatManagerTime(request.timeOut)}
+                              {formatManagerTime(
+                                isPreApprovedOt
+                                  ? request.plannedTimeOut ?? request.timeOut
+                                  : request.timeOut,
+                              )}
                             </td>
                             <td className="px-4 py-4">
                               {ownSlip ? (
@@ -194,7 +215,7 @@ export function VerificationPendingList({
                                   href={editHref}
                                   className="inline-flex rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-cyan-700"
                                 >
-                                  Edit &amp; verify
+                                  {isPreApprovedOt ? "Complete OT" : "Edit & verify"}
                                 </Link>
                               )}
                             </td>

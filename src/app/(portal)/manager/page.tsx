@@ -23,7 +23,7 @@ import {
   parseManagerCutoffRange,
 } from "@/lib/manager-grouping";
 import { listPayrollCutoffRules } from "@/lib/ot-settings";
-import { getHistoryRequests, getPendingRequests } from "@/lib/requests";
+import { getHistoryRequests, getPendingRequests, promoteDueNoVerifierPreApprovedOt } from "@/lib/requests";
 import { buildEmployeeTypeLookup, getEmployeeByPlacement, listEmployees } from "@/lib/roster";
 import { redirect } from "next/navigation";
 
@@ -44,6 +44,8 @@ function resolveTab(tab?: string, allowFile = true): ManagerTab {
 }
 
 export default async function ManagerPage({ searchParams }: ManagerPageProps) {
+  await promoteDueNoVerifierPreApprovedOt();
+
   const params = await searchParams;
 
   const session = await getSession();

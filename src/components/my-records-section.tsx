@@ -5,7 +5,6 @@ import { useFormStatus } from "react-dom";
 
 import { requestRecordsAction, viewRecordsAction } from "@/actions/records";
 import { REQUEST_TYPES, STATUSES } from "@/lib/constants";
-import { employeeLookupKey } from "@/lib/roster";
 import type { AttendanceRequest } from "@/lib/schema";
 import type { RecordRequestFilters } from "@/lib/record-requests";
 
@@ -14,14 +13,12 @@ import { FormField, inputClassName } from "./form-field";
 import { RecordsViewSession } from "./records-view-session";
 
 type MyRecordsSectionProps = {
-  companies: string[];
-  employeesByCompanyDepartment: Record<string, Record<string, string[]>>;
-  employeeEmails: Record<string, string | null>;
   smtpConfigured: boolean;
   records: AttendanceRequest[];
   activeRecordView?: { filters: RecordRequestFilters; viewedAt: number };
   editRefId?: string;
   employeeType?: string;
+  hasEmailOnFile?: boolean;
   availableOtOffsetBalance?: number | null;
   otClaimedThisCutoff?: number | null;
   otClaimedCutoffLabel?: string | null;
@@ -43,12 +40,14 @@ function ActionButton({
   disabled,
   formAction,
   variant = "primary",
+  onClick,
 }: {
   label: string;
   pendingLabel: string;
   disabled?: boolean;
   formAction?: (formData: FormData) => void;
   variant?: "primary" | "secondary";
+  onClick?: () => void;
 }) {
   const { pending } = useFormStatus();
 
@@ -59,10 +58,11 @@ function ActionButton({
 
   return (
     <button
-      type="submit"
+      type={onClick ? "button" : "submit"}
       formAction={formAction}
       disabled={disabled || pending}
       className={className}
+      onClick={onClick}
     >
       {pending ? pendingLabel : label}
     </button>
@@ -82,171 +82,89 @@ function buildExportUrl(filters: RecordRequestFilters): string {
   return `/api/export/employee-records?${params.toString()}`;
 }
 
+type PendingAction = "view" | "email" | null;
+
 export function MyRecordsSection({
-  companies,
-  employeesByCompanyDepartment,
-  employeeEmails,
   smtpConfigured,
   records,
   activeRecordView,
   editRefId,
   employeeType,
+  hasEmailOnFile = false,
   availableOtOffsetBalance,
   otClaimedThisCutoff,
   otClaimedCutoffLabel,
 }: MyRecordsSectionProps) {
   const activeFilters = activeRecordView?.filters;
-  const [company, setCompany] = useState(activeFilters?.company ?? "");
-  const [department, setDepartment] = useState(activeFilters?.department ?? "");
-  const [employeeName, setEmployeeName] = useState(activeFilters?.employeeName ?? "");
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+  const [accessCode, setAccessCode] = useState("");
 
-  const departments = useMemo(() => {
-    if (!company) return [];
-    return Object.keys(employeesByCompanyDepartment[company] ?? {}).sort();
-  }, [company, employeesByCompanyDepartment]);
+  const canEmail = smtpConfigured;
+  const missingEmailUnlocked = Boolean(activeRecordView) && !hasEmailOnFile;
 
-  const employees = useMemo(() => {
-    if (!company || !department) return [];
-    return employeesByCompanyDepartment[company]?.[department] ?? [];
-  }, [company, department, employeesByCompanyDepartment]);
-
-  const selectedEmail =
-    company && department && employeeName
-      ? employeeEmails[employeeLookupKey(company, department, employeeName)]
-      : null;
-
-  const missingEmail = Boolean(employeeName && !selectedEmail?.trim());
-  const canQuery = Boolean(company && department && employeeName);
-  const canEmail = canQuery && smtpConfigured && !missingEmail;
+  const identityFields = useMemo(() => {
+    if (!activeFilters) return null;
+    return (
+      <>
+        <input type="hidden" name="company" value={activeFilters.company} />
+        <input type="hidden" name="department" value={activeFilters.department} />
+        <input type="hidden" name="employee_name" value={activeFilters.employeeName} />
+      </>
+    );
+  }, [activeFilters]);
 
   const filterFields = (
-    <>
-      {company && <input type="hidden" name="company" value={company} />}
-      {department && <input type="hidden" name="department" value={department} />}
-      {employeeName && <input type="hidden" name="employee_name" value={employeeName} />}
+    <div className="grid gap-5 md:grid-cols-2">
+      <FormField label="Date submitted from">
+        <input
+          type="date"
+          name="submitted_from"
+          required
+          defaultValue={activeFilters?.submittedFrom ?? defaultFromDate()}
+          className={inputClassName}
+        />
+      </FormField>
 
-      <div className="grid gap-5 md:grid-cols-2">
-        <FormField label="Company">
-          <select
-            required
-            value={company}
-            onChange={(event) => {
-              setCompany(event.target.value);
-              setDepartment("");
-              setEmployeeName("");
-            }}
-            className={inputClassName}
-          >
-            <option value="">— Select company —</option>
-            {companies.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </FormField>
+      <FormField label="Date submitted to">
+        <input
+          type="date"
+          name="submitted_to"
+          required
+          defaultValue={activeFilters?.submittedTo ?? todayIso()}
+          className={inputClassName}
+        />
+      </FormField>
 
-        <FormField label="Department">
-          <select
-            required
-            value={department}
-            disabled={!company}
-            onChange={(event) => {
-              setDepartment(event.target.value);
-              setEmployeeName("");
-            }}
-            className={`${inputClassName} disabled:cursor-not-allowed disabled:opacity-60`}
-          >
-            <option value="">
-              {company ? "— Select department —" : "Select company first"}
+      <FormField label="Request type">
+        <select
+          name="request_type"
+          defaultValue={activeFilters?.requestType ?? ""}
+          className={inputClassName}
+        >
+          <option value="">All types</option>
+          {REQUEST_TYPES.map((type) => (
+            <option key={type} value={type}>
+              {type}
             </option>
-            {departments.map((dept) => (
-              <option key={dept} value={dept}>
-                {dept}
-              </option>
-            ))}
-          </select>
-        </FormField>
+          ))}
+        </select>
+      </FormField>
 
-        <FormField label="Employee name">
-          <select
-            required
-            value={employeeName}
-            disabled={!department}
-            onChange={(event) => setEmployeeName(event.target.value)}
-            className={`${inputClassName} disabled:cursor-not-allowed disabled:opacity-60`}
-          >
-            <option value="">
-              {department ? "— Select employee —" : "Select department first"}
+      <FormField label="Status">
+        <select
+          name="status"
+          defaultValue={activeFilters?.status ?? ""}
+          className={inputClassName}
+        >
+          <option value="">All statuses</option>
+          {STATUSES.map((value) => (
+            <option key={value} value={value}>
+              {value}
             </option>
-            {employees.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </FormField>
-      </div>
-
-      {missingEmail && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          No email is on file for this employee. You can still view records here; contact HR to add
-          an email before using email delivery.
-        </div>
-      )}
-
-      <div className="grid gap-5 md:grid-cols-2">
-        <FormField label="Date submitted from">
-          <input
-            type="date"
-            name="submitted_from"
-            required
-            defaultValue={activeFilters?.submittedFrom ?? defaultFromDate()}
-            className={inputClassName}
-          />
-        </FormField>
-
-        <FormField label="Date submitted to">
-          <input
-            type="date"
-            name="submitted_to"
-            required
-            defaultValue={activeFilters?.submittedTo ?? todayIso()}
-            className={inputClassName}
-          />
-        </FormField>
-
-        <FormField label="Request type">
-          <select
-            name="request_type"
-            defaultValue={activeFilters?.requestType ?? ""}
-            className={inputClassName}
-          >
-            <option value="">All types</option>
-            {REQUEST_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
-        </FormField>
-
-        <FormField label="Status">
-          <select
-            name="status"
-            defaultValue={activeFilters?.status ?? ""}
-            className={inputClassName}
-          >
-            <option value="">All statuses</option>
-            {STATUSES.map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
-        </FormField>
-      </div>
-    </>
+          ))}
+        </select>
+      </FormField>
+    </div>
   );
 
   return (
@@ -254,8 +172,8 @@ export function MyRecordsSection({
       <div>
         <h2 className="text-lg font-semibold text-slate-900">My records</h2>
         <p className="mt-1 text-sm text-slate-500">
-          View your attendance requests in the portal or email a CSV copy. Filter is based on{" "}
-          <strong>date submitted</strong>. Pending, unverified requests can be edited.
+          Choose a date range (and optional type/status), then unlock with your{" "}
+          <strong>6-digit access code</strong>. Pending, unverified requests can be edited.
         </p>
       </div>
 
@@ -266,28 +184,110 @@ export function MyRecordsSection({
         </div>
       )}
 
-      <form action={viewRecordsAction} className="space-y-5">
+      <form
+        action={pendingAction === "email" ? requestRecordsAction : viewRecordsAction}
+        className="space-y-5"
+        onSubmit={(event) => {
+          if (!pendingAction || accessCode.length !== 6) {
+            event.preventDefault();
+          }
+        }}
+      >
+        {identityFields}
         {filterFields}
+
+        {missingEmailUnlocked && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            No email is on file for this employee. You can still view records here; contact HR to add
+            an email before using email delivery.
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
           <ActionButton
             label="View records"
             pendingLabel="Loading records…"
-            disabled={!canQuery}
+            onClick={() => {
+              setAccessCode("");
+              setPendingAction("view");
+            }}
           />
           <ActionButton
             label="Send record to email"
             pendingLabel="Sending records…"
             disabled={!canEmail}
-            formAction={requestRecordsAction}
             variant="secondary"
+            onClick={() => {
+              setAccessCode("");
+              setPendingAction("email");
+            }}
           />
         </div>
 
-        {selectedEmail?.trim() && (
-          <p className="text-right text-sm text-slate-600">
-            Email will be sent to the address on file for this employee.
+        {activeFilters && (
+          <p className="text-sm text-slate-600">
+            Unlocked as{" "}
+            <span className="font-semibold text-slate-900">{activeFilters.employeeName}</span>
+            {" · "}
+            {activeFilters.company} / {activeFilters.department}
           </p>
+        )}
+
+        {pendingAction && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="records-access-code-title"
+              className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl"
+            >
+              <h3
+                id="records-access-code-title"
+                className="text-lg font-semibold text-slate-900"
+              >
+                Enter your access code
+              </h3>
+              <p className="mt-1 text-sm text-slate-500">
+                Ask Admin or HR if you do not know your 6-digit My Records code.
+              </p>
+
+              <div className="mt-5">
+                <FormField label="Access code">
+                  <input
+                    type="text"
+                    name="access_code"
+                    inputMode="numeric"
+                    pattern="\d{6}"
+                    maxLength={6}
+                    required
+                    autoFocus
+                    value={accessCode}
+                    onChange={(event) =>
+                      setAccessCode(event.target.value.replace(/\D/g, "").slice(0, 6))
+                    }
+                    className={`${inputClassName} font-mono text-center text-lg tracking-[0.35em]`}
+                    placeholder="••••••"
+                    autoComplete="one-time-code"
+                  />
+                </FormField>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+                  onClick={() => setPendingAction(null)}
+                >
+                  Cancel
+                </button>
+                <ActionButton
+                  label={pendingAction === "email" ? "Unlock & email" : "Unlock & view"}
+                  pendingLabel={pendingAction === "email" ? "Sending…" : "Unlocking…"}
+                  disabled={accessCode.length !== 6}
+                />
+              </div>
+            </div>
+          </div>
         )}
       </form>
 

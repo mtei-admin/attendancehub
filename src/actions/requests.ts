@@ -26,16 +26,20 @@ import {
   validateEmployeePortalOtFeatures,
   validateEmployeePortalTimeFields,
 } from "@/lib/employee-portal";
+import { shouldDirectHrConfiOwnSlipOnSubmit } from "@/lib/direct-hr-confi-slips";
+import { managerCanApproveEmployee, isEmployeeOnlyManager, getManagerAllowedEmployeeNames } from "@/lib/manager-approval-scope";
+import {
+  preApprovedOtFilingError,
+} from "@/lib/pre-approved-ot";
+import { getEmployeeByPlacement, verifyEmployeePlacement } from "@/lib/roster";
 import {
   addManagerOwnRequest,
   addRequest,
   findDuplicateSlip,
   getRequestByRefId,
+  preApproveOtRequest,
   updateRequestStatus,
 } from "@/lib/requests";
-import { shouldDirectHrConfiOwnSlipOnSubmit } from "@/lib/direct-hr-confi-slips";
-import { managerCanApproveEmployee, isEmployeeOnlyManager, getManagerAllowedEmployeeNames } from "@/lib/manager-approval-scope";
-import { getEmployeeByPlacement, verifyEmployeePlacement } from "@/lib/roster";
 
 function revalidateRolePaths() {
   for (const path of Object.values(ROLE_ROUTES)) {
@@ -54,6 +58,7 @@ export async function submitRequestAction(formData: FormData) {
   const rawTimeOut = String(formData.get("time_out") ?? "").trim();
   const otHours = readOtHoursFromFormData(formData, "ot_hours", "ot_minutes");
   const fileAsOtOffset = formData.get("file_as_ot_offset") === "on";
+  const isPreApprovedOt = formData.get("is_pre_approved_ot") === "on";
   let reason = String(formData.get("reason") ?? "").trim();
 
   if (!company || !department || !employeeName) {
@@ -157,6 +162,13 @@ export async function submitRequestAction(formData: FormData) {
     reason = `[OT offset credit] ${reason}`;
   }
 
+  if (isPreApprovedOt) {
+    const preApprovedError = preApprovedOtFilingError(requestType, dateOfIncident);
+    if (preApprovedError) {
+      redirect(`/employee?error=${encodeURIComponent(preApprovedError)}`);
+    }
+  }
+
   const directToHr = await shouldDirectHrConfiOwnSlipOnSubmit(employeeName, {
     company,
     department,
@@ -180,7 +192,9 @@ export async function submitRequestAction(formData: FormData) {
   }
 
   try {
-    const refId = directToHr
+    // Pre-approved OT cannot use the direct-to-HR Confi shortcut.
+    const useDirectHr = directToHr && !isPreApprovedOt;
+    const refId = useDirectHr
       ? await addManagerOwnRequest({
           company,
           department,
@@ -208,10 +222,11 @@ export async function submitRequestAction(formData: FormData) {
           timeOut: timeOut || null,
           otHrs: otStoredValue,
           skipVerification: employee.skipVerification,
+          isPreApprovedOt,
         });
 
     // Company Campfire only — not special scoped managers (e.g. Dominic).
-    if (!directToHr) {
+    if (!useDirectHr) {
       after(() =>
         notifyManagersOfNewSlip({
           company,
@@ -220,17 +235,20 @@ export async function submitRequestAction(formData: FormData) {
           requestType,
           dateOfIncident,
           refId,
+          isPreApprovedOt,
         }),
       );
     }
 
     revalidateRolePaths();
     redirect(
-      directToHr
+      useDirectHr
         ? `/employee?success=Request ${refId} submitted and sent to HR Confi pending.`
-        : employee.skipVerification
-          ? `/employee?success=Request ${refId} submitted successfully and is pending manager review.`
-          : `/employee?success=Request ${refId} submitted successfully and is pending verification and manager review.`,
+        : isPreApprovedOt
+          ? `/employee?success=Request ${refId} submitted for pre-approved OT (pending manager pre-approval).`
+          : employee.skipVerification
+            ? `/employee?success=Request ${refId} submitted successfully and is pending manager review.`
+            : `/employee?success=Request ${refId} submitted successfully and is pending verification and manager review.`,
     );
   } catch (error) {
     if (isNextNavigationError(error)) throw error;
@@ -290,6 +308,11 @@ export async function updateStatusAction(formData: FormData) {
         "/manager?error=You are not authorized to approve or reject this employee%27s request.",
       );
     }
+    if (existing.isPreApprovedOt && status === "Approved" && existing.completionOutcome !== "needs_reapproval") {
+      redirect(
+        "/manager?error=Use Pre-approve for new pre-approved OT, or wait for verifier re-approval.",
+      );
+    }
   }
 
   try {
@@ -312,6 +335,67 @@ export async function updateStatusAction(formData: FormData) {
     if (isNextNavigationError(error)) throw error;
     redirect(
       `/manager?error=${encodeURIComponent(`Unable to update request: ${String(error)}`)}`,
+    );
+  }
+}
+
+export async function preApproveOtAction(formData: FormData) {
+  const session = await getSession();
+  if (!session || (session.role !== "Manager" && session.role !== "Admin")) {
+    redirect("/manager?error=You are not authorized to pre-approve OT.");
+  }
+
+  const refId = String(formData.get("ref_id") ?? "").trim();
+  if (!refId) {
+    redirect("/manager?error=Invalid request.");
+  }
+
+  const scope =
+    session.role === "Manager"
+      ? (() => {
+          const allowedNames = getManagerAllowedEmployeeNames(session.fullName);
+          if (isEmployeeOnlyManager(session.fullName) && allowedNames) {
+            return {
+              company: session.company ?? undefined,
+              employeeNames: allowedNames,
+            };
+          }
+          return {
+            company: session.company ?? undefined,
+            department: session.department ?? undefined,
+          };
+        })()
+      : undefined;
+
+  if (session.role === "Manager" && !session.company) {
+    redirect("/manager?error=Your manager account has no company assigned.");
+  }
+
+  const existing = await getRequestByRefId(refId);
+  if (!existing) {
+    redirect("/manager?error=Request not found.");
+  }
+  if (session.role === "Manager" && !managerCanApproveEmployee(session.fullName, existing.employeeName)) {
+    redirect("/manager?error=You are not authorized to pre-approve this employee%27s OT.");
+  }
+
+  try {
+    const updated = await preApproveOtRequest(
+      refId,
+      { userId: session.userId, fullName: session.fullName },
+      scope,
+    );
+    if (!updated) {
+      redirect(
+        "/manager?error=Could not pre-approve. It may already be pre-approved or outside your scope.",
+      );
+    }
+    revalidateRolePaths();
+    redirect(`/manager?success=Request ${refId} pre-approved.`);
+  } catch (error) {
+    if (isNextNavigationError(error)) throw error;
+    redirect(
+      `/manager?error=${encodeURIComponent(`Unable to pre-approve: ${String(error)}`)}`,
     );
   }
 }

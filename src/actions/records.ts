@@ -12,6 +12,7 @@ import {
   validateEmployeePortalOtFeatures,
   validateEmployeePortalTimeFields,
 } from "@/lib/employee-portal";
+import { isValidEmployeeAccessCode } from "@/lib/employee-access-code";
 import {
   computeAvailableOtOffsetBalance,
   computeHoursFromTimeRange,
@@ -31,7 +32,11 @@ import {
   type RecordRequestFilters,
 } from "@/lib/record-requests";
 import { updateEmployeePendingRequest } from "@/lib/requests";
-import { getEmployeeByPlacement, verifyEmployeePlacement } from "@/lib/roster";
+import {
+  getEmployeeByAccessCode,
+  getEmployeeByPlacement,
+  verifyEmployeePlacement,
+} from "@/lib/roster";
 
 type RecordsRedirectParams = {
   success?: string;
@@ -66,18 +71,16 @@ function recordsRedirect(params: RecordsRedirectParams): never {
   redirect(`/employee?${search.toString()}`);
 }
 
-function parseRecordFilters(formData: FormData): RecordRequestFilters | { error: string } {
-  const company = String(formData.get("company") ?? "").trim();
-  const department = String(formData.get("department") ?? "").trim();
-  const employeeName = String(formData.get("employee_name") ?? "").trim();
+function parseDateFilters(formData: FormData): {
+  submittedFrom: string;
+  submittedTo: string;
+  requestType?: string;
+  status?: string;
+} | { error: string } {
   const submittedFrom = String(formData.get("submitted_from") ?? "").trim();
   const submittedTo = String(formData.get("submitted_to") ?? "").trim();
   const requestType = String(formData.get("request_type") ?? "").trim();
   const status = String(formData.get("status") ?? "").trim();
-
-  if (!company || !department || !employeeName) {
-    return { error: "Please select company, department, and employee." };
-  }
 
   if (!submittedFrom || !submittedTo) {
     return { error: "Please provide a date submitted range." };
@@ -96,13 +99,50 @@ function parseRecordFilters(formData: FormData): RecordRequestFilters | { error:
   }
 
   return {
-    company,
-    department,
-    employeeName,
     submittedFrom,
     submittedTo,
     requestType: requestType || undefined,
     status: status || undefined,
+  };
+}
+
+async function resolveEmployeeFromForm(formData: FormData): Promise<
+  | {
+      employee: NonNullable<Awaited<ReturnType<typeof getEmployeeByAccessCode>>>;
+      filters: RecordRequestFilters;
+    }
+  | { error: string }
+> {
+  const dateFilters = parseDateFilters(formData);
+  if ("error" in dateFilters) {
+    return dateFilters;
+  }
+
+  const accessCode = String(formData.get("access_code") ?? "").trim();
+  if (!isValidEmployeeAccessCode(accessCode)) {
+    return { error: "Enter your 6-digit access code to unlock records." };
+  }
+
+  const employee = await getEmployeeByAccessCode(accessCode);
+  if (!employee) {
+    return { error: "Invalid access code. Please try again or ask Admin/HR for help." };
+  }
+
+  if (!employee.accessCode) {
+    return { error: "No access code is on file for this employee. Please contact Admin/HR." };
+  }
+
+  return {
+    employee,
+    filters: {
+      company: employee.companyName,
+      department: employee.departmentName,
+      employeeName: employee.fullName,
+      submittedFrom: dateFilters.submittedFrom,
+      submittedTo: dateFilters.submittedTo,
+      requestType: dateFilters.requestType,
+      status: dateFilters.status,
+    },
   };
 }
 
@@ -117,21 +157,12 @@ async function getAuditContext() {
 }
 
 export async function viewRecordsAction(formData: FormData) {
-  const parsed = parseRecordFilters(formData);
-  if ("error" in parsed) {
-    recordsRedirect({ error: parsed.error });
+  const resolved = await resolveEmployeeFromForm(formData);
+  if ("error" in resolved) {
+    recordsRedirect({ error: resolved.error });
   }
 
-  const employee = await getEmployeeByPlacement(
-    parsed.company,
-    parsed.department,
-    parsed.employeeName,
-  );
-  if (!employee) {
-    recordsRedirect({
-      error: "Selected employee does not match the chosen company and department.",
-    });
-  }
+  const { employee, filters } = resolved;
 
   if (await isRecordRequestRateLimited(employee.id)) {
     recordsRedirect({
@@ -139,11 +170,11 @@ export async function viewRecordsAction(formData: FormData) {
     });
   }
 
-  const rows = await queryEmployeeRecords(parsed);
+  const rows = await queryEmployeeRecords(filters);
   const audit = await getAuditContext();
 
   await logRecordRequest({
-    ...parsed,
+    ...filters,
     employeeId: employee.id,
     rowCount: rows.length,
     action: "view",
@@ -151,33 +182,24 @@ export async function viewRecordsAction(formData: FormData) {
   });
 
   recordsRedirect({
-    filters: parsed,
+    filters,
     viewedAt: Date.now(),
-    success: `${rows.length} record(s) loaded below.`,
+    success: `${rows.length} record(s) loaded for ${employee.fullName}.`,
   });
 }
 
 export async function requestRecordsAction(formData: FormData) {
-  const parsed = parseRecordFilters(formData);
-  if ("error" in parsed) {
-    recordsRedirect({ error: parsed.error });
+  const resolved = await resolveEmployeeFromForm(formData);
+  if ("error" in resolved) {
+    recordsRedirect({ error: resolved.error });
   }
 
-  const employee = await getEmployeeByPlacement(
-    parsed.company,
-    parsed.department,
-    parsed.employeeName,
-  );
-  if (!employee) {
-    recordsRedirect({
-      error: "Selected employee does not match the chosen company and department.",
-    });
-  }
+  const { employee, filters } = resolved;
 
   const email = employee.email?.trim() ?? "";
   if (!email) {
     recordsRedirect({
-      filters: parsed,
+      filters,
       error:
         "No email is on file for this employee. Please proceed to HR to add or update your email on the roster.",
     });
@@ -185,7 +207,7 @@ export async function requestRecordsAction(formData: FormData) {
 
   if (!isValidEmail(email)) {
     recordsRedirect({
-      filters: parsed,
+      filters,
       error:
         "The email on file for this employee is invalid. Please ask HR to update your roster email.",
     });
@@ -193,26 +215,26 @@ export async function requestRecordsAction(formData: FormData) {
 
   if (!isSmtpConfigured()) {
     recordsRedirect({
-      filters: parsed,
+      filters,
       error: "Email delivery is not configured yet. Please contact HR or IT.",
     });
   }
 
   if (await isRecordRequestRateLimited(employee.id)) {
     recordsRedirect({
-      filters: parsed,
+      filters,
       error: "Too many record requests in the last hour. Please try again later or contact HR.",
     });
   }
 
   try {
-    const rows = await queryEmployeeRecords(parsed);
+    const rows = await queryEmployeeRecords(filters);
     const csv = recordsToCsv(rows);
     const emailContent = buildRecordsEmailContent({
-      employeeName: parsed.employeeName,
-      company: parsed.company,
-      department: parsed.department,
-      filters: parsed,
+      employeeName: filters.employeeName,
+      company: filters.company,
+      department: filters.department,
+      filters,
       rowCount: rows.length,
     });
 
@@ -231,7 +253,7 @@ export async function requestRecordsAction(formData: FormData) {
 
     const audit = await getAuditContext();
     await logRecordRequest({
-      ...parsed,
+      ...filters,
       employeeId: employee.id,
       emailSentTo: normalizeEmail(email),
       rowCount: rows.length,
@@ -240,7 +262,7 @@ export async function requestRecordsAction(formData: FormData) {
     });
 
     recordsRedirect({
-      filters: parsed,
+      filters,
       success: `Records sent to ${maskEmail(normalizeEmail(email))}. ${rows.length} record(s) included.`,
     });
   } catch (error) {
@@ -254,7 +276,7 @@ export async function requestRecordsAction(formData: FormData) {
           : message.includes("ECONNREFUSED") || message.includes("connect")
             ? "Could not connect to the email server. Please contact HR/IT."
             : `Unable to send records email. ${message}`;
-    recordsRedirect({ filters: parsed, error: friendly });
+    recordsRedirect({ filters, error: friendly });
   }
 }
 

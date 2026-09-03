@@ -53,6 +53,8 @@ export const employees = pgTable(
     employeeType: text("employee_type").notNull().default("Rank & File"),
     email: text("email"),
     biometricNo: integer("biometric_no"),
+    /** 6-digit My Records PIN — revealable; Admin/HR can reset. */
+    accessCode: text("access_code"),
     /** When true, new slips skip verification and go straight to manager. */
     skipVerification: boolean("skip_verification").notNull().default(false),
     isActive: boolean("is_active").notNull().default(true),
@@ -60,6 +62,7 @@ export const employees = pgTable(
   },
   (table) => ({
     biometricNoIdx: uniqueIndex("employees_biometric_no_unique").on(table.biometricNo),
+    accessCodeIdx: uniqueIndex("employees_access_code_unique").on(table.accessCode),
   }),
 );
 
@@ -142,6 +145,16 @@ export const attendanceRequests = pgTable("attendance_requests", {
   payrollConfirmedPeriodId: text("payroll_confirmed_period_id"),
   payrollConfirmedAt: timestamp("payroll_confirmed_at", { withTimezone: true }),
   payrollConfirmedBy: text("payroll_confirmed_by"),
+  /** Separate Overtime workflow: manager pre-approves before work, then completion check. */
+  isPreApprovedOt: boolean("is_pre_approved_ot").notNull().default(false),
+  preApprovedByUserId: integer("pre_approved_by_user_id").references(() => users.id),
+  preApprovedBy: text("pre_approved_by"),
+  preApprovedOn: timestamp("pre_approved_on", { withTimezone: true }),
+  plannedTimeIn: text("planned_time_in"),
+  plannedTimeOut: text("planned_time_out"),
+  plannedOtHrs: text("planned_ot_hrs"),
+  /** null | within | needs_reapproval — set by verifier after work. */
+  completionOutcome: text("completion_outcome"),
 });
 
 export type AttendanceRequest = typeof attendanceRequests.$inferSelect;

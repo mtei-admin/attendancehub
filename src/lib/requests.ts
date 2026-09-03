@@ -1,8 +1,14 @@
-import { and, desc, eq, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, lte, ne, or } from "drizzle-orm";
 
 import { MANAGER_NAME } from "./constants";
 import { getDb } from "./db";
-import { attendanceRequests, type AttendanceRequest } from "./schema";
+import {
+  COMPLETION_NEEDS_REAPPROVAL,
+  COMPLETION_WITHIN,
+  type CompletionOutcome,
+  todayIsoDate,
+} from "./pre-approved-ot";
+import { attendanceRequests, employees, type AttendanceRequest } from "./schema";
 
 export type RequestScope = {
   company?: string;
@@ -88,12 +94,16 @@ export async function addRequest(input: {
   otHrs?: string | null;
   /** New slips only: skip verification and send straight to manager. */
   skipVerification?: boolean;
+  /** Separate OT workflow: manager pre-approves before work. */
+  isPreApprovedOt?: boolean;
 }): Promise<string> {
   const db = getDb();
   const refId = await generateRefId();
   const otValue = input.otHrs || null;
   const now = new Date();
-  const skipVerification = Boolean(input.skipVerification);
+  const isPreApprovedOt = Boolean(input.isPreApprovedOt);
+  // Pre-approved OT with No Verifier waits for incident date after pre-approval — do not stamp verifiedOn on submit.
+  const skipVerification = Boolean(input.skipVerification) && !isPreApprovedOt;
 
   await db.insert(attendanceRequests).values({
     refId,
@@ -111,6 +121,14 @@ export async function addRequest(input: {
     requestedOtHrs: otValue,
     reason: input.reason,
     status: "Pending",
+    isPreApprovedOt,
+    ...(isPreApprovedOt
+      ? {
+          plannedTimeIn: input.timeIn || null,
+          plannedTimeOut: input.timeOut || null,
+          plannedOtHrs: otValue,
+        }
+      : {}),
     ...(skipVerification
       ? {
           verifiedBy: "No Verifier",
@@ -399,14 +417,29 @@ export async function getUnverifiedPendingRequests(
   scope?: RequestScope,
 ): Promise<AttendanceRequest[]> {
   const db = getDb();
+  const today = todayIsoDate();
   const scopeCondition = buildScopeConditions(scope);
+  const preApprovedReady = and(
+    eq(attendanceRequests.isPreApprovedOt, true),
+    isNotNull(attendanceRequests.preApprovedOn),
+    isNull(attendanceRequests.completionOutcome),
+    lte(attendanceRequests.dateOfIncident, today),
+  );
+  const normalUnverified = eq(attendanceRequests.isPreApprovedOt, false);
+  const workflowCondition = or(normalUnverified, preApprovedReady);
+
   const conditions = scopeCondition
     ? and(
         eq(attendanceRequests.status, "Pending"),
         isNull(attendanceRequests.verifiedOn),
+        workflowCondition,
         scopeCondition,
       )
-    : and(eq(attendanceRequests.status, "Pending"), isNull(attendanceRequests.verifiedOn));
+    : and(
+        eq(attendanceRequests.status, "Pending"),
+        isNull(attendanceRequests.verifiedOn),
+        workflowCondition,
+      );
 
   return db
     .select()
@@ -538,6 +571,21 @@ export async function updateRequestStatus(
   rejectionReason?: string | null,
 ): Promise<boolean> {
   const db = getDb();
+  const existing = await getRequestByRefId(refId);
+  if (!existing || existing.status !== "Pending") return false;
+
+  // Pre-approved OT: normal Approve only after verifier requests re-approval.
+  // Pre-approval uses preApproveOtRequest. Reject always allowed while Pending.
+  if (existing.isPreApprovedOt && status === "Approved") {
+    if (existing.completionOutcome !== COMPLETION_NEEDS_REAPPROVAL) {
+      return false;
+    }
+  }
+
+  if (existing.isPreApprovedOt && status === "Rejected" && existing.preApprovedOn && !existing.completionOutcome) {
+    // Waiting for work/completion — allow reject to cancel the plan.
+  }
+
   const scopeCondition = buildScopeConditions(scope);
   const conditions = scopeCondition
     ? and(eq(attendanceRequests.refId, refId), scopeCondition)
@@ -559,6 +607,173 @@ export async function updateRequestStatus(
     .returning({ id: attendanceRequests.id });
 
   return result.length > 0;
+}
+
+export async function preApproveOtRequest(
+  refId: string,
+  actor: { userId: number; fullName: string },
+  scope?: RequestScope,
+): Promise<boolean> {
+  const db = getDb();
+  const scopeCondition = buildScopeConditions(scope);
+  const conditions = scopeCondition
+    ? and(
+        eq(attendanceRequests.refId, refId),
+        eq(attendanceRequests.status, "Pending"),
+        eq(attendanceRequests.isPreApprovedOt, true),
+        isNull(attendanceRequests.preApprovedOn),
+        scopeCondition,
+      )
+    : and(
+        eq(attendanceRequests.refId, refId),
+        eq(attendanceRequests.status, "Pending"),
+        eq(attendanceRequests.isPreApprovedOt, true),
+        isNull(attendanceRequests.preApprovedOn),
+      );
+
+  const now = new Date();
+  const result = await db
+    .update(attendanceRequests)
+    .set({
+      preApprovedByUserId: actor.userId,
+      preApprovedBy: actor.fullName,
+      preApprovedOn: now,
+      lastEditedBy: actor.fullName,
+      lastEditedOn: now,
+    })
+    .where(conditions)
+    .returning({ id: attendanceRequests.id });
+
+  return result.length > 0;
+}
+
+export async function completePreApprovedOtRequest(
+  refId: string,
+  input: {
+    timeIn: string;
+    timeOut: string;
+    otHrs: string;
+    outcome: CompletionOutcome;
+    verificationNote?: string | null;
+  },
+  verifiedBy: string,
+  scope?: RequestScope,
+): Promise<boolean> {
+  const db = getDb();
+  const existing = await getRequestByRefId(refId);
+  if (!existing) return false;
+
+  const today = todayIsoDate();
+  const scopeCondition = buildScopeConditions(scope);
+  const base = and(
+    eq(attendanceRequests.refId, refId),
+    eq(attendanceRequests.status, "Pending"),
+    eq(attendanceRequests.isPreApprovedOt, true),
+    isNotNull(attendanceRequests.preApprovedOn),
+    isNull(attendanceRequests.completionOutcome),
+    isNull(attendanceRequests.verifiedOn),
+    lte(attendanceRequests.dateOfIncident, today),
+  );
+  const conditions = scopeCondition ? and(base, scopeCondition) : base;
+  const now = new Date();
+
+  if (input.outcome === COMPLETION_WITHIN) {
+    const result = await db
+      .update(attendanceRequests)
+      .set({
+        timeIn: input.timeIn,
+        timeOut: input.timeOut,
+        otHrs: input.otHrs,
+        completionOutcome: COMPLETION_WITHIN,
+        verificationNote: input.verificationNote || null,
+        verifiedBy,
+        verifiedOn: now,
+        status: "Approved",
+        approvedBy: existing.preApprovedBy || verifiedBy,
+        approvedOn: now,
+        lastEditedBy: verifiedBy,
+        lastEditedOn: now,
+      })
+      .where(conditions)
+      .returning({ id: attendanceRequests.id });
+    return result.length > 0;
+  }
+
+  const result = await db
+    .update(attendanceRequests)
+    .set({
+      timeIn: input.timeIn,
+      timeOut: input.timeOut,
+      otHrs: input.otHrs,
+      completionOutcome: COMPLETION_NEEDS_REAPPROVAL,
+      verificationNote: input.verificationNote || null,
+      verifiedBy,
+      verifiedOn: now,
+      lastEditedBy: verifiedBy,
+      lastEditedOn: now,
+    })
+    .where(conditions)
+    .returning({ id: attendanceRequests.id });
+
+  return result.length > 0;
+}
+
+/**
+ * No-Verifier pre-approved OT: after incident date, auto-send to HR using planned hours.
+ */
+export async function promoteDueNoVerifierPreApprovedOt(): Promise<number> {
+  const db = getDb();
+  const today = todayIsoDate();
+  const now = new Date();
+
+  const due = await db
+    .select({
+      id: attendanceRequests.id,
+      refId: attendanceRequests.refId,
+      preApprovedBy: attendanceRequests.preApprovedBy,
+      plannedOtHrs: attendanceRequests.plannedOtHrs,
+      otHrs: attendanceRequests.otHrs,
+      skipVerification: employees.skipVerification,
+    })
+    .from(attendanceRequests)
+    .innerJoin(employees, eq(attendanceRequests.employeeId, employees.id))
+    .where(
+      and(
+        eq(attendanceRequests.status, "Pending"),
+        eq(attendanceRequests.isPreApprovedOt, true),
+        isNotNull(attendanceRequests.preApprovedOn),
+        isNull(attendanceRequests.completionOutcome),
+        eq(employees.skipVerification, true),
+        lte(attendanceRequests.dateOfIncident, today),
+      ),
+    );
+
+  let promoted = 0;
+  for (const row of due) {
+    const result = await db
+      .update(attendanceRequests)
+      .set({
+        status: "Approved",
+        approvedBy: row.preApprovedBy || "No Verifier",
+        approvedOn: now,
+        otHrs: row.plannedOtHrs || row.otHrs,
+        verifiedBy: "No Verifier",
+        verifiedOn: now,
+        completionOutcome: COMPLETION_WITHIN,
+        lastEditedBy: "No Verifier",
+        lastEditedOn: now,
+      })
+      .where(
+        and(
+          eq(attendanceRequests.id, row.id),
+          eq(attendanceRequests.status, "Pending"),
+        ),
+      )
+      .returning({ id: attendanceRequests.id });
+    if (result.length > 0) promoted += 1;
+  }
+
+  return promoted;
 }
 
 export async function updateEmployeePendingRequest(

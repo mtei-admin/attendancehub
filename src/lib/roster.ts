@@ -36,6 +36,7 @@ export async function listEmployees(activeOnly = false): Promise<EmployeeWithDep
       employeeType: employees.employeeType,
       email: employees.email,
       biometricNo: employees.biometricNo,
+      accessCode: employees.accessCode,
       skipVerification: employees.skipVerification,
       isActive: employees.isActive,
       createdAt: employees.createdAt,
@@ -194,6 +195,16 @@ export function buildEmployeeEmailLookup(
   return lookup;
 }
 
+export async function getEmployeeByAccessCode(
+  accessCode: string,
+): Promise<EmployeeWithDepartment | null> {
+  const code = accessCode.trim();
+  if (!/^\d{6}$/.test(code)) return null;
+
+  const roster = await listEmployees(true);
+  return roster.find((employee) => employee.accessCode === code) ?? null;
+}
+
 export async function isBiometricNoTaken(
   biometricNo: number,
   excludeEmployeeId?: number,
@@ -218,6 +229,7 @@ export async function createEmployee(input: {
   employeeType: string;
   email?: string | null;
   biometricNo?: number | null;
+  accessCode?: string | null;
   skipVerification?: boolean;
 }): Promise<Employee> {
   const db = getDb();
@@ -229,6 +241,7 @@ export async function createEmployee(input: {
       employeeType: input.employeeType,
       email: input.email?.trim() || null,
       biometricNo: input.biometricNo ?? null,
+      accessCode: input.accessCode?.trim() || null,
       skipVerification: Boolean(input.skipVerification),
     })
     .returning();
@@ -244,6 +257,7 @@ export async function updateEmployee(
     employeeType?: string;
     email?: string | null;
     biometricNo?: number | null;
+    accessCode?: string | null;
     skipVerification?: boolean;
     isActive?: boolean;
   },
@@ -257,6 +271,7 @@ export async function updateEmployee(
       ...(input.employeeType !== undefined ? { employeeType: input.employeeType } : {}),
       ...(input.email !== undefined ? { email: input.email?.trim() || null } : {}),
       ...(input.biometricNo !== undefined ? { biometricNo: input.biometricNo ?? null } : {}),
+      ...(input.accessCode !== undefined ? { accessCode: input.accessCode?.trim() || null } : {}),
       ...(input.skipVerification !== undefined
         ? { skipVerification: input.skipVerification }
         : {}),

@@ -10,6 +10,12 @@ import {
   showEmployeePortalTimeFields,
   showOtOffsetCreditCheckbox,
 } from "@/lib/employee-portal";
+import {
+  addDaysIso,
+  isPreApprovedOtFilingWindow,
+  PRE_APPROVED_OT_REQUEST_TYPE,
+  todayIsoDate,
+} from "@/lib/pre-approved-ot";
 import type { EmployeesByCompanyDepartment } from "@/lib/roster";
 import { employeeLookupKey } from "@/lib/roster";
 
@@ -86,6 +92,10 @@ export function EmployeeForm({
   const isOtOrHolidayWork = isOtOrHolidayWorkRequestType(requestType);
   const showOtOffsetCheckbox = showOtOffsetCreditCheckbox(employeeType, requestType);
   const otHoursFromTime = useOtHoursFromTimeRange(timeIn, timeOut, isOtOrHolidayWork);
+  const canFilePreApprovedOt =
+    requestType === PRE_APPROVED_OT_REQUEST_TYPE &&
+    isPreApprovedOtFilingWindow(dateOfIncident, todayIsoDate());
+  const preApprovedOtLatest = addDaysIso(todayIsoDate(), 2);
 
   return (
     <form
@@ -263,6 +273,32 @@ export function EmployeeForm({
               <p className="md:col-span-2 text-sm text-red-600">{otHoursFromTime.error}</p>
             )}
           </>
+        )}
+
+        {requestType === PRE_APPROVED_OT_REQUEST_TYPE && (
+          <div className="md:col-span-2 space-y-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+            <label
+              className={`flex items-start gap-3 text-sm text-slate-700 ${
+                canFilePreApprovedOt ? "" : "opacity-60"
+              }`}
+            >
+              <input
+                type="checkbox"
+                name="is_pre_approved_ot"
+                disabled={!canFilePreApprovedOt}
+                className="mt-0.5 rounded border-slate-300 text-brand-600"
+              />
+              <span>
+                <span className="font-medium">Pre-approved OT</span>
+                <span className="mt-0.5 block text-xs text-slate-500">
+                  Manager pre-approves before work. After work, verifier confirms actual times
+                  {canFilePreApprovedOt
+                    ? ` (allowed for ${todayIsoDate()} through ${preApprovedOtLatest}).`
+                    : ` — choose an application date from ${todayIsoDate()} through ${preApprovedOtLatest} to enable.`}
+                </span>
+              </span>
+            </label>
+          </div>
         )}
 
         <FormField label="Reason / remarks" className="md:col-span-2">

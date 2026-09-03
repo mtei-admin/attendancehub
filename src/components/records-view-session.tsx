@@ -62,7 +62,7 @@ export function RecordsViewSession({
     const params = new URLSearchParams({ section: "records" });
     params.set(
       "error",
-      "Your record results expired after 5 minutes of inactivity. Click View records to load them again.",
+      "Your record results expired after 30 minutes of inactivity. Enter your access code again to view them.",
     );
     router.replace(`/employee?${params.toString()}`);
   }, [router, sessionKey]);

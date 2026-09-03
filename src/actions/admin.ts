@@ -13,6 +13,11 @@ import { isValidEmail, normalizeEmail } from "@/lib/email";
 import { createCompany, isActiveCompany, updateCompany } from "@/lib/companies";
 import { createDepartment, listDepartments, updateDepartment } from "@/lib/departments";
 import { createEmployee, updateEmployee, isBiometricNoTaken, getEmployeeByPlacement, verifyEmployeePlacement } from "@/lib/roster";
+import {
+  generateUniqueEmployeeAccessCode,
+  isAccessCodeTaken,
+  parseEmployeeAccessCode,
+} from "@/lib/employee-access-code";
 import { parseOptionalBiometricNo } from "@/lib/biometric";
 import {
   parseVerifierUserIdsFromFormData,
@@ -105,6 +110,7 @@ export async function saveAdminEmployeeAction(formData: FormData) {
   const emailRaw = String(formData.get("email") ?? "").trim();
   const email = emailRaw ? normalizeEmail(emailRaw) : null;
   const biometricParsed = parseOptionalBiometricNo(String(formData.get("biometric_no") ?? ""));
+  const accessCodeParsed = parseEmployeeAccessCode(String(formData.get("access_code") ?? ""));
 
   if (!fullName || !departmentId || !employeeType) {
     adminRedirect({ tab: "employees", error: "Employee name, department, and type are required." });
@@ -112,6 +118,10 @@ export async function saveAdminEmployeeAction(formData: FormData) {
 
   if (biometricParsed.error) {
     adminRedirect({ tab: "employees", error: biometricParsed.error });
+  }
+
+  if (accessCodeParsed.error) {
+    adminRedirect({ tab: "employees", error: accessCodeParsed.error });
   }
 
   if (emailRaw && !isValidEmail(emailRaw)) {
@@ -135,6 +145,23 @@ export async function saveAdminEmployeeAction(formData: FormData) {
     });
   }
 
+  let accessCode = accessCodeParsed.value;
+  if (!accessCode) {
+    try {
+      accessCode = await generateUniqueEmployeeAccessCode(id > 0 ? id : undefined);
+    } catch (error) {
+      adminRedirect({
+        tab: "employees",
+        error: error instanceof Error ? error.message : "Unable to generate access code.",
+      });
+    }
+  } else if (await isAccessCodeTaken(accessCode, id > 0 ? id : undefined)) {
+    adminRedirect({
+      tab: "employees",
+      error: `Access code ${accessCode} is already assigned to another employee.`,
+    });
+  }
+
   try {
     if (id > 0) {
       const updated = await updateEmployee(id, {
@@ -143,6 +170,7 @@ export async function saveAdminEmployeeAction(formData: FormData) {
         employeeType,
         email,
         biometricNo: biometricParsed.value,
+        accessCode,
         skipVerification,
         isActive,
       });
@@ -168,6 +196,7 @@ export async function saveAdminEmployeeAction(formData: FormData) {
       employeeType,
       email,
       biometricNo: biometricParsed.value,
+      accessCode,
       skipVerification,
     });
     await replaceEmployeeVerifierAssignments({

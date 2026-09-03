@@ -4,6 +4,7 @@ import type { AttendanceRequest } from "@/lib/schema";
 import type { RecordRequestFilters } from "@/lib/record-requests";
 import { buildRecordsViewSearchParams } from "@/lib/records-view-session";
 import { canEmployeeEditRecord } from "@/lib/record-requests";
+import { preApprovedOtStageLabel } from "@/lib/pre-approved-ot";
 
 import { EmployeeRecordEditModal } from "./employee-record-edit-modal";
 
@@ -29,8 +30,19 @@ function formatSubmittedAt(value: Date | null): string {
 }
 
 function verificationLabel(request: AttendanceRequest): string {
+  if (request.isPreApprovedOt && request.status === "Pending") {
+    const stage = preApprovedOtStageLabel(request);
+    if (stage) return stage;
+  }
   if (request.status !== "Pending") return "—";
   return request.verifiedOn ? `Verified (${request.verifiedBy ?? "—"})` : "Unverified";
+}
+
+function statusLabel(request: AttendanceRequest): string {
+  if (request.isPreApprovedOt && request.status === "Pending") {
+    return "Pending (pre-approved OT)";
+  }
+  return request.status;
 }
 
 export function EmployeeRecordsList({
@@ -146,7 +158,7 @@ export function EmployeeRecordsList({
                       {formatSubmittedAt(request.submittedAt)}
                     </td>
                     <td className="px-3 py-3 text-slate-700">{request.dateOfIncident}</td>
-                    <td className="px-3 py-3 text-slate-700">{request.status}</td>
+                    <td className="px-3 py-3 text-slate-700">{statusLabel(request)}</td>
                     <td className="px-3 py-3 text-slate-700">{verificationLabel(request)}</td>
                     <td className="px-3 py-3 text-slate-700">
                       {request.requestedOtHrs ?? request.otHrs ?? "—"}

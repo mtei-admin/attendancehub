@@ -18,6 +18,7 @@ import {
   getRequestByRefId,
   getUnverifiedPendingRequests,
   getVerifiedPendingRequests,
+  promoteDueNoVerifierPreApprovedOt,
 } from "@/lib/requests";
 import {
   buildEmployeeTypeLookup,
@@ -39,6 +40,8 @@ type VerificationPageProps = {
 };
 
 export default async function VerificationPage({ searchParams }: VerificationPageProps) {
+  await promoteDueNoVerifierPreApprovedOt();
+
   const params = await searchParams;
   const activeTab = params.tab === "verified" ? "verified" : "pending";
   const includeArchivedPeriods = params.include_archived_periods === "1";

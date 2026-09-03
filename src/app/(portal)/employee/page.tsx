@@ -11,7 +11,6 @@ import { computeOtClaimedHoursForPlacement } from "@/lib/ot-claimed";
 import { getLastClosedCutoffPeriod, getEarliestAllowedIncidentDate } from "@/lib/cutoff";
 import { getActiveOtEligibleTypes, getPayrollCutoffRule, listPayrollCutoffRules } from "@/lib/ot-settings";
 import {
-  buildEmployeeEmailLookup,
   buildEmployeeTypeLookup,
   buildEmployeesByCompanyDepartment,
   getEmployeeByPlacement,
@@ -145,7 +144,6 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
 
   const employeesByCompanyDepartment = buildEmployeesByCompanyDepartment(roster);
   const employeeTypeLookup = buildEmployeeTypeLookup(roster);
-  const employeeEmails = buildEmployeeEmailLookup(roster);
 
   return (
     <div className="space-y-4">
@@ -163,14 +161,12 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
           />
         ) : (
           <MyRecordsSection
-            companies={companies}
-            employeesByCompanyDepartment={employeesByCompanyDepartment}
-            employeeEmails={employeeEmails}
             smtpConfigured={isSmtpConfigured()}
             records={viewedRecords}
             activeRecordView={activeRecordView}
             editRefId={params.edit?.trim()}
             employeeType={selectedEmployee?.employeeType}
+            hasEmailOnFile={Boolean(selectedEmployee?.email?.trim())}
             availableOtOffsetBalance={availableOtOffsetBalance}
             otClaimedThisCutoff={otClaimedThisCutoff}
             otClaimedCutoffLabel={otClaimedCutoffLabel}

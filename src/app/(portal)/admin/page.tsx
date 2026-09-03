@@ -34,7 +34,7 @@ import { listArchivedCutoffPeriods } from "@/lib/archived-cutoff-periods";
 import { listCompanies } from "@/lib/companies";
 import { listDepartments } from "@/lib/departments";
 import { listPayrollCutoffRules } from "@/lib/ot-settings";
-import { getAllRequests } from "@/lib/requests";
+import { getAllRequests, promoteDueNoVerifierPreApprovedOt } from "@/lib/requests";
 import { listRecordRequestLogs } from "@/lib/record-requests";
 import { listEmployees, buildEmployeesByCompanyDepartment, buildEmployeeTypeLookup } from "@/lib/roster";
 import { listAllUsers, listUsersByRole } from "@/lib/users";
@@ -106,6 +106,8 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const editId = params.edit ? Number(params.edit) : undefined;
   const editRefId = params.edit_ref?.trim() || undefined;
   const showAdd = params.add === "1";
+
+  await promoteDueNoVerifierPreApprovedOt();
 
   const [
     companies,

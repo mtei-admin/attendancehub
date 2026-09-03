@@ -2,8 +2,12 @@
 
 import { useMemo, useState } from "react";
 
-import { verifyRequestAction } from "@/actions/verification";
+import { completePreApprovedOtAction, verifyRequestAction } from "@/actions/verification";
 import { REQUEST_TYPES } from "@/lib/constants";
+import {
+  COMPLETION_NEEDS_REAPPROVAL,
+  COMPLETION_WITHIN,
+} from "@/lib/pre-approved-ot";
 import type { AttendanceRequest } from "@/lib/schema";
 import type { EmployeesByCompanyDepartment } from "@/lib/roster";
 import { isOwnSlip } from "@/lib/verification";
@@ -11,6 +15,9 @@ import { isOwnSlip } from "@/lib/verification";
 import { FormField, inputClassName } from "./form-field";
 import { FormModal } from "./form-modal";
 import { PendingSubmitButton } from "./pending-submit-button";
+import { useOtHoursFromTimeRange } from "./use-ot-hours-from-time-range";
+import { OtHoursFields } from "./ot-hours-fields";
+import { formatManagerTime } from "./manager-request-utils";
 
 type VerificationEditModalProps = {
   open: boolean;
@@ -46,23 +53,149 @@ export function VerificationEditModal({
     <FormModal
       open={open}
       cancelHref={cancelHref}
-      title={`Verify request ${request.refId}`}
+      title={
+        request.isPreApprovedOt
+          ? `Complete pre-approved OT ${request.refId}`
+          : `Verify request ${request.refId}`
+      }
       titleId="verification-edit-modal-title"
       size="xl"
     >
-      <VerificationEditForm
-        request={request}
-        verifierFullName={verifierFullName}
-        companies={companies}
-        employeesByCompanyDepartment={employeesByCompanyDepartment}
-        scopeCompany={scopeCompany}
-        scopeDepartment={scopeDepartment}
-        isOwnRequest={isOwnRequest}
-        reasonWithoutPrefix={reasonWithoutPrefix}
-        isOtOffsetDefault={isOtOffset}
-        cancelHref={cancelHref}
-      />
+      {request.isPreApprovedOt ? (
+        <PreApprovedOtCompletionForm
+          request={request}
+          isOwnRequest={isOwnRequest}
+          cancelHref={cancelHref}
+        />
+      ) : (
+        <VerificationEditForm
+          request={request}
+          verifierFullName={verifierFullName}
+          companies={companies}
+          employeesByCompanyDepartment={employeesByCompanyDepartment}
+          scopeCompany={scopeCompany}
+          scopeDepartment={scopeDepartment}
+          isOwnRequest={isOwnRequest}
+          reasonWithoutPrefix={reasonWithoutPrefix}
+          isOtOffsetDefault={isOtOffset}
+          cancelHref={cancelHref}
+        />
+      )}
     </FormModal>
+  );
+}
+
+function PreApprovedOtCompletionForm({
+  request,
+  isOwnRequest,
+  cancelHref,
+}: {
+  request: AttendanceRequest;
+  isOwnRequest: boolean;
+  cancelHref: string;
+}) {
+  const [timeIn, setTimeIn] = useState(request.timeIn ?? request.plannedTimeIn ?? "");
+  const [timeOut, setTimeOut] = useState(request.timeOut ?? request.plannedTimeOut ?? "");
+  const otHours = useOtHoursFromTimeRange(timeIn, timeOut, true);
+
+  return (
+    <form action={completePreApprovedOtAction} className="space-y-4">
+      <input type="hidden" name="ref_id" value={request.refId} />
+      <input type="hidden" name="ot_hours" value={otHours.hours} />
+      <input type="hidden" name="ot_minutes" value={otHours.minutes} />
+
+      {isOwnRequest && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          You cannot verify your own request.
+        </div>
+      )}
+
+      <div className="rounded-lg border border-violet-100 bg-violet-50 px-4 py-3 text-sm text-violet-900">
+        <p className="font-semibold">Planned (pre-approved)</p>
+        <p className="mt-1">
+          {request.dateOfIncident} · {formatManagerTime(request.plannedTimeIn)}–
+          {formatManagerTime(request.plannedTimeOut)}
+          {request.plannedOtHrs ? ` · ${request.plannedOtHrs} hrs` : ""}
+        </p>
+        {request.preApprovedBy ? (
+          <p className="mt-1 text-xs text-violet-700">Pre-approved by {request.preApprovedBy}</p>
+        ) : null}
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <FormField label="Actual From">
+          <input
+            type="time"
+            name="time_in"
+            required
+            value={timeIn}
+            onChange={(event) => setTimeIn(event.target.value)}
+            disabled={isOwnRequest}
+            className={inputClassName}
+          />
+        </FormField>
+        <FormField label="Actual To">
+          <input
+            type="time"
+            name="time_out"
+            required
+            value={timeOut}
+            onChange={(event) => setTimeOut(event.target.value)}
+            disabled={isOwnRequest}
+            className={inputClassName}
+          />
+        </FormField>
+        <OtHoursFields
+          label="Actual OT hours"
+          hoursName="display_ot_hours"
+          minutesName="display_ot_minutes"
+          hoursValue={otHours.hours}
+          minutesValue={otHours.minutes}
+          readOnly
+          className="md:col-span-2"
+        />
+        {otHours.error ? (
+          <p className="md:col-span-2 text-sm text-red-600">{otHours.error}</p>
+        ) : null}
+        <FormField label="Verification note" className="md:col-span-2">
+          <textarea
+            name="verification_note"
+            rows={2}
+            defaultValue={request.verificationNote ?? ""}
+            disabled={isOwnRequest}
+            className={inputClassName}
+            placeholder="Optional"
+          />
+        </FormField>
+      </div>
+
+      <div className="flex flex-wrap justify-end gap-3 border-t border-slate-100 pt-4">
+        <a
+          href={cancelHref}
+          className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+        >
+          Cancel
+        </a>
+        <PendingSubmitButton
+          name="completion_outcome"
+          value={COMPLETION_NEEDS_REAPPROVAL}
+          pendingLabel="Saving…"
+          disabled={isOwnRequest || Boolean(otHours.error) || !timeIn || !timeOut}
+          className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-800 transition hover:bg-rose-100 disabled:opacity-50"
+        >
+          Needs re-approval
+        </PendingSubmitButton>
+        <PendingSubmitButton
+          name="completion_outcome"
+          value={COMPLETION_WITHIN}
+          pendingLabel="Saving…"
+          disabled={isOwnRequest || Boolean(otHours.error) || !timeIn || !timeOut}
+          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+        >
+          Within plan → HR
+        </PendingSubmitButton>
+      </div>
+    </form>
   );
 }
 

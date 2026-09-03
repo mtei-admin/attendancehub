@@ -86,6 +86,11 @@ export function HrRecordRow({
         <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
           {request.requestType}
         </span>
+        {request.isPreApprovedOt ? (
+          <span className="ml-1 inline-flex rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700">
+            Pre-approved OT
+          </span>
+        ) : null}
         {!showEmployeeMeta && (
           <p className="mt-1 text-xs text-slate-500">
             {request.refId} · {formatManagerSubmittedDate(request.submittedAt)}

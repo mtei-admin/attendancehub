@@ -172,6 +172,7 @@ After each production deploy:
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `DATABASE_URL` | Yes | Neon Postgres connection string (use **pooled** URL) |
+| `CRON_SECRET` | Recommended | Bearer token for `/api/cron/*` (Vercel Cron sends `Authorization: Bearer <CRON_SECRET>`) |
 
 Set for **Production**. For **Preview** deployments, use a separate Neon branch/database so previews never write to prod.
 

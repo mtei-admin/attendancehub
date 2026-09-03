@@ -8,6 +8,18 @@ export type NewSlipNotification = {
   requestType: string;
   dateOfIncident: string;
   refId: string;
+  isPreApprovedOt?: boolean;
+};
+
+export type ReapprovalNotification = {
+  company: string;
+  department: string;
+  employeeName: string;
+  dateOfIncident: string;
+  refId: string;
+  plannedSummary: string;
+  actualSummary: string;
+  preApprovedBy?: string | null;
 };
 
 function getAppBaseUrl(): string {
@@ -32,11 +44,37 @@ function getAppBaseUrl(): string {
 function buildSlipMessage(input: NewSlipNotification): string {
   const baseUrl = getAppBaseUrl();
   const managerUrl = baseUrl ? `${baseUrl}/manager` : "/manager";
+  const title = input.isPreApprovedOt
+    ? "New Pre-approved OT slip"
+    : `New ${escapeHtml(input.requestType)} slip`;
 
   return [
-    `<strong>New ${escapeHtml(input.requestType)} slip</strong>`,
+    `<strong>${title}</strong>`,
     `${escapeHtml(input.employeeName)} · ${escapeHtml(input.company)} / ${escapeHtml(input.department)}`,
     `Date: ${escapeHtml(input.dateOfIncident)} · Ref: ${escapeHtml(input.refId)}`,
+    input.isPreApprovedOt
+      ? "Action needed: Manager pre-approval"
+      : null,
+    `<a href="${escapeHtml(managerUrl)}">Open Manager Portal</a>`,
+  ]
+    .filter(Boolean)
+    .join("<br>");
+}
+
+function buildReapprovalMessage(input: ReapprovalNotification): string {
+  const baseUrl = getAppBaseUrl();
+  const managerUrl = baseUrl ? `${baseUrl}/manager` : "/manager";
+  const prefer = input.preApprovedBy
+    ? `Prefer re-approver: ${escapeHtml(input.preApprovedBy)} (Admin / another manager OK if away)`
+    : "Admin or any department manager may re-approve";
+
+  return [
+    `<strong>Pre-approved OT needs re-approval</strong>`,
+    `${escapeHtml(input.employeeName)} · ${escapeHtml(input.company)} / ${escapeHtml(input.department)}`,
+    `Date: ${escapeHtml(input.dateOfIncident)} · Ref: ${escapeHtml(input.refId)}`,
+    `Planned: ${escapeHtml(input.plannedSummary)}`,
+    `Actual: ${escapeHtml(input.actualSummary)}`,
+    prefer,
     `<a href="${escapeHtml(managerUrl)}">Open Manager Portal</a>`,
   ].join("<br>");
 }
@@ -91,33 +129,62 @@ async function resolveWebhookUrl(
  * Posts a Campfire chatbot line for a new employee slip.
  * Soft-fails: missing URL, invalid URL, or network errors never throw to callers.
  */
+async function postCampfireLine(
+  company: string,
+  department: string,
+  refId: string,
+  content: string,
+): Promise<void> {
+  const resolved = await resolveWebhookUrl(company, department);
+  if (!resolved) {
+    return;
+  }
+
+  if (!isValidBasecampWebhookUrl(resolved.url)) {
+    console.error(
+      `[basecamp] Invalid webhook URL for ${resolved.source} ${company}/${department}; skipping notification.`,
+    );
+    return;
+  }
+
+  const response = await fetch(resolved.url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ content }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    console.error(
+      `[basecamp] Notify failed for ${refId} (${response.status}): ${body.slice(0, 300)}`,
+    );
+  }
+}
+
 export async function notifyManagersOfNewSlip(input: NewSlipNotification): Promise<void> {
   try {
-    const resolved = await resolveWebhookUrl(input.company, input.department);
-    if (!resolved) {
-      return;
-    }
-
-    if (!isValidBasecampWebhookUrl(resolved.url)) {
-      console.error(
-        `[basecamp] Invalid webhook URL for ${resolved.source} ${input.company}/${input.department}; skipping notification.`,
-      );
-      return;
-    }
-
-    const response = await fetch(resolved.url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ content: buildSlipMessage(input) }),
-    });
-
-    if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      console.error(
-        `[basecamp] Notify failed for ${input.refId} (${response.status}): ${body.slice(0, 300)}`,
-      );
-    }
+    await postCampfireLine(
+      input.company,
+      input.department,
+      input.refId,
+      buildSlipMessage(input),
+    );
   } catch (error) {
     console.error(`[basecamp] Notify error for ${input.refId}:`, error);
+  }
+}
+
+export async function notifyManagersOfOtReapproval(
+  input: ReapprovalNotification,
+): Promise<void> {
+  try {
+    await postCampfireLine(
+      input.company,
+      input.department,
+      input.refId,
+      buildReapprovalMessage(input),
+    );
+  } catch (error) {
+    console.error(`[basecamp] Re-approval notify error for ${input.refId}:`, error);
   }
 }

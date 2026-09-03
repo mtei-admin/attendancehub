@@ -76,6 +76,8 @@ const EMPLOYEE_ALTER_STATEMENTS = [
   `ALTER TABLE employees ADD COLUMN IF NOT EXISTS biometric_no integer`,
   `CREATE UNIQUE INDEX IF NOT EXISTS employees_biometric_no_unique ON employees (biometric_no)`,
   `ALTER TABLE employees ADD COLUMN IF NOT EXISTS skip_verification boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE employees ADD COLUMN IF NOT EXISTS access_code text`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS employees_access_code_unique ON employees (access_code)`,
 ];
 
 const CREATE_EMPLOYEE_VERIFIERS_TABLE = `
@@ -94,6 +96,17 @@ ON employee_verifiers (employee_id, verifier_user_id);
 
 const ATTENDANCE_EMPLOYEE_ID_ALTER = [
   `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS employee_id integer REFERENCES employees(id)`,
+];
+
+const ATTENDANCE_PRE_APPROVED_OT_ALTER = [
+  `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS is_pre_approved_ot boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS pre_approved_by_user_id integer REFERENCES users(id)`,
+  `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS pre_approved_by text`,
+  `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS pre_approved_on timestamptz`,
+  `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS planned_time_in text`,
+  `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS planned_time_out text`,
+  `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS planned_ot_hrs text`,
+  `ALTER TABLE attendance_requests ADD COLUMN IF NOT EXISTS completion_outcome text`,
 ];
 
 const BACKFILL_ATTENDANCE_EMPLOYEE_ID = `
@@ -236,6 +249,8 @@ CREATE TABLE IF NOT EXISTS employees (
   employee_type text NOT NULL DEFAULT 'Rank & File',
   email text,
   biometric_no integer,
+  access_code text,
+  skip_verification boolean NOT NULL DEFAULT false,
   is_active boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now()
 );
@@ -528,6 +543,17 @@ async function main() {
 
   await sql(BACKFILL_ATTENDANCE_EMPLOYEE_ID);
   console.log("OK: backfilled attendance_requests.employee_id from roster placement");
+
+  for (const statement of ATTENDANCE_PRE_APPROVED_OT_ALTER) {
+    await sql(statement);
+    console.log(`OK: ${statement}`);
+  }
+
+  const { backfillMissingActiveEmployeeAccessCodes } = await import(
+    "../src/lib/employee-access-code"
+  );
+  const accessCodesFilled = await backfillMissingActiveEmployeeAccessCodes();
+  console.log(`OK: backfilled access_code for ${accessCodesFilled} active employee(s)`);
 
   console.log("Schema migration complete.");
 }

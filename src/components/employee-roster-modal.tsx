@@ -14,6 +14,11 @@ import { FormModalFooter } from "./form-modal-footer";
 import { CompanyDepartmentFields } from "./company-department-fields";
 import { getEmployeeTypeLabel } from "./manager-request-utils";
 
+function generateClientAccessCode(): string {
+  const value = 100000 + Math.floor(Math.random() * 900000);
+  return String(value);
+}
+
 type EmployeeRosterModalProps = {
   open: boolean;
   cancelHref: string;
@@ -40,12 +45,14 @@ export function EmployeeRosterModal({
   const [skipVerification, setSkipVerification] = useState(
     Boolean(editing?.skipVerification),
   );
+  const [accessCode, setAccessCode] = useState(editing?.accessCode ?? "");
 
   useEffect(() => {
     if (!open) return;
     setCompany(editing?.companyName ?? "");
     setSkipVerification(Boolean(editing?.skipVerification));
-  }, [open, editing?.id, editing?.companyName, editing?.skipVerification]);
+    setAccessCode(editing?.accessCode ?? "");
+  }, [open, editing?.id, editing?.companyName, editing?.skipVerification, editing?.accessCode]);
 
   const companyVerifiers = useMemo(() => {
     if (!company) return [];
@@ -120,6 +127,36 @@ export function EmployeeRosterModal({
             className={inputClassName}
             placeholder="Optional — unique across all companies"
           />
+        </FormField>
+
+        <FormField label="My Records access code">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="text"
+              name="access_code"
+              inputMode="numeric"
+              pattern="\d{6}"
+              maxLength={6}
+              value={accessCode}
+              onChange={(event) =>
+                setAccessCode(event.target.value.replace(/\D/g, "").slice(0, 6))
+              }
+              className={`${inputClassName} max-w-[10rem] font-mono tracking-widest`}
+              placeholder="6 digits"
+              autoComplete="off"
+            />
+            <button
+              type="button"
+              onClick={() => setAccessCode(generateClientAccessCode())}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            >
+              Generate
+            </button>
+          </div>
+          <p className="mt-1.5 text-xs text-slate-500">
+            Employees enter this code to unlock My Records. Leave blank on save to auto-generate a
+            unique code. Revealable — Admin/HR can view and reset anytime.
+          </p>
         </FormField>
 
         <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">

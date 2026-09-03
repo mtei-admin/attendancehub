@@ -27,6 +27,11 @@ import {
 } from "@/lib/employee-portal";
 import { parseOptionalBiometricNo } from "@/lib/biometric";
 import {
+  generateUniqueEmployeeAccessCode,
+  isAccessCodeTaken,
+  parseEmployeeAccessCode,
+} from "@/lib/employee-access-code";
+import {
   parseVerifierUserIdsFromFormData,
   replaceEmployeeVerifierAssignments,
 } from "@/lib/employee-verifiers";
@@ -592,6 +597,7 @@ export async function saveEmployeeRosterAction(formData: FormData) {
   const emailRaw = String(formData.get("email") ?? "").trim();
   const email = emailRaw ? normalizeEmail(emailRaw) : null;
   const biometricParsed = parseOptionalBiometricNo(String(formData.get("biometric_no") ?? ""));
+  const accessCodeParsed = parseEmployeeAccessCode(String(formData.get("access_code") ?? ""));
 
   if (!fullName || !departmentId || !employeeType) {
     hrRedirect({ tab: "employees", error: "Employee name, department, and type are required." });
@@ -599,6 +605,10 @@ export async function saveEmployeeRosterAction(formData: FormData) {
 
   if (biometricParsed.error) {
     hrRedirect({ tab: "employees", error: biometricParsed.error });
+  }
+
+  if (accessCodeParsed.error) {
+    hrRedirect({ tab: "employees", error: accessCodeParsed.error });
   }
 
   if (emailRaw && !isValidEmail(emailRaw)) {
@@ -622,6 +632,23 @@ export async function saveEmployeeRosterAction(formData: FormData) {
     });
   }
 
+  let accessCode = accessCodeParsed.value;
+  if (!accessCode) {
+    try {
+      accessCode = await generateUniqueEmployeeAccessCode(id > 0 ? id : undefined);
+    } catch (error) {
+      hrRedirect({
+        tab: "employees",
+        error: error instanceof Error ? error.message : "Unable to generate access code.",
+      });
+    }
+  } else if (await isAccessCodeTaken(accessCode, id > 0 ? id : undefined)) {
+    hrRedirect({
+      tab: "employees",
+      error: `Access code ${accessCode} is already assigned to another employee.`,
+    });
+  }
+
   try {
     if (id > 0) {
       const updated = await updateEmployee(id, {
@@ -630,6 +657,7 @@ export async function saveEmployeeRosterAction(formData: FormData) {
         employeeType,
         email,
         biometricNo: biometricParsed.value,
+        accessCode,
         skipVerification,
         isActive,
       });
@@ -655,6 +683,7 @@ export async function saveEmployeeRosterAction(formData: FormData) {
       employeeType,
       email,
       biometricNo: biometricParsed.value,
+      accessCode,
       skipVerification,
     });
     await replaceEmployeeVerifierAssignments({

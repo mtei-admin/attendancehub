@@ -63,6 +63,7 @@ import {
   getAllApprovedRequests,
   getApprovedRequests,
   getArchivedRequests,
+  promoteDueNoVerifierPreApprovedOt,
 } from "@/lib/requests";
 import {
   buildEmployeeTypeLookup,
@@ -159,6 +160,8 @@ function parseExportBasis(value?: string): OtExportBasis {
 }
 
 export default async function HrPage({ searchParams }: HrPageProps) {
+  await promoteDueNoVerifierPreApprovedOt();
+
   const params = await searchParams;
   const session = await getSession();
   if (!session || !canAccessHrPortal(session.role)) redirect("/");

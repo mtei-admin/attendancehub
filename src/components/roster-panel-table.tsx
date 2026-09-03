@@ -42,6 +42,12 @@ function matchesSearch(employee: EmployeeWithDepartment, query: string): boolean
     }
   }
 
+  if (employee.accessCode) {
+    if (employee.accessCode.includes(normalized)) {
+      return true;
+    }
+  }
+
   return false;
 }
 
@@ -67,6 +73,9 @@ function RosterEmployeeRow({
       </td>
       <td className="px-4 py-3 text-slate-700">
         {employee.biometricNo ?? <span className="text-slate-400">—</span>}
+      </td>
+      <td className="px-4 py-3 font-mono tracking-wider text-slate-700">
+        {employee.accessCode ?? <span className="text-slate-400">—</span>}
       </td>
       <td className="px-4 py-3 text-slate-700">
         {employee.email ?? <span className="text-slate-400">Not set</span>}
@@ -112,10 +121,11 @@ function RosterEmployeeRow({
   );
 }
 
-const ROSTER_HEADERS = ["Name", "Biometric #", "Email", "Payroll group", "Actions"];
+const ROSTER_HEADERS = ["Name", "Biometric #", "Access code", "Email", "Payroll group", "Actions"];
 const ROSTER_HEADERS_WITH_STATUS = [
   "Name",
   "Biometric #",
+  "Access code",
   "Email",
   "Payroll group",
   "Status",
@@ -168,7 +178,7 @@ export function RosterPanelTable({
           type="search"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Name or biometric number..."
+          placeholder="Name, biometric #, or access code..."
           className={`${inputClassName} mt-2 max-w-md`}
         />
         {search.trim() && (

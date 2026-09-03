@@ -2,12 +2,17 @@
 
 import { useMemo } from "react";
 
-import { updateStatusAction } from "@/actions/requests";
-import { needsCheckHoursOnHrCheck } from "@/lib/constants";
+import { preApproveOtAction, updateStatusAction } from "@/actions/requests";
 import {
   buildSectionId,
   shouldAutoExpandEmployeeSection,
 } from "@/lib/collapse-groups";
+import { needsCheckHoursOnHrCheck } from "@/lib/constants";
+import {
+  isAwaitingCompletionVerification,
+  isAwaitingPreApproval,
+  isAwaitingReapproval,
+} from "@/lib/pre-approved-ot";
 import type { AttendanceRequest } from "@/lib/schema";
 import type { ManagerGroupedRequests } from "@/lib/manager-grouping";
 
@@ -219,6 +224,9 @@ function RequestRow({
   const showApproveHrs = needsApproveHrs(request.requestType);
   const isVerified = Boolean(request.verifiedOn);
   const isReturnedFromHr = Boolean(request.hrReturnReason);
+  const awaitingPreApproval = isAwaitingPreApproval(request);
+  const awaitingCompletion = isAwaitingCompletionVerification(request);
+  const awaitingReapproval = isAwaitingReapproval(request);
 
   return (
     <tr className="align-top hover:bg-slate-50/60">
@@ -226,6 +234,11 @@ function RequestRow({
         <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
           {request.requestType}
         </span>
+        {request.isPreApprovedOt && (
+          <span className="ml-1 inline-flex rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700">
+            Pre-approved OT
+          </span>
+        )}
         <p className="mt-1 text-xs text-slate-500">
           {request.refId} · {formatManagerSubmittedDate(request.submittedAt)}
         </p>
@@ -241,7 +254,19 @@ function RequestRow({
                 Returned from HR
               </span>
             )}
-            {isVerified ? (
+            {awaitingPreApproval ? (
+              <span className="mb-2 inline-flex rounded bg-violet-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-800">
+                Awaiting pre-approval
+              </span>
+            ) : awaitingReapproval ? (
+              <span className="mb-2 inline-flex rounded bg-rose-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-800">
+                Re-approval needed
+              </span>
+            ) : awaitingCompletion ? (
+              <span className="mb-2 inline-flex rounded bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-700">
+                Waiting for work / verifier
+              </span>
+            ) : isVerified ? (
               <span className="mb-2 inline-flex rounded bg-cyan-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-700">
                 Verified
               </span>
@@ -250,40 +275,98 @@ function RequestRow({
                 Unverified
               </span>
             )}
-            {showApproveHrs && (
-              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                Approve hrs
-              </p>
-            )}
-            <div className="flex flex-wrap items-center gap-2">
-              <form action={updateStatusAction} className="flex items-center gap-2">
-                <input type="hidden" name="ref_id" value={request.refId} />
-                <input type="hidden" name="status" value="Approved" />
-                {showApproveHrs && (
-                  <input
-                    type="text"
-                    name="approved_ot_hrs"
-                    defaultValue={request.otHrs ?? ""}
-                    placeholder="e.g. 3"
-                    className={`${inputClassName} w-14 py-1.5 text-center`}
-                  />
+
+            {awaitingPreApproval ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <form action={preApproveOtAction}>
+                  <input type="hidden" name="ref_id" value={request.refId} />
+                  <PendingSubmitButton
+                    pendingLabel="…"
+                    showSpinner={false}
+                    className="rounded-md bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700"
+                    title="Pre-approve OT"
+                  >
+                    Pre-approve
+                  </PendingSubmitButton>
+                </form>
+                <RejectRequestButton
+                  refId={request.refId}
+                  action={updateStatusAction}
+                  variant="icon"
+                  hiddenFields={{ status: "Rejected" }}
+                />
+              </div>
+            ) : awaitingCompletion ? (
+              <div className="space-y-2">
+                <p className="text-xs text-slate-500">
+                  Planned {formatManagerTime(request.plannedTimeIn)}–
+                  {formatManagerTime(request.plannedTimeOut)}
+                  {request.plannedOtHrs ? ` · ${request.plannedOtHrs} hrs` : ""}
+                  {request.preApprovedBy ? ` · by ${request.preApprovedBy}` : ""}
+                </p>
+                <RejectRequestButton
+                  refId={request.refId}
+                  action={updateStatusAction}
+                  variant="icon"
+                  hiddenFields={{ status: "Rejected" }}
+                />
+              </div>
+            ) : awaitingReapproval || !request.isPreApprovedOt ? (
+              <>
+                {awaitingReapproval && (
+                  <div className="mb-2 space-y-1 rounded-md border border-rose-100 bg-rose-50/70 px-2 py-1.5 text-[11px] text-rose-900">
+                    <p>
+                      Planned {formatManagerTime(request.plannedTimeIn)}–
+                      {formatManagerTime(request.plannedTimeOut)}
+                      {request.plannedOtHrs ? ` · ${request.plannedOtHrs} hrs` : ""}
+                    </p>
+                    <p>
+                      Actual {formatManagerTime(request.timeIn)}–
+                      {formatManagerTime(request.timeOut)}
+                      {request.otHrs ? ` · ${request.otHrs} hrs` : ""}
+                    </p>
+                    {request.preApprovedBy ? (
+                      <p className="font-medium">Prefer re-approver: {request.preApprovedBy}</p>
+                    ) : null}
+                  </div>
                 )}
-                <PendingSubmitButton
-                  pendingLabel="…"
-                  showSpinner={false}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-emerald-600 text-sm font-bold text-white hover:bg-emerald-700"
-                  title="Approve"
-                >
-                  ✓
-                </PendingSubmitButton>
-              </form>
-              <RejectRequestButton
-                refId={request.refId}
-                action={updateStatusAction}
-                variant="icon"
-                hiddenFields={{ status: "Rejected" }}
-              />
-            </div>
+                {showApproveHrs && (
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                    {awaitingReapproval ? "Final hrs" : "Approve hrs"}
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  <form action={updateStatusAction} className="flex items-center gap-2">
+                    <input type="hidden" name="ref_id" value={request.refId} />
+                    <input type="hidden" name="status" value="Approved" />
+                    {showApproveHrs && (
+                      <input
+                        type="text"
+                        name="approved_ot_hrs"
+                        defaultValue={request.otHrs ?? ""}
+                        placeholder="e.g. 3"
+                        className={`${inputClassName} w-14 py-1.5 text-center`}
+                      />
+                    )}
+                    <PendingSubmitButton
+                      pendingLabel="…"
+                      showSpinner={false}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-emerald-600 text-sm font-bold text-white hover:bg-emerald-700"
+                      title={awaitingReapproval ? "Re-approve" : "Approve"}
+                    >
+                      ✓
+                    </PendingSubmitButton>
+                  </form>
+                  <RejectRequestButton
+                    refId={request.refId}
+                    action={updateStatusAction}
+                    variant="icon"
+                    hiddenFields={{ status: "Rejected" }}
+                  />
+                </div>
+              </>
+            ) : null}
+
             {isVerified && request.verifiedBy && (
               <p className="mt-1 text-[10px] text-slate-400">By {request.verifiedBy}</p>
             )}

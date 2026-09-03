@@ -158,24 +158,31 @@ SET
 WHERE LOWER(TRIM(employee_name)) = LOWER('BAGASBAS, BRUCE PETER MENAC')
   AND status = 'Pending'
   AND archived = false
+  AND hr_return_reason IS NULL
   AND (
     submitted_by IS NULL
     OR LOWER(TRIM(submitted_by)) = LOWER(TRIM(employee_name))
   )
 `;
 
-/** Move all Myrthel Fernandez slips into HR Confi pending (Approved, not checked). */
+/** Move Myrthel Fernandez pending own slips into HR Confi pending (Approved, not checked).
+ *  Skips slips already returned by HR so Return stays sticky across migrates.
+ */
 const MYRTEL_OWN_SLIP_BACKFILL = `
 UPDATE attendance_requests
 SET
   status = 'Approved',
-  archived = false,
-  archived_at = NULL,
-  archived_by = NULL,
   submitted_by = COALESCE(NULLIF(TRIM(submitted_by), ''), employee_name),
   approved_by = COALESCE(NULLIF(TRIM(approved_by), ''), employee_name),
   approved_on = COALESCE(approved_on, submitted_at, NOW())
 WHERE LOWER(TRIM(employee_name)) = LOWER('FERNANDEZ, MYRTEL ROSE PLOYA')
+  AND status = 'Pending'
+  AND archived = false
+  AND hr_return_reason IS NULL
+  AND (
+    submitted_by IS NULL
+    OR LOWER(TRIM(submitted_by)) = LOWER(TRIM(employee_name))
+  )
 `;
 
 const CREATE_OT_MANUAL_OVERRIDES_TABLE = `

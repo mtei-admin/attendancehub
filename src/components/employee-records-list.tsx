@@ -16,7 +16,8 @@ type EmployeeRecordsListProps = {
   exportUrl: string;
   employeeType?: string;
   availableOtOffsetBalance?: number | null;
-  otClaimedThisCutoff?: number | null;
+  otSubmittedThisCutoff?: number | null;
+  otHrCheckedThisCutoff?: number | null;
   otClaimedCutoffLabel?: string | null;
 };
 
@@ -53,7 +54,8 @@ export function EmployeeRecordsList({
   exportUrl,
   employeeType,
   availableOtOffsetBalance,
-  otClaimedThisCutoff,
+  otSubmittedThisCutoff,
+  otHrCheckedThisCutoff,
   otClaimedCutoffLabel,
 }: EmployeeRecordsListProps) {
   const editingRequest = editRefId
@@ -62,6 +64,12 @@ export function EmployeeRecordsList({
 
   const isConfi = employeeType === "Confi";
   const isRankAndFile = employeeType === "Rank & File";
+  const showRfOtSummary =
+    isRankAndFile &&
+    otSubmittedThisCutoff !== null &&
+    otSubmittedThisCutoff !== undefined &&
+    otHrCheckedThisCutoff !== null &&
+    otHrCheckedThisCutoff !== undefined;
 
   return (
     <section className="space-y-4 border-t border-slate-100 pt-6">
@@ -95,17 +103,29 @@ export function EmployeeRecordsList({
         </div>
       )}
 
-      {isRankAndFile && otClaimedThisCutoff !== null && otClaimedThisCutoff !== undefined && (
+      {showRfOtSummary && (
         <div className="rounded-xl border border-brand-100 bg-brand-50/60 px-4 py-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">
-            OT Claimed This Cutoff
+            OT this cutoff
           </p>
-          <p className="mt-1 text-2xl font-semibold text-slate-900">
-            {otClaimedThisCutoff.toFixed(2)}
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            HR-checked Overtime and Holiday/Rest Day Work for the last closed cutoff
-            {otClaimedCutoffLabel ? ` (${otClaimedCutoffLabel})` : ""}.
+          <div className="mt-2 grid gap-4 sm:grid-cols-2">
+            <div>
+              <p className="text-xs font-medium text-slate-500">Submitted</p>
+              <p className="mt-0.5 text-2xl font-semibold text-slate-900">
+                {otSubmittedThisCutoff.toFixed(2)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-slate-500">HR checked</p>
+              <p className="mt-0.5 text-2xl font-semibold text-slate-900">
+                {otHrCheckedThisCutoff.toFixed(2)}
+              </p>
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">
+            Overtime and Holiday/Rest Day Work for the current cutoff
+            {otClaimedCutoffLabel ? ` (${otClaimedCutoffLabel})` : ""}. Submitted excludes
+            rejected slips.
           </p>
         </div>
       )}

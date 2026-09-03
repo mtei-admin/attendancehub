@@ -7,8 +7,8 @@ import { isSmtpConfigured } from "@/lib/mail";
 import { queryEmployeeRecords, type RecordRequestFilters } from "@/lib/record-requests";
 import { parseViewedAt } from "@/lib/records-view-session";
 import { computeAvailableOtOffsetBalance } from "@/lib/ot-offset-balance";
-import { computeOtClaimedHoursForPlacement } from "@/lib/ot-claimed";
-import { getLastClosedCutoffPeriod, getEarliestAllowedIncidentDate } from "@/lib/cutoff";
+import { computeRfOtCutoffSummaryForPlacement } from "@/lib/ot-claimed";
+import { getCurrentCutoffPeriod, getEarliestAllowedIncidentDate } from "@/lib/cutoff";
 import { getActiveOtEligibleTypes, getPayrollCutoffRule, listPayrollCutoffRules } from "@/lib/ot-settings";
 import {
   buildEmployeeTypeLookup,
@@ -120,25 +120,29 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
         )
       : null;
 
-  let otClaimedThisCutoff: number | null = null;
+  let otSubmittedThisCutoff: number | null = null;
+  let otHrCheckedThisCutoff: number | null = null;
   let otClaimedCutoffLabel: string | null = null;
   if (selectedEmployee?.employeeType === "Rank & File" && activeRecordView) {
     const rfCutoffRule = await getPayrollCutoffRule("Rank & File");
-    const lastClosed = rfCutoffRule ? getLastClosedCutoffPeriod(rfCutoffRule) : null;
-    if (lastClosed) {
-      otClaimedCutoffLabel = lastClosed.label;
-      otClaimedThisCutoff = await computeOtClaimedHoursForPlacement(
+    const currentCutoff = rfCutoffRule ? getCurrentCutoffPeriod(rfCutoffRule) : null;
+    if (currentCutoff) {
+      otClaimedCutoffLabel = currentCutoff.label;
+      const summary = await computeRfOtCutoffSummaryForPlacement(
         {
           company: activeRecordView.filters.company,
           department: activeRecordView.filters.department,
           employeeName: activeRecordView.filters.employeeName,
         },
-        lastClosed.startDate,
-        lastClosed.endDate,
+        currentCutoff.startDate,
+        currentCutoff.endDate,
         otEligibleTypes,
       );
+      otSubmittedThisCutoff = summary.submittedHours;
+      otHrCheckedThisCutoff = summary.hrCheckedHours;
     } else {
-      otClaimedThisCutoff = 0;
+      otSubmittedThisCutoff = 0;
+      otHrCheckedThisCutoff = 0;
     }
   }
 
@@ -168,7 +172,8 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
             employeeType={selectedEmployee?.employeeType}
             hasEmailOnFile={Boolean(selectedEmployee?.email?.trim())}
             availableOtOffsetBalance={availableOtOffsetBalance}
-            otClaimedThisCutoff={otClaimedThisCutoff}
+            otSubmittedThisCutoff={otSubmittedThisCutoff}
+            otHrCheckedThisCutoff={otHrCheckedThisCutoff}
             otClaimedCutoffLabel={otClaimedCutoffLabel}
           />
         )}

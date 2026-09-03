@@ -162,3 +162,69 @@ export async function computeOtClaimedHoursForPlacement(
 
   return sumHrCheckedOtClaimedInPeriod(rows, startDate, endDate, otEligibleTypes);
 }
+
+export type RfOtCutoffSummary = {
+  submittedHours: number;
+  hrCheckedHours: number;
+};
+
+/** Submitted OT hours in period (excludes Rejected). Prefer requested hours, else current otHrs. */
+export function sumSubmittedOtInPeriod(
+  records: AttendanceRequest[],
+  startDate: string,
+  endDate: string,
+  otEligibleTypes: readonly string[],
+): number {
+  const creditTypes = new Set(otClaimCreditTypes(otEligibleTypes));
+  if (creditTypes.size === 0) return 0;
+
+  let total = 0;
+  for (const request of records) {
+    if (request.status === "Rejected") continue;
+    if (!creditTypes.has(request.requestType)) continue;
+
+    const incidentDate = toDateIso(request.dateOfIncident);
+    if (!incidentDate || incidentDate < startDate || incidentDate > endDate) continue;
+
+    const parsed = parseOtHours(request.requestedOtHrs ?? request.otHrs);
+    if (parsed.valid) total += parsed.hours;
+  }
+
+  return total;
+}
+
+/**
+ * R&F My Records summary for the current cutoff:
+ * submitted (not Rejected) vs HR-checked OT / Holiday hours by incident date.
+ */
+export async function computeRfOtCutoffSummaryForPlacement(
+  placement: EmployeePlacement,
+  startDate: string,
+  endDate: string,
+  otEligibleTypes: readonly string[],
+): Promise<RfOtCutoffSummary> {
+  const creditTypes = otClaimCreditTypes(otEligibleTypes);
+  if (creditTypes.length === 0) {
+    return { submittedHours: 0, hrCheckedHours: 0 };
+  }
+
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(attendanceRequests)
+    .where(
+      and(
+        eq(attendanceRequests.company, placement.company),
+        eq(attendanceRequests.department, placement.department),
+        eq(attendanceRequests.employeeName, placement.employeeName),
+        inArray(attendanceRequests.requestType, creditTypes),
+        gte(attendanceRequests.dateOfIncident, startDate),
+        lte(attendanceRequests.dateOfIncident, endDate),
+      ),
+    );
+
+  return {
+    submittedHours: sumSubmittedOtInPeriod(rows, startDate, endDate, otEligibleTypes),
+    hrCheckedHours: sumHrCheckedOtClaimedInPeriod(rows, startDate, endDate, otEligibleTypes),
+  };
+}

@@ -20,7 +20,8 @@ type MyRecordsSectionProps = {
   employeeType?: string;
   hasEmailOnFile?: boolean;
   availableOtOffsetBalance?: number | null;
-  otClaimedThisCutoff?: number | null;
+  otSubmittedThisCutoff?: number | null;
+  otHrCheckedThisCutoff?: number | null;
   otClaimedCutoffLabel?: string | null;
 };
 
@@ -92,7 +93,8 @@ export function MyRecordsSection({
   employeeType,
   hasEmailOnFile = false,
   availableOtOffsetBalance,
-  otClaimedThisCutoff,
+  otSubmittedThisCutoff,
+  otHrCheckedThisCutoff,
   otClaimedCutoffLabel,
 }: MyRecordsSectionProps) {
   const activeFilters = activeRecordView?.filters;
@@ -305,7 +307,8 @@ export function MyRecordsSection({
             exportUrl={buildExportUrl(activeRecordView.filters)}
             employeeType={employeeType}
             availableOtOffsetBalance={availableOtOffsetBalance}
-            otClaimedThisCutoff={otClaimedThisCutoff}
+            otSubmittedThisCutoff={otSubmittedThisCutoff}
+            otHrCheckedThisCutoff={otHrCheckedThisCutoff}
             otClaimedCutoffLabel={otClaimedCutoffLabel}
           />
         </RecordsViewSession>

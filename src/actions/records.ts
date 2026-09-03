@@ -25,7 +25,6 @@ import { maskEmail, normalizeEmail, isValidEmail } from "@/lib/email";
 import { isSmtpConfigured, sendMail } from "@/lib/mail";
 import {
   buildRecordsEmailContent,
-  isRecordRequestRateLimited,
   logRecordRequest,
   queryEmployeeRecords,
   recordsToCsv,
@@ -164,12 +163,6 @@ export async function viewRecordsAction(formData: FormData) {
 
   const { employee, filters } = resolved;
 
-  if (await isRecordRequestRateLimited(employee.id)) {
-    recordsRedirect({
-      error: "Too many record requests in the last hour. Please try again later or contact HR.",
-    });
-  }
-
   const rows = await queryEmployeeRecords(filters);
   const audit = await getAuditContext();
 
@@ -217,13 +210,6 @@ export async function requestRecordsAction(formData: FormData) {
     recordsRedirect({
       filters,
       error: "Email delivery is not configured yet. Please contact HR or IT.",
-    });
-  }
-
-  if (await isRecordRequestRateLimited(employee.id)) {
-    recordsRedirect({
-      filters,
-      error: "Too many record requests in the last hour. Please try again later or contact HR.",
     });
   }
 

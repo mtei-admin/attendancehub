@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, lte } from "drizzle-orm";
 
 import { getDb } from "./db";
 import { attendanceRequests, recordRequestLogs, type AttendanceRequest } from "./schema";
@@ -31,33 +31,10 @@ export function canEmployeeEditRecord(request: AttendanceRequest): boolean {
   );
 }
 
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
-const RATE_LIMIT_MAX = 3;
-
 function submittedAtRange(submittedFrom: string, submittedTo: string) {
   const start = new Date(`${submittedFrom}T00:00:00.000Z`);
   const end = new Date(`${submittedTo}T23:59:59.999Z`);
   return { start, end };
-}
-
-export async function countRecentRecordRequests(employeeId: number): Promise<number> {
-  const db = getDb();
-  const since = new Date(Date.now() - RATE_LIMIT_WINDOW_MS);
-  const rows = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(recordRequestLogs)
-    .where(
-      and(
-        eq(recordRequestLogs.employeeId, employeeId),
-        gte(recordRequestLogs.createdAt, since),
-      ),
-    );
-  return rows[0]?.count ?? 0;
-}
-
-export async function isRecordRequestRateLimited(employeeId: number): Promise<boolean> {
-  const count = await countRecentRecordRequests(employeeId);
-  return count >= RATE_LIMIT_MAX;
 }
 
 export async function queryEmployeeRecords(

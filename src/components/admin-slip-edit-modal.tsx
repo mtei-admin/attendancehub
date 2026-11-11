@@ -247,6 +247,7 @@ function AdminSlipEditForm({
                 type="time"
                 name="time_in"
                 defaultValue={request.timeIn ?? ""}
+                required={isOtOffsetRequest || isOtOrHolidayWork}
                 className={inputClassName}
               />
             </FormField>
@@ -256,6 +257,7 @@ function AdminSlipEditForm({
                 type="time"
                 name="time_out"
                 defaultValue={request.timeOut ?? ""}
+                required={isOtOffsetRequest || isOtOrHolidayWork}
                 className={inputClassName}
               />
             </FormField>

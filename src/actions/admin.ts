@@ -25,6 +25,10 @@ import {
 } from "@/lib/employee-verifiers";
 import { createUser, deactivateUser, getUserById, getUserByUsername, findPortalRoleConflict, updateUser } from "@/lib/users";
 import { readOtHoursFromFormData } from "@/lib/ot-hours";
+import {
+  computeOtOffsetHoursFromTimeRange,
+  OT_OFFSET_REQUEST_TYPE,
+} from "@/lib/ot-offset-balance";
 import { adminUpdateRequest } from "@/lib/requests";
 import { isConfiEmployee } from "@/lib/employee-portal";
 
@@ -298,7 +302,27 @@ export async function saveAdminSlipAction(formData: FormData) {
     adminRedirect({ tab: "slips", edit_ref: refId, error: "Invalid request type." });
   }
 
-  if (!otHours.valid) {
+  let otStoredValue = otHours.storedValue || null;
+
+  if (requestType === OT_OFFSET_REQUEST_TYPE) {
+    if (!timeIn || !timeOut) {
+      adminRedirect({
+        tab: "slips",
+        edit_ref: refId,
+        error: "From and To times are required for OT Offset.",
+      });
+    }
+
+    const timeRange = computeOtOffsetHoursFromTimeRange(timeIn, timeOut, { required: true });
+    if (!timeRange.valid || timeRange.totalHours <= 0) {
+      adminRedirect({
+        tab: "slips",
+        edit_ref: refId,
+        error: timeRange.error ?? "Enter valid From and To times for OT Offset.",
+      });
+    }
+    otStoredValue = timeRange.storedValue;
+  } else if (!otHours.valid) {
     adminRedirect({
       tab: "slips",
       edit_ref: refId,
@@ -343,7 +367,7 @@ export async function saveAdminSlipAction(formData: FormData) {
         dateOfIncident,
         timeIn: timeIn || null,
         timeOut: timeOut || null,
-        otHrs: otHours.storedValue || null,
+        otHrs: otStoredValue,
         reason,
         verificationNote: verificationNote || null,
       },

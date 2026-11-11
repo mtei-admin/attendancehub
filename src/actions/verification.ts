@@ -10,7 +10,11 @@ import { getSession } from "@/lib/auth";
 import { notifyManagersOfOtReapproval } from "@/lib/basecamp";
 import { listEmployeeIdsVisibleToVerifier } from "@/lib/employee-verifiers";
 import { readOtHoursFromFormData } from "@/lib/ot-hours";
-import { computeHoursFromTimeRange } from "@/lib/ot-offset-balance";
+import {
+  computeHoursFromTimeRange,
+  computeOtOffsetHoursFromTimeRange,
+  OT_OFFSET_REQUEST_TYPE,
+} from "@/lib/ot-offset-balance";
 import {
   COMPLETION_NEEDS_REAPPROVAL,
   COMPLETION_WITHIN,
@@ -109,6 +113,25 @@ export async function verifyRequestAction(formData: FormData) {
     reason = `[OT offset credit] ${reason}`;
   }
 
+  let storedOtHrs = otHrs || null;
+  if (requestType === OT_OFFSET_REQUEST_TYPE) {
+    if (!timeIn || !timeOut) {
+      verificationRedirect({
+        tab: "pending",
+        error: "From and To times are required for OT Offset.",
+      });
+    }
+
+    const timeRange = computeOtOffsetHoursFromTimeRange(timeIn, timeOut, { required: true });
+    if (!timeRange.valid || timeRange.totalHours <= 0) {
+      verificationRedirect({
+        tab: "pending",
+        error: timeRange.error ?? "Enter valid From and To times for OT Offset.",
+      });
+    }
+    storedOtHrs = timeRange.storedValue;
+  }
+
   try {
     const updated = await verifyRequest(
       refId,
@@ -122,7 +145,7 @@ export async function verifyRequestAction(formData: FormData) {
         dateOfIncident,
         timeIn: timeIn || null,
         timeOut: timeOut || null,
-        otHrs: otHrs || null,
+        otHrs: storedOtHrs,
         reason,
         verificationNote: verificationNote || null,
       },

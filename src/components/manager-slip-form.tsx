@@ -26,10 +26,13 @@ export function ManagerSlipForm({ company, department, employeeName }: ManagerSl
   const [timeIn, setTimeIn] = useState("");
   const [timeOut, setTimeOut] = useState("");
 
-  const isSimpleLayout =
-    requestType === "Absent/Leave" || requestType === "OT Offset";
+  // Absent/Leave stays date-only; OT Offset requires From/To for HR Confi checking.
+  const isAbsentLeave = requestType === "Absent/Leave";
+  const isOtOffsetRequest = requestType === "OT Offset";
   const isOtOrHolidayWork = isOtOrHolidayWorkRequestType(requestType);
-  const showTimeFields = !isSimpleLayout;
+  const showTimeFields = !isAbsentLeave;
+  const timeInLabel = isOtOffsetRequest ? "From" : "Actual time in";
+  const timeOutLabel = isOtOffsetRequest ? "To" : "Actual time out";
   const otHoursFromTime = useOtHoursFromTimeRange(timeIn, timeOut, isOtOrHolidayWork);
 
   return (
@@ -89,22 +92,22 @@ export function ManagerSlipForm({ company, department, employeeName }: ManagerSl
 
             {showTimeFields && (
               <>
-                <FormField label="Actual time in">
+                <FormField label={timeInLabel}>
                   <input
                     type="time"
                     name="time_in"
-                    required={isOtOrHolidayWork}
+                    required={isOtOrHolidayWork || isOtOffsetRequest}
                     value={timeIn}
                     onChange={(event) => setTimeIn(event.target.value)}
                     className={inputClassName}
                   />
                 </FormField>
 
-                <FormField label="Actual time out">
+                <FormField label={timeOutLabel}>
                   <input
                     type="time"
                     name="time_out"
-                    required={isOtOrHolidayWork}
+                    required={isOtOrHolidayWork || isOtOffsetRequest}
                     value={timeOut}
                     onChange={(event) => setTimeOut(event.target.value)}
                     className={inputClassName}

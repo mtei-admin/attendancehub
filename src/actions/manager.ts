@@ -9,6 +9,10 @@ import { ROLE_ROUTES } from "@/lib/constants";
 import { isOtOrHolidayWorkRequestType } from "@/lib/employee-portal";
 import { managerCanFileOwnSlip } from "@/lib/manager-approval-scope";
 import { readOtHoursFromFormData } from "@/lib/ot-hours";
+import {
+  computeOtOffsetHoursFromTimeRange,
+  OT_OFFSET_REQUEST_TYPE,
+} from "@/lib/ot-offset-balance";
 import { addManagerOwnRequest, findDuplicateSlip } from "@/lib/requests";
 import { getEmployeeByPlacement } from "@/lib/roster";
 
@@ -85,6 +89,18 @@ export async function submitManagerSlipAction(formData: FormData) {
       managerRedirect({ error: otHours.error ?? "Invalid hours to claim." });
     }
     otStoredValue = otHours.storedValue;
+  } else if (requestType === OT_OFFSET_REQUEST_TYPE) {
+    if (!timeIn || !timeOut) {
+      managerRedirect({ error: "From and To times are required for OT Offset." });
+    }
+
+    const timeRange = computeOtOffsetHoursFromTimeRange(timeIn, timeOut, { required: true });
+    if (!timeRange.valid || timeRange.totalHours <= 0) {
+      managerRedirect({
+        error: timeRange.error ?? "Enter valid From and To times for OT Offset.",
+      });
+    }
+    otStoredValue = timeRange.storedValue;
   }
 
   if (fileAsOtOffset) {

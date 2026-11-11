@@ -91,6 +91,7 @@ function HrSlipEditForm({
   const [requestType, setRequestType] = useState(request.requestType);
   const requestTypes = employeePortalRequestTypes(employeeType);
   const showTimeFields = showEmployeePortalTimeFields(requestType);
+  const isOtOffsetRequest = requestType === "OT Offset";
   const isOtOrHolidayWork =
     requestType === "Overtime" || requestType === "Holiday/Rest Day Work";
   const showOtOffsetCheckbox = showOtOffsetCreditCheckbox(employeeType, requestType);
@@ -159,6 +160,7 @@ function HrSlipEditForm({
                 type="time"
                 name="time_in"
                 defaultValue={request.timeIn ?? ""}
+                required={isOtOffsetRequest || isOtOrHolidayWork}
                 className={inputClassName}
               />
             </FormField>
@@ -168,6 +170,7 @@ function HrSlipEditForm({
                 type="time"
                 name="time_out"
                 defaultValue={request.timeOut ?? ""}
+                required={isOtOffsetRequest || isOtOrHolidayWork}
                 className={inputClassName}
               />
             </FormField>

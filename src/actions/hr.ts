@@ -485,7 +485,25 @@ export async function saveHrSlipAction(formData: FormData) {
     hrRedirect({ ...redirectParams, error: otFeatureError });
   }
 
-  if (!otHours.valid) {
+  let otStoredValue = otHours.storedValue || null;
+
+  if (requestType === OT_OFFSET_REQUEST_TYPE) {
+    if (!timeIn || !timeOut) {
+      hrRedirect({
+        ...redirectParams,
+        error: "From and To times are required for OT Offset.",
+      });
+    }
+
+    const timeRange = computeOtOffsetHoursFromTimeRange(timeIn, timeOut, { required: true });
+    if (!timeRange.valid || timeRange.totalHours <= 0) {
+      hrRedirect({
+        ...redirectParams,
+        error: timeRange.error ?? "Enter valid From and To times for OT Offset.",
+      });
+    }
+    otStoredValue = timeRange.storedValue;
+  } else if (!otHours.valid) {
     hrRedirect({
       ...redirectParams,
       error: otHours.error ?? "Invalid OT hours.",
@@ -509,7 +527,7 @@ export async function saveHrSlipAction(formData: FormData) {
         dateOfIncident,
         timeIn: timeIn || null,
         timeOut: timeOut || null,
-        otHrs: otHours.storedValue || null,
+        otHrs: otStoredValue,
         reason,
         verificationNote: request.verificationNote,
       },

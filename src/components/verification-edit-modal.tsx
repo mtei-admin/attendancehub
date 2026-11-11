@@ -248,11 +248,15 @@ function VerificationEditForm({
     return employeesByCompanyDepartment[company]?.[department] ?? [];
   }, [company, department, employeesByCompanyDepartment]);
 
-  const isSimpleLayout =
-    requestType === "Absent/Leave" || requestType === "OT Offset";
+  // Absent/Leave stays date-only; OT Offset keeps From/To like the employee portal
+  // so verification does not wipe times before HR Confi.
+  const isAbsentLeave = requestType === "Absent/Leave";
+  const isOtOffsetRequest = requestType === "OT Offset";
   const isOtOrHolidayWork =
     requestType === "Overtime" || requestType === "Holiday/Rest Day Work";
-  const showTimeFields = !isSimpleLayout;
+  const showTimeFields = !isAbsentLeave;
+  const timeInLabel = isOtOffsetRequest ? "From" : "Actual time in";
+  const timeOutLabel = isOtOffsetRequest ? "To" : "Actual time out";
 
   return (
     <form action={verifyRequestAction} className="mt-5 space-y-4">
@@ -360,25 +364,33 @@ function VerificationEditForm({
           />
         </FormField>
 
-        {showTimeFields && (
+        {showTimeFields ? (
           <>
-            <FormField label="Actual time in">
+            <FormField label={timeInLabel}>
               <input
                 type="time"
                 name="time_in"
                 defaultValue={request.timeIn ?? ""}
+                required={isOtOffsetRequest || isOtOrHolidayWork}
                 className={inputClassName}
               />
             </FormField>
 
-            <FormField label="Actual time out">
+            <FormField label={timeOutLabel}>
               <input
                 type="time"
                 name="time_out"
                 defaultValue={request.timeOut ?? ""}
+                required={isOtOffsetRequest || isOtOrHolidayWork}
                 className={inputClassName}
               />
             </FormField>
+          </>
+        ) : (
+          <>
+            {/* Preserve employee-submitted times when Absent/Leave hides the fields. */}
+            <input type="hidden" name="time_in" value={request.timeIn ?? ""} />
+            <input type="hidden" name="time_out" value={request.timeOut ?? ""} />
           </>
         )}
 
